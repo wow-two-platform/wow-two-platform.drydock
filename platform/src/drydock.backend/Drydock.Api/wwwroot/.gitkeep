@@ -1,0 +1,2 @@
+# The built React dashboard (drydock.frontend → npm run deploy) lands here and is
+# served by the .NET host. Empty in source control; populated at build/deploy time.

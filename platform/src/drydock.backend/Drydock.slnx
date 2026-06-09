@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="Drydock.Api/Drydock.Api.csproj" />
+  <Project Path="Drydock.Application/Drydock.Application.csproj" />
+  <Project Path="Drydock.Domain/Drydock.Domain.csproj" />
+  <Project Path="Drydock.Infrastructure/Drydock.Infrastructure.csproj" />
+  <Project Path="Drydock.Persistence/Drydock.Persistence.csproj" />
+</Solution>

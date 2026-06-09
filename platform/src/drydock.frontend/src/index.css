@@ -1,0 +1,19 @@
+@import 'tailwindcss';
+
+/* Beta UI design tokens (@theme) shipped by the library — gives us bg-primary,
+   text-foreground, bg-card, border-border, etc. */
+@import '@wow-two-beta/ui/styles.css';
+
+/* Tailwind v4 ignores node_modules by default — point it at the beta UI's compiled
+   output so the utility classes its components emit actually get generated. */
+@source '../node_modules/@wow-two-beta/ui/dist';
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+}

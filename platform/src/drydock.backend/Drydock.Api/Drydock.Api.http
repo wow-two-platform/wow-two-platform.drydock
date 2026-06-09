@@ -1,0 +1,23 @@
+@host = https://localhost:8210
+@contentType = application/json
+
+### Health
+GET {{host}}/health
+
+### System status
+GET {{host}}/api/system/status
+
+### List registered servers
+GET {{host}}/api/servers
+
+### Register a server
+POST {{host}}/api/servers
+Content-Type: {{contentType}}
+
+{
+  "name": "hel1-prod",
+  "host": "203.0.113.10",
+  "sshUser": "root",
+  "sshPort": 22,
+  "region": "hel1"
+}
