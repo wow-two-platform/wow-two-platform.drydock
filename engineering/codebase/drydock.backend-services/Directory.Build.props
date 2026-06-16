@@ -1,0 +1,10 @@
+<Project>
+
+  <!-- App artifact version = the product iteration version (vX.Y.Z); the release + deployable image
+       tag = this. See wow-two-ws/conventions/planning/version-planning/version-docs.md.
+       (Libraries use the .NET-major scheme — wow-two-ws/docs/versioning-strategy.md.) -->
+  <PropertyGroup>
+    <VersionPrefix>0.1.0</VersionPrefix>
+  </PropertyGroup>
+
+</Project>

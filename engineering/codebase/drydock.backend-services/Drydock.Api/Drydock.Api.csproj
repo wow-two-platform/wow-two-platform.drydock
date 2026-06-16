@@ -1,0 +1,30 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>dbd55018-bdcb-483c-89ed-a1738b7fac8f</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Mediator (ISender.SendAsync) + AppResult.Match — controllers dispatch + collapse the union. -->
+    <PackageReference Include="WoW2.Sdk.Backend.Beta" Version="10.0.23-beta" />
+    <!-- GitHub OAuth provider. Same package + version the beta SDK wraps, so v0.2 swaps to
+         WoW.Two.Sdk.Backend.Beta.Identity.OAuth.GitHub with no behaviour change. -->
+    <PackageReference Include="AspNet.Security.OAuth.GitHub" Version="10.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.8" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.*">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Drydock.Application\Drydock.Application.csproj" />
+    <ProjectReference Include="..\Drydock.Infrastructure\Drydock.Infrastructure.csproj" />
+    <ProjectReference Include="..\Drydock.Persistence\Drydock.Persistence.csproj" />
+    <ProjectReference Include="..\Drydock.Domain\Drydock.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -8,30 +8,33 @@ to deploy product front+back to Hetzner VPSs over SSH, buy + wire domains, and k
 ## Layout
 
 ```
-business/                         ← business logic & planning (roadmap, flows)
-platform/                         ← the deployable platform
-├── Dockerfile · docker-compose.yml
-└── src/
-    ├── drydock.backend/          ← .NET 10 API (Clean Architecture + MediatR + EF Core/SQLite)
+product/                          ← the definition (what · why · planning) — no code
+└── product.md · context.md · features/ · flows/ · planning/
+engineering/                      ← the execution (build · ship · run)
+├── engineering.md · architecture/ · development/ · deployment/ · planning/ · versions/ · research/ · scripts/
+└── codebase/
+    ├── drydock.backend-services/         ← .NET 10 API (Clean Architecture + MediatR + EF Core/SQLite)
     │   ├── Drydock.Domain        ← entities, enums, Result pattern
     │   ├── Drydock.Application   ← CQRS commands/queries (MediatR), store abstractions
     │   ├── Drydock.Infrastructure← clock; (next) SSH / Hetzner / Porkbun / Cloudflare adapters
     │   ├── Drydock.Persistence   ← EF Core SQLite context, stores, migrations
     │   └── Drydock.Api           ← slim host, controllers, serves the SPA from wwwroot
-    └── drydock.frontend/         ← React 19 + Vite + Tailwind v4 + @wow-two-beta/ui dashboard
+    └── drydock.frontend-services/        ← React 19 + Vite + Tailwind v4 + @wow-two-beta/ui dashboard
 ```
+
+Follows `wow-two-ws/conventions/development/repo/repo-structure.md`.
 
 ## Run it (dev)
 
 **Backend** (API on `https://localhost:8210` / `http://localhost:8211`):
 ```bash
-cd platform/src/drydock.backend
+cd engineering/codebase/drydock.backend-services
 dotnet run --project Drydock.Api --launch-profile https
 ```
 
 **Frontend** (Vite on `http://localhost:5174`, proxies `/api` → `:8211`):
 ```bash
-cd platform/src/drydock.frontend
+cd engineering/codebase/drydock.frontend-services
 npm install
 npm run dev
 ```
@@ -41,13 +44,13 @@ Open http://localhost:5174 — the dashboard hits the API through the dev proxy.
 ## Single-host build (API serves the SPA)
 
 ```bash
-cd platform/src/drydock.frontend && npm run deploy   # build SPA → copy into Api/wwwroot
-cd ../drydock.backend && dotnet run --project Drydock.Api
+cd engineering/codebase/drydock.frontend-services && npm run deploy   # build SPA → copy into Api/wwwroot
+cd ../drydock.backend-services && dotnet run --project Drydock.Api
 ```
 
 Or the container (API + SPA in one image):
 ```bash
-cd platform && docker build -t drydock . && docker compose up -d
+cd engineering/deployment && docker compose up -d --build
 ```
 
 ## Stack
@@ -57,4 +60,4 @@ cd platform && docker build -t drydock . && docker compose up -d
 - **Runtime (target):** Docker + Traefik per Hetzner VPS; images from GHCR.
 
 The full design spec lives in the workspace at `wow-two-ws/ideas/drydock-spec.md`. The build plan is in
-[`business/planning/drydock-roadmap.md`](business/planning/drydock-roadmap.md).
+[`product/planning/planning.md`](product/planning/planning.md).

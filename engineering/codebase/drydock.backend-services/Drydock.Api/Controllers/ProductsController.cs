@@ -1,0 +1,86 @@
+using Drydock.Api.Requests;
+using Drydock.Application.Products.Commands.ProductCreate;
+using Drydock.Application.Products.Commands.ProductDelete;
+using Drydock.Application.Products.Commands.ProductUpdate;
+using Drydock.Application.Products.Models;
+using Drydock.Application.Products.Queries.ProductGetAll;
+using Drydock.Application.Products.Queries.ProductGetById;
+using Drydock.Domain.Common;
+using Microsoft.AspNetCore.Mvc;
+using WoW.Two.Sdk.Backend.Beta.Mediator;
+using WoW.Two.Sdk.Backend.Beta.Mediator.Result;
+
+namespace Drydock.Api.Controllers;
+
+/// <summary>Manages products.</summary>
+[ApiController]
+[Route("api/products")]
+public sealed class ProductsController(ISender sender) : ControllerBase
+{
+    /// <summary>Gets all registered products.</summary>
+    [HttpGet]
+    [ProducesResponseType<ApiResponse<IReadOnlyList<ProductDto>>>(StatusCodes.Status200OK)]
+    public async Task<IActionResult> Get(CancellationToken ct)
+    {
+        var result = await sender.SendAsync(new ProductGetAllQuery(), ct);
+        
+        return result.Match<ProductGetAllResult.Success, ProductGetAllResult.Failure, IActionResult>(
+            ok => Ok(ApiResponse<IReadOnlyList<ProductDto>>.Ok(ok.Data.Products)),
+            fail => Problem(detail: fail.Error.ErrorMessage, statusCode: ApiResults.ToStatusCode(fail.Error.Category)));
+    }
+
+    /// <summary>Gets a product by id.</summary>
+    [HttpGet("{id:guid}")]
+    [ProducesResponseType<ApiResponse<ProductDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
+    {
+        var result = await sender.SendAsync(new ProductGetByIdQuery(id), ct);
+
+        return result.Match<ProductGetByIdResult.Success, ProductGetByIdResult.Failure, IActionResult>(
+            ok => Ok(ApiResponse<ProductDto>.Ok(ok.Data.Product)),
+            fail => Problem(detail: fail.Error.ErrorMessage, statusCode: ApiResults.ToStatusCode(fail.Error.Category)));
+    }
+
+    /// <summary>Creates a product.</summary>
+    [HttpPost]
+    [ProducesResponseType<ApiResponse<ProductDto>>(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Create([FromBody] CreateProductRequest request, CancellationToken ct)
+    {
+        var result = await sender.SendAsync(new ProductCreateCommand(request.Slug, request.Name, request.Repo), ct);
+
+        return result.Match<ProductCreateResult.Success, ProductCreateResult.Failure, IActionResult>(
+            ok => CreatedAtAction(nameof(GetById), new { id = ok.Data.Product.Id }, ApiResponse<ProductDto>.Ok(ok.Data.Product)),
+            fail => Problem(detail: fail.Error.ErrorMessage, statusCode: ApiResults.ToStatusCode(fail.Error.Category)));
+    }
+
+    /// <summary>Updates a product.</summary>
+    [HttpPut("{id:guid}")]
+    [ProducesResponseType<ApiResponse<ProductDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateById(Guid id, [FromBody] UpdateProductRequest request, CancellationToken ct)
+    {
+        var result = await sender.SendAsync(new ProductUpdateCommand(id, request.Name, request.Repo, request.Status), ct);
+
+        return result.Match<ProductUpdateResult.Success, ProductUpdateResult.Failure, IActionResult>(
+            ok => Ok(ApiResponse<ProductDto>.Ok(ok.Data.Product)),
+            fail => Problem(detail: fail.Error.ErrorMessage, statusCode: ApiResults.ToStatusCode(fail.Error.Category)));
+    }
+
+    /// <summary>Deletes a product.</summary>
+    [HttpDelete("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteById(Guid id, CancellationToken ct)
+    {
+        var result = await sender.SendAsync(new ProductDeleteCommand(id), ct);
+
+        return result.Match<ProductDeleteResult.Success, ProductDeleteResult.Failure, IActionResult>(
+            NoContent,
+            fail => Problem(detail: fail.Error.ErrorMessage, statusCode: ApiResults.ToStatusCode(fail.Error.Category)));
+    }
+}

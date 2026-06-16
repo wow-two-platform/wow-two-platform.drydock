@@ -12,11 +12,16 @@ Cloudflare), holds secrets, and watches the fleet. Single-user; **never exposed 
 ## Structure
 
 ```
-business/                 ← business logic & planning (not code) — roadmap, flows
-platform/src/
-├── drydock.backend/      ← .NET 10 Clean Architecture solution (Drydock.slnx)
-└── drydock.frontend/     ← React 19 + Vite + Tailwind v4 + @wow-two-beta/ui
+product/                  ← the definition (what · why · features · flows) — no code
+└── product.md · context.md · features/ · flows/ · planning/
+engineering/              ← the execution (build · ship · run)
+├── engineering.md · architecture/ · development/ · deployment/ · planning/ · versions/ · research/ · scripts/
+└── codebase/
+    ├── drydock.backend-services/   ← .NET 10 Clean Architecture solution (Drydock.slnx)
+    └── drydock.frontend-services/  ← React 19 + Vite + Tailwind v4 + @wow-two-beta/ui
 ```
+
+Follows `wow-two-ws/conventions/development/repo/repo-structure.md`.
 
 Backend layers: `Domain` (entities/enums/Result) → `Application` (MediatR CQRS + store abstractions)
 → `Infrastructure` (adapters) + `Persistence` (EF Core SQLite) → `Api` (slim host). Mirrors the
@@ -31,7 +36,7 @@ list); the others exist as Domain entities + DbSets and get their Application/Ap
 
 ```bash
 # Backend
-cd platform/src/drydock.backend && dotnet build Drydock.slnx
+cd engineering/codebase/drydock.backend-services && dotnet build Drydock.slnx
 dotnet run --project Drydock.Api --launch-profile https   # 8210 https / 8211 http
 
 # EF migrations (local tool pinned in .config/dotnet-tools.json)
@@ -39,7 +44,7 @@ dotnet tool restore
 dotnet ef migrations add <Name> --project Drydock.Persistence --startup-project Drydock.Api
 
 # Frontend
-cd platform/src/drydock.frontend && npm install && npm run dev   # 5174, proxies /api → 8211
+cd engineering/codebase/drydock.frontend-services && npm install && npm run dev   # 5174, proxies /api → 8211
 npm run deploy   # build + copy SPA into Drydock.Api/wwwroot
 ```
 

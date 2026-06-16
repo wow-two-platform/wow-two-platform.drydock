@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Mediator (IQuery/ICommand + handlers + AddMediator) + AppResult — replaces the raw MediatR ref. -->
+    <PackageReference Include="WoW2.Sdk.Backend.Beta" Version="10.0.23-beta" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Drydock.Domain\Drydock.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

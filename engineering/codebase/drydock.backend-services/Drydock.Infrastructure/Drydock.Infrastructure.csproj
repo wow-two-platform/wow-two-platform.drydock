@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <!-- The GitHub adapter reads the per-request OAuth token from the HTTP context
+       (IHttpContextAccessor + AuthenticationHttpContextExtensions.GetTokenAsync) and calls the
+       REST API via a typed HttpClient (AddHttpClient). The shared framework also supplies the
+       Microsoft.Extensions.* DI / options / configuration / logging / http abstractions this
+       project uses, so they need no separate PackageReference. -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Drydock.Application\Drydock.Application.csproj" />
+    <ProjectReference Include="..\Drydock.Domain\Drydock.Domain.csproj" />
+  </ItemGroup>
+
+</Project>
