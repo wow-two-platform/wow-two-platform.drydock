@@ -3,12 +3,12 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Drydock.Api.Controllers;
 
-/// <summary>System status endpoint for the dashboard header.</summary>
+/// <summary>Reports system status.</summary>
 [ApiController]
 [Route("api/system")]
 public sealed class SystemController : ControllerBase
 {
-    /// <summary>Reports basic liveness and service identity. Anonymous — used by the sign-in screen before auth.</summary>
+    /// <summary>Reports service liveness.</summary>
     [AllowAnonymous]
     [HttpGet("status")]
     public IActionResult Status()

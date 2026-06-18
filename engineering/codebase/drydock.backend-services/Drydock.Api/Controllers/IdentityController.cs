@@ -9,15 +9,15 @@ using Microsoft.Extensions.Options;
 
 namespace Drydock.Api.Controllers;
 
-/// <summary>Single-admin GitHub OAuth sign-in — challenge, current user, and logout.</summary>
+/// <summary>Manages identity.</summary>
 [ApiController]
-[Route("api/auth")]
-public sealed class AuthController(IOptions<GitHubOAuthSettings> gitHub) : ControllerBase
+[Route("api/identity")]
+public sealed class IdentityController(IOptions<GitHubOAuthSettings> gitHub) : ControllerBase
 {
-    /// <summary>Begins GitHub OAuth: challenges the GitHub scheme and returns to <paramref name="returnUrl"/> after sign-in.</summary>
+    /// <summary>Begins sign-in.</summary>
     [AllowAnonymous]
-    [HttpGet("login")]
-    public IActionResult Login([FromQuery] string? returnUrl)
+    [HttpGet("sign-in")]
+    public IActionResult SignIn([FromQuery] string? returnUrl)
     {
         // 503 until the OAuth app is configured — clearer than a generic 500 from an unregistered scheme.
         if (!gitHub.Value.IsConfigured)
@@ -31,7 +31,7 @@ public sealed class AuthController(IOptions<GitHubOAuthSettings> gitHub) : Contr
         return Challenge(properties, AuthConfigurationExtensions.GitHubScheme);
     }
 
-    /// <summary>Returns the signed-in admin (<c>login</c>, <c>name</c>, <c>avatar</c>) or 401 when not authenticated.</summary>
+    /// <summary>Gets the current identity.</summary>
     [AllowAnonymous]
     [HttpGet("me")]
     public IActionResult Me()
@@ -45,10 +45,10 @@ public sealed class AuthController(IOptions<GitHubOAuthSettings> gitHub) : Contr
             Avatar: User.FindFirstValue("urn:github:avatar")));
     }
 
-    /// <summary>Signs the admin out by clearing the session cookie.</summary>
+    /// <summary>Signs the caller out.</summary>
     [Authorize]
-    [HttpPost("logout")]
-    public async Task<IActionResult> Logout()
+    [HttpPost("sign-out")]
+    public new async Task<IActionResult> SignOut()
     {
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         return NoContent();

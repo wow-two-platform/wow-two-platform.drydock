@@ -23,7 +23,7 @@ public sealed class ProductsController(ISender sender) : ControllerBase
     public async Task<IActionResult> Get(CancellationToken ct)
     {
         var result = await sender.SendAsync(new ProductGetAllQuery(), ct);
-        
+
         return result.Match<ProductGetAllResult.Success, ProductGetAllResult.Failure, IActionResult>(
             ok => Ok(ApiResponse<IReadOnlyList<ProductDto>>.Ok(ok.Data.Products)),
             fail => Problem(detail: fail.Error.ErrorMessage, statusCode: ApiResults.ToStatusCode(fail.Error.Category)));
@@ -48,9 +48,9 @@ public sealed class ProductsController(ISender sender) : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> Create([FromBody] CreateProductRequest request, CancellationToken ct)
+    public async Task<IActionResult> Create([FromBody] ProductCreateCommand command, CancellationToken ct)
     {
-        var result = await sender.SendAsync(new ProductCreateCommand(request.Slug, request.Name, request.Repo), ct);
+        var result = await sender.SendAsync(command, ct);
 
         return result.Match<ProductCreateResult.Success, ProductCreateResult.Failure, IActionResult>(
             ok => CreatedAtAction(nameof(GetById), new { id = ok.Data.Product.Id }, ApiResponse<ProductDto>.Ok(ok.Data.Product)),
@@ -62,9 +62,9 @@ public sealed class ProductsController(ISender sender) : ControllerBase
     [ProducesResponseType<ApiResponse<ProductDto>>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> UpdateById(Guid id, [FromBody] UpdateProductRequest request, CancellationToken ct)
+    public async Task<IActionResult> UpdateById(Guid id, [FromBody] UpdateProductApiRequest request, CancellationToken ct)
     {
-        var result = await sender.SendAsync(new ProductUpdateCommand(id, request.Name, request.Repo, request.Status), ct);
+        var result = await sender.SendAsync(request.ToCommand(id), ct);
 
         return result.Match<ProductUpdateResult.Success, ProductUpdateResult.Failure, IActionResult>(
             ok => Ok(ApiResponse<ProductDto>.Ok(ok.Data.Product)),

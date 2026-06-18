@@ -61,7 +61,16 @@ export interface ProblemDetails {
   status?: number;
 }
 
-/** The signed-in admin, from GET /api/auth/me. */
+/**
+ * Success envelope the backend wraps every resource 2xx body in (`ApiResponse<T>`):
+ * the payload travels under `data`. Errors are NOT enveloped — they go out as
+ * {@link ProblemDetails} (RFC 7807) and are read off the failed response directly.
+ */
+export interface ApiResponse<T> {
+  data: T;
+}
+
+/** The signed-in admin, from GET /api/identity/me. */
 export interface CurrentUser {
   login: string;
   name: string;

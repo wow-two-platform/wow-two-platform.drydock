@@ -5,7 +5,7 @@ import type { CurrentUser } from '../api/types';
 interface AuthState {
   /** The signed-in admin, or null when not authenticated. */
   user: CurrentUser | null;
-  /** True while the initial /api/auth/me check is in flight. */
+  /** True while the initial /api/identity/me check is in flight. */
   loading: boolean;
   /** Begins GitHub OAuth by navigating the browser to the login challenge. */
   signIn: () => void;
@@ -14,7 +14,7 @@ interface AuthState {
 }
 
 // Module-level dedupe of the session check. StrictMode mounts twice in dev, so the effect runs
-// twice; sharing one in-flight promise means a single /api/auth/me request (not a duplicate that
+// twice; sharing one in-flight promise means a single /api/identity/me request (not a duplicate that
 // gets aborted) — which also removes the sign-in flicker the aborted request used to cause.
 let meRequest: Promise<CurrentUser | null> | undefined;
 function checkSession(): Promise<CurrentUser | null> {
@@ -26,7 +26,7 @@ function checkSession(): Promise<CurrentUser | null> {
   return meRequest;
 }
 
-/** Resolves the current session via GET /api/auth/me and exposes sign-in / sign-out. */
+/** Resolves the current session via GET /api/identity/me and exposes sign-in / sign-out. */
 export function useAuth(): AuthState {
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);

@@ -1,4 +1,3 @@
-using Drydock.Api.Requests;
 using Drydock.Application.Servers.Commands.ServerRegister;
 using Drydock.Application.Servers.Models;
 using Drydock.Application.Servers.Queries.ServerGetAll;
@@ -31,10 +30,9 @@ public sealed class ServersController(ISender sender) : ControllerBase
     [ProducesResponseType<ApiResponse<ServerDto>>(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> Create([FromBody] RegisterServerRequest request, CancellationToken ct)
+    public async Task<IActionResult> Create([FromBody] ServerRegisterCommand command, CancellationToken ct)
     {
-        var result = await sender.SendAsync(
-            new ServerRegisterCommand(request.Name, request.Host, request.SshUser, request.SshPort, request.Region), ct);
+        var result = await sender.SendAsync(command, ct);
 
         return result.Match<ServerRegisterResult.Success, ServerRegisterResult.Failure, IActionResult>(
             ok => CreatedAtAction(nameof(Get), new { id = ok.Data.Server.Id }, ApiResponse<ServerDto>.Ok(ok.Data.Server)),

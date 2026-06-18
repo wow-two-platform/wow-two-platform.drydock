@@ -2,6 +2,7 @@
 // All URLs are relative ("/api/...") because the SPA is served from the .NET host
 // (and proxied to the backend in dev — see vite.config.ts).
 import type {
+  ApiResponse,
   CreateProductRequest,
   CurrentUser,
   ProblemDetails,
@@ -81,35 +82,45 @@ async function request<T>(input: string, init?: RequestInitWithSignal): Promise<
   return text ? (JSON.parse(text) as T) : (undefined as T);
 }
 
+/**
+ * Fetches a resource endpoint whose success body is wrapped in {@link ApiResponse} and returns the
+ * unwrapped `.data` payload. Use for every resource 2xx body (servers/products); errors still throw
+ * an {@link ApiError} from the un-enveloped ProblemDetails. Raw (un-enveloped) bodies use {@link request}.
+ */
+async function requestData<T>(input: string, init?: RequestInitWithSignal): Promise<T> {
+  const envelope = await request<ApiResponse<T>>(input, init);
+  return envelope.data;
+}
+
 /** Path the browser navigates to in order to start GitHub OAuth (full redirect, not fetch). */
 export function loginUrl(returnUrl: string = window.location.pathname): string {
-  return `/api/auth/login?returnUrl=${encodeURIComponent(returnUrl)}`;
+  return `/api/identity/sign-in?returnUrl=${encodeURIComponent(returnUrl)}`;
 }
 
 export const api = {
-  /** GET /api/system/status — service liveness. */
+  /** GET /api/system/status — service liveness (raw body, not enveloped). */
   getStatus(signal?: AbortSignal): Promise<SystemStatus> {
     return request<SystemStatus>('/api/system/status', { signal });
   },
 
-  /** GET /api/auth/me — the signed-in admin, or throws ApiError(401) when not authenticated. */
+  /** GET /api/identity/me — the signed-in admin (raw body), or throws ApiError(401) when not authenticated. */
   getCurrentUser(signal?: AbortSignal): Promise<CurrentUser> {
-    return request<CurrentUser>('/api/auth/me', { signal });
+    return request<CurrentUser>('/api/identity/me', { signal });
   },
 
-  /** POST /api/auth/logout — clears the session cookie. */
+  /** POST /api/identity/sign-out — clears the session cookie. */
   logout(): Promise<void> {
-    return request<void>('/api/auth/logout', { method: 'POST' });
+    return request<void>('/api/identity/sign-out', { method: 'POST' });
   },
 
   /** GET /api/servers — all registered servers. */
   listServers(signal?: AbortSignal): Promise<ServerDto[]> {
-    return request<ServerDto[]>('/api/servers', { signal });
+    return requestData<ServerDto[]>('/api/servers', { signal });
   },
 
   /** POST /api/servers — register a new deploy-target server. */
   registerServer(body: RegisterServerRequest): Promise<ServerDto> {
-    return request<ServerDto>('/api/servers', {
+    return requestData<ServerDto>('/api/servers', {
       method: 'POST',
       body: JSON.stringify(body),
     });
@@ -117,17 +128,17 @@ export const api = {
 
   /** GET /api/products — all registered products. */
   listProducts(signal?: AbortSignal): Promise<ProductDto[]> {
-    return request<ProductDto[]>('/api/products', { signal });
+    return requestData<ProductDto[]>('/api/products', { signal });
   },
 
   /** GET /api/products/{id} — a single product. */
   getProduct(id: string, signal?: AbortSignal): Promise<ProductDto> {
-    return request<ProductDto>(`/api/products/${id}`, { signal });
+    return requestData<ProductDto>(`/api/products/${id}`, { signal });
   },
 
   /** POST /api/products — register a new product. */
   createProduct(body: CreateProductRequest): Promise<ProductDto> {
-    return request<ProductDto>('/api/products', {
+    return requestData<ProductDto>('/api/products', {
       method: 'POST',
       body: JSON.stringify(body),
     });
@@ -135,7 +146,7 @@ export const api = {
 
   /** PUT /api/products/{id} — update an existing product. */
   updateProduct(id: string, body: UpdateProductRequest): Promise<ProductDto> {
-    return request<ProductDto>(`/api/products/${id}`, {
+    return requestData<ProductDto>(`/api/products/${id}`, {
       method: 'PUT',
       body: JSON.stringify(body),
     });

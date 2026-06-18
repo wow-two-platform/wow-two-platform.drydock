@@ -17,7 +17,7 @@ public static class AuthConfigurationExtensions
     public const string GitHubScheme = "GitHub";
 
     /// <summary>The path GitHub redirects back to after the user authorizes the OAuth app.</summary>
-    public const string CallbackPath = "/api/auth/callback";
+    public const string CallbackPath = "/api/identity/callback";
 
     /// <summary>The authorization policy every protected endpoint requires — authenticated AND on the allowlist.</summary>
     public const string AdminPolicy = "DrydockAdmin";
@@ -117,7 +117,7 @@ public static class AuthConfigurationExtensions
         //
         // Both policies authenticate against the COOKIE scheme only — so an unauthenticated API call gets a
         // clean 401 (cookie OnRedirectToLogin) instead of a 302 to github.com. The same-origin SPA needs the
-        // 401 to render its sign-in screen; interactive login goes through GET /api/auth/login explicitly.
+        // 401 to render its sign-in screen; interactive login goes through GET /api/identity/sign-in explicitly.
         var cookieOnly = new AuthorizationPolicyBuilder(CookieScheme)
             .RequireAuthenticatedUser()
             .Build();
