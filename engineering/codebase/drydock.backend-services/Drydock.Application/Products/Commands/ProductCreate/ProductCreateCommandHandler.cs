@@ -9,7 +9,7 @@ using WoW.Two.Sdk.Backend.Beta.Mediator.Result;
 namespace Drydock.Application.Products.Commands.ProductCreate;
 
 /// <summary>Handles <see cref="ProductCreateCommand"/>.</summary>
-public sealed class ProductCreateCommandHandler(IProductStore store, IClock clock, IGitHubClient gitHub)
+public sealed class ProductCreateCommandHandler(IProductStore store, TimeProvider timeProvider, IGitHubClient gitHub)
     : ICommandHandler<ProductCreateCommand, AppResult<ProductCreateResult.Success, ProductCreateResult.Failure>>
 {
     /// <inheritdoc />
@@ -39,7 +39,7 @@ public sealed class ProductCreateCommandHandler(IProductStore store, IClock cloc
             Name = request.Name.Trim(),
             Repo = request.Repo.Trim(),
             Status = ProductStatus.Draft,
-            CreatedAtUtc = clock.UtcNow
+            CreatedAtUtc = timeProvider.GetUtcNow()
         };
 
         await store.AddAsync(product, cancellationToken);

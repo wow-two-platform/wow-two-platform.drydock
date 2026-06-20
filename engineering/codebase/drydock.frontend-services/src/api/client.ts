@@ -7,6 +7,7 @@ import type {
   CurrentUser,
   ProblemDetails,
   ProductDto,
+  ProductVersionDto,
   RegisterServerRequest,
   ServerDto,
   SystemStatus,
@@ -134,6 +135,11 @@ export const api = {
   /** GET /api/products/{id} — a single product. */
   getProduct(id: string, signal?: AbortSignal): Promise<ProductDto> {
     return requestData<ProductDto>(`/api/products/${id}`, { signal });
+  },
+
+  /** GET /api/products/{id}/version — a product's resolved build/image status. */
+  getProductVersion(id: string, signal?: AbortSignal): Promise<ProductVersionDto> {
+    return requestData<ProductVersionDto>(`/api/products/${id}/version`, { signal });
   },
 
   /** POST /api/products — register a new product. */

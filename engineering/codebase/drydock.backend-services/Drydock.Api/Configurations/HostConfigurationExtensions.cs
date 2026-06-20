@@ -15,7 +15,7 @@ public static class HostConfigurationExtensions
         return builder;
     }
 
-    /// <summary>Registers the persistence layer (EF Core SQLite context + stores).</summary>
+    /// <summary>Registers the persistence layer (Npgsql EF Core context + bespoke SQL migrator + stores).</summary>
     public static WebApplicationBuilder AddPersistenceLayer(this WebApplicationBuilder builder)
     {
         builder.Services.AddPersistence(builder.Configuration);
@@ -36,14 +36,13 @@ public static class HostConfigurationExtensions
         return builder;
     }
 
-    /// <summary>Registers API services — controllers, enum-as-string JSON, OpenAPI.</summary>
+    /// <summary>Registers API services — controllers + enum-as-string JSON (OpenAPI is wired by <c>AddApiDefaults</c>).</summary>
     public static WebApplicationBuilder AddApiServices(this WebApplicationBuilder builder)
     {
         builder.Services
             .AddControllers()
             .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
-        builder.Services.AddOpenApi();
         return builder;
     }
 }

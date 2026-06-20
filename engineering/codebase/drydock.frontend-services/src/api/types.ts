@@ -48,6 +48,29 @@ export interface UpdateProductRequest {
   status: ProductStatus;
 }
 
+/** Whether a product has a ready, deployable image (mirrors the backend enum, serialized as a string). */
+export type ProductVersionState =
+  | 'NoCi'
+  | 'NeverBuilt'
+  | 'UnreleasedBuild'
+  | 'BuildPending'
+  | 'BuildFailed'
+  | 'Ready'
+  | 'LatestNotReady'
+  | 'Unknown';
+
+/** A product's resolved build/image status — the latest released version and the newest with a ready image. */
+export interface ProductVersionDto {
+  state: ProductVersionState;
+  latestTag: string | null;
+  latestAtUtc: string | null;
+  readyTag: string | null;
+  readyAtUtc: string | null;
+  image: string | null;
+  /** Short human-readable reason for the state — shown on hover. */
+  detail: string | null;
+}
+
 /** System liveness payload from /api/system/status. */
 export interface SystemStatus {
   service: string;

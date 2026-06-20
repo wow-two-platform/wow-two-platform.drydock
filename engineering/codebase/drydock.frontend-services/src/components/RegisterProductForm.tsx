@@ -91,12 +91,12 @@ export function RegisterProductForm({ product, create, update, onSaved, onCancel
             <TextInput
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
-              placeholder="secrets-vault"
+              placeholder="my-product"
               disabled={isEdit}
             />
           </Field>
           <Field label="Name">
-            <TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder="Secrets Vault" />
+            <TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder="My Product" />
           </Field>
           <Field label="Repo (owner/repo or URL)">
             <div className="flex items-stretch gap-2">
@@ -116,7 +116,7 @@ export function RegisterProductForm({ product, create, update, onSaved, onCancel
                 <TextInput
                   value={repo}
                   onChange={(e) => onRepoChange(e.target.value)}
-                  placeholder="wow-two-platform/wow-two-platform.secrets-vault"
+                  placeholder="octocat/hello-world"
                   aria-invalid={repoError !== null}
                 />
               </div>

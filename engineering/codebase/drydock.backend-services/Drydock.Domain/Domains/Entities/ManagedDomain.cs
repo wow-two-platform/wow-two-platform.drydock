@@ -1,4 +1,4 @@
-using Drydock.Domain.Common;
+using WoW.Two.Sdk.Backend.Beta.Data.Abstractions;
 using Drydock.Domain.Domains.Enums;
 
 namespace Drydock.Domain.Domains.Entities;

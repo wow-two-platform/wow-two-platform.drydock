@@ -5,7 +5,7 @@
 Deferred work + known issues. Version docs (`../versions/`) stay clean — items land here, not there.
 **Ordered queue: top = next to pull.** Grouped by theme; ordered within. Type: `feature` · `issue` · `check` · `idea`. Order is the priority — no future-version tags. Strike-through + ✅ when done (kept for traceability).
 
-## Extract to the SDK (the +0.1 rhythm — infra proves in Drydock, then leaves it) — **v0.2**
+## Extract to the SDK (the +0.1 rhythm — infra proves in Drydock, then leaves it)
 
 > Full-solution scan 2026-06-16. The SDK **already ships most of this** → for most items the extract is *adopt-and-delete the inline copy*. Legend: **[adopt]** SDK has it, delete inline · **[Δ]** upstream drydock's extra behavior into the SDK type · **[new]** net-new SDK leaf. Ordered simplest/most-independent → dependent-last.
 
@@ -20,8 +20,8 @@ Deferred work + known issues. Version docs (`../versions/`) stay clean — items
 | 7 | `AuthSettings` allowlist + `GitHubOAuthSettings` | `Identity.OAuth.Allowlist` | new |
 | 8 | default-deny cookie fallback policy | `Identity.Authorization` | new |
 | 9 | `EfServerStore`/`EfProductStore` → generic repo | `Data.EntityFrameworkCore` (`EfRepository`) | adopt |
-| 10 | `DateTimeOffset`→binary SQLite convention | `Data.EntityFrameworkCore` | adopt + Δ |
-| 11 | migrate-on-boot + design-time factory | `Data.Migrations.Ef` | adopt |
+| ~~10~~ | ~~`DateTimeOffset`→binary SQLite convention~~ | — | ~~obsolete~~ — SQLite path removed 2026-06-20; tests run on Postgres |
+| ~~11~~ | ~~migrate-on-boot + design-time factory~~ | `Data.Migrations.Bespoke` | ✅ done — extracted by the migration lane (bespoke SQL migrator), 2026-06-20 |
 | 12 | slim host wiring (`Program.cs`/`Api/Configurations`) | `Meta` (`AddApiDefaults`/`UseApiDefaults`) | adopt (partial) |
 | 13 | single-host SPA serving + `/api/*` JSON-404 | `Web.Hosting` (new `Spa` leaf) | new |
 
@@ -52,6 +52,7 @@ Deferred work + known issues. Version docs (`../versions/`) stay clean — items
 
 | Item | Type | Notes |
 |---|---|---|
+| Cache version-status probes to respect GitHub rate limits | feature | On-demand resolve does ~3 probes/product/load; `50–100` products × dashboard loads will blow GitHub's `5k`/hr. Cache `ProductVersionState` + refresh on a release / workflow-run **webhook** (or a TTL poll), not per-render. |
 | Multi-environment / channel resolution (release vs main-SHA, prod vs staging) | feature | v0.1 resolves one latest-release image; this generalises. |
 | Multi-image / two-container topology support | feature | When a product genuinely needs a separate frontend; single-host is the default. |
 | `drydock.yml` manifest standard | feature | Declare services (name·role·image·port) for multi-service / non-conformant products — the override. |

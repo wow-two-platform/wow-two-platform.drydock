@@ -5,6 +5,7 @@ using Drydock.Application.Products.Commands.ProductUpdate;
 using Drydock.Application.Products.Models;
 using Drydock.Application.Products.Queries.ProductGetAll;
 using Drydock.Application.Products.Queries.ProductGetById;
+using Drydock.Application.Products.Queries.ProductVersionStatus;
 using Drydock.Domain.Common;
 using Microsoft.AspNetCore.Mvc;
 using WoW.Two.Sdk.Backend.Beta.Mediator;
@@ -24,7 +25,7 @@ public sealed class ProductsController(ISender sender) : ControllerBase
     {
         var result = await sender.SendAsync(new ProductGetAllQuery(), ct);
 
-        return result.Match<ProductGetAllResult.Success, ProductGetAllResult.Failure, IActionResult>(
+        return result.Match<IActionResult>(
             ok => Ok(ApiResponse<IReadOnlyList<ProductDto>>.Ok(ok.Data.Products)),
             fail => Problem(detail: fail.Error.ErrorMessage, statusCode: ApiResults.ToStatusCode(fail.Error.Category)));
     }
@@ -37,8 +38,21 @@ public sealed class ProductsController(ISender sender) : ControllerBase
     {
         var result = await sender.SendAsync(new ProductGetByIdQuery(id), ct);
 
-        return result.Match<ProductGetByIdResult.Success, ProductGetByIdResult.Failure, IActionResult>(
+        return result.Match<IActionResult>(
             ok => Ok(ApiResponse<ProductDto>.Ok(ok.Data.Product)),
+            fail => Problem(detail: fail.Error.ErrorMessage, statusCode: ApiResults.ToStatusCode(fail.Error.Category)));
+    }
+
+    /// <summary>Gets a product's ready build/image status by id.</summary>
+    [HttpGet("{id:guid}/version")]
+    [ProducesResponseType<ApiResponse<ProductVersionDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetVersionById(Guid id, CancellationToken ct)
+    {
+        var result = await sender.SendAsync(new ProductVersionStatusQuery(id), ct);
+
+        return result.Match<IActionResult>(
+            ok => Ok(ApiResponse<ProductVersionDto>.Ok(ok.Data.Version)),
             fail => Problem(detail: fail.Error.ErrorMessage, statusCode: ApiResults.ToStatusCode(fail.Error.Category)));
     }
 
@@ -52,7 +66,7 @@ public sealed class ProductsController(ISender sender) : ControllerBase
     {
         var result = await sender.SendAsync(command, ct);
 
-        return result.Match<ProductCreateResult.Success, ProductCreateResult.Failure, IActionResult>(
+        return result.Match<IActionResult>(
             ok => CreatedAtAction(nameof(GetById), new { id = ok.Data.Product.Id }, ApiResponse<ProductDto>.Ok(ok.Data.Product)),
             fail => Problem(detail: fail.Error.ErrorMessage, statusCode: ApiResults.ToStatusCode(fail.Error.Category)));
     }
@@ -66,7 +80,7 @@ public sealed class ProductsController(ISender sender) : ControllerBase
     {
         var result = await sender.SendAsync(request.ToCommand(id), ct);
 
-        return result.Match<ProductUpdateResult.Success, ProductUpdateResult.Failure, IActionResult>(
+        return result.Match<IActionResult>(
             ok => Ok(ApiResponse<ProductDto>.Ok(ok.Data.Product)),
             fail => Problem(detail: fail.Error.ErrorMessage, statusCode: ApiResults.ToStatusCode(fail.Error.Category)));
     }
@@ -79,7 +93,7 @@ public sealed class ProductsController(ISender sender) : ControllerBase
     {
         var result = await sender.SendAsync(new ProductDeleteCommand(id), ct);
 
-        return result.Match<ProductDeleteResult.Success, ProductDeleteResult.Failure, IActionResult>(
+        return result.Match<IActionResult>(
             NoContent,
             fail => Problem(detail: fail.Error.ErrorMessage, statusCode: ApiResults.ToStatusCode(fail.Error.Category)));
     }

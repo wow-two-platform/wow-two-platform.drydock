@@ -20,7 +20,7 @@ public sealed class ServersController(ISender sender) : ControllerBase
     {
         var result = await sender.SendAsync(new ServerGetAllQuery(), ct);
 
-        return result.Match<ServerGetAllResult.Success, ServerGetAllResult.Failure, IActionResult>(
+        return result.Match<IActionResult>(
             ok => Ok(ApiResponse<IReadOnlyList<ServerDto>>.Ok(ok.Data.Servers)),
             fail => Problem(detail: fail.Error.ErrorMessage, statusCode: ApiResults.ToStatusCode(fail.Error.Category)));
     }
@@ -34,7 +34,7 @@ public sealed class ServersController(ISender sender) : ControllerBase
     {
         var result = await sender.SendAsync(command, ct);
 
-        return result.Match<ServerRegisterResult.Success, ServerRegisterResult.Failure, IActionResult>(
+        return result.Match<IActionResult>(
             ok => CreatedAtAction(nameof(Get), new { id = ok.Data.Server.Id }, ApiResponse<ServerDto>.Ok(ok.Data.Server)),
             fail => Problem(detail: fail.Error.ErrorMessage, statusCode: ApiResults.ToStatusCode(fail.Error.Category)));
     }

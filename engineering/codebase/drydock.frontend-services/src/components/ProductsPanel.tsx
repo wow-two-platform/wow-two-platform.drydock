@@ -3,17 +3,30 @@ import { Eye, Package, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@wow-two-beta/ui/actions';
 import { Badge, Card, Code, EmptyState, Heading, Text } from '@wow-two-beta/ui/display';
 import { Alert, Spinner } from '@wow-two-beta/ui/feedback';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@wow-two-beta/ui/overlays';
 import { useProducts } from '../hooks/useProducts';
+import { useProductVersion } from '../hooks/useProductVersion';
 import { RegisterProductForm } from './RegisterProductForm';
-import type { ProductDto, ProductStatus } from '../api/types';
+import type { ProductDto, ProductStatus, ProductVersionDto, ProductVersionState } from '../api/types';
 
-type BadgeTone = 'neutral' | 'success' | 'danger' | 'warning';
+type BadgeTone = 'neutral' | 'success' | 'danger' | 'warning' | 'outline';
 
 const STATUS_TONE: Record<ProductStatus, BadgeTone> = {
   Active: 'success',
   Paused: 'warning',
   Killed: 'danger',
   Draft: 'neutral',
+};
+
+const VERSION_TONE: Record<ProductVersionState, BadgeTone> = {
+  Ready: 'success',
+  LatestNotReady: 'warning',
+  UnreleasedBuild: 'warning',
+  BuildPending: 'warning',
+  BuildFailed: 'danger',
+  NeverBuilt: 'neutral',
+  NoCi: 'outline',
+  Unknown: 'danger',
 };
 
 /** The Products registry — list portfolio products and create / view / edit / delete them. */
@@ -121,6 +134,7 @@ export function ProductsPanel() {
                 <th className="pb-2 font-medium">Slug</th>
                 <th className="pb-2 font-medium">Repo</th>
                 <th className="pb-2 font-medium">Status</th>
+                <th className="pb-2 font-medium">Version</th>
                 <th className="pb-2 font-medium text-right">Actions</th>
               </tr>
             </thead>
@@ -133,6 +147,9 @@ export function ProductsPanel() {
                     <td className="py-3 font-mono text-xs text-muted-foreground">{p.repo}</td>
                     <td className="py-3">
                       <Badge variant={STATUS_TONE[p.status]}>{p.status}</Badge>
+                    </td>
+                    <td className="py-3">
+                      <VersionCell productId={p.id} />
                     </td>
                     <td className="py-3">
                       <div className="flex items-center justify-end gap-1">
@@ -169,7 +186,7 @@ export function ProductsPanel() {
 
                   {viewing === p.id && (
                     <tr className="border-b border-border/60 bg-muted/30">
-                      <td colSpan={5} className="px-3 py-4">
+                      <td colSpan={6} className="px-3 py-4">
                         <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs sm:grid-cols-4">
                           <Detail label="Id">
                             <Code>{p.id}</Code>
@@ -186,7 +203,7 @@ export function ProductsPanel() {
 
                   {confirmDelete === p.id && (
                     <tr className="border-b border-border/60 bg-danger/5">
-                      <td colSpan={5} className="px-3 py-3">
+                      <td colSpan={6} className="px-3 py-3">
                         <div className="flex items-center justify-between gap-4">
                           <Text size="sm">
                             Delete <span className="font-medium">{p.name}</span>? This cannot be undone.
@@ -230,5 +247,77 @@ function Detail({ label, children }: { label: string; children: React.ReactNode 
       <dt className="font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
       <dd className="text-foreground">{children}</dd>
     </div>
+  );
+}
+
+/** Lazily resolves and badges a product's ready build/image status, with the reason on hover. */
+function VersionCell({ productId }: { productId: string }) {
+  const { version, loading, error } = useProductVersion(productId);
+
+  if (loading) {
+    return <Spinner size="sm" label="Checking version" />;
+  }
+
+  if (error || !version) {
+    return (
+      <VersionBadge
+        tone="danger"
+        label="check failed"
+        detail={error ?? 'The version check could not be completed.'}
+      />
+    );
+  }
+
+  return (
+    <VersionBadge tone={VERSION_TONE[version.state]} label={versionLabel(version)} detail={version.detail} />
+  );
+}
+
+/** The short badge label for a resolved version state. */
+function versionLabel(version: ProductVersionDto): string {
+  switch (version.state) {
+    case 'Ready':
+      return `${version.readyTag} · ready`;
+    case 'LatestNotReady':
+      return `${version.readyTag} ready · ${version.latestTag} pending`;
+    case 'UnreleasedBuild':
+      return 'unreleased build';
+    case 'BuildPending':
+      return `${version.latestTag} building`;
+    case 'BuildFailed':
+      return `${version.latestTag} build failed`;
+    case 'NeverBuilt':
+      return 'never built';
+    case 'NoCi':
+      return 'no CI';
+    default:
+      return 'check failed';
+  }
+}
+
+/** A version badge that reveals its reason in a hover card. */
+function VersionBadge({
+  tone,
+  label,
+  detail,
+}: {
+  tone: BadgeTone;
+  label: string;
+  detail?: string | null;
+}) {
+  const badge = <Badge variant={tone}>{label}</Badge>;
+  if (!detail) {
+    return badge;
+  }
+
+  return (
+    <HoverCard openDelay={120} closeDelay={80} placement="top">
+      <HoverCardTrigger asChild>
+        <span className="inline-flex cursor-default">{badge}</span>
+      </HoverCardTrigger>
+      <HoverCardContent className="max-w-xs rounded-md border border-border bg-background px-3 py-2 text-xs leading-relaxed text-foreground shadow-lg">
+        {detail}
+      </HoverCardContent>
+    </HoverCard>
   );
 }

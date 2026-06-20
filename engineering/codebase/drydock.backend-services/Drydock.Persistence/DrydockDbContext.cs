@@ -4,11 +4,11 @@ using Drydock.Domain.Products.Entities;
 using Drydock.Domain.Secrets.Entities;
 using Drydock.Domain.Servers.Entities;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using WoW.Two.Sdk.Backend.Beta.Data.EntityFrameworkCore.Naming;
 
 namespace Drydock.Persistence;
 
-/// <summary>EF Core context for the Drydock control plane (SQLite-backed).</summary>
+/// <summary>EF Core context for the Drydock control plane — a pure mapper over the Postgres schema the bespoke SQL migrator owns. Snake_case naming + enums-as-snake_case-text; <c>DateTimeOffset</c> → <c>timestamptz</c> natively.</summary>
 public sealed class DrydockDbContext(DbContextOptions<DrydockDbContext> options) : DbContext(options)
 {
     /// <summary>Gets the registered deploy-target servers.</summary>
@@ -27,15 +27,11 @@ public sealed class DrydockDbContext(DbContextOptions<DrydockDbContext> options)
     public DbSet<SecretEntry> Secrets => Set<SecretEntry>();
 
     /// <inheritdoc />
-    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
-    {
-        // SQLite cannot ORDER BY a TEXT-stored DateTimeOffset — store it as a sortable binary long instead.
-        configurationBuilder.Properties<DateTimeOffset>().HaveConversion<DateTimeOffsetToBinaryConverter>();
-    }
-
-    /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // Each enum is stored as snake_case text via the SDK's reversible converter (member-built reverse map →
+        // multi-word values round-trip losslessly, e.g. RolledBack ↔ rolled_back). Applied per-property because
+        // EnumCaseConverter has no parameterless ctor, so the model-level Properties<T>().HaveConversion<T>() can't build it.
         modelBuilder.Entity<Server>(e =>
         {
             e.ToTable("servers");
@@ -43,6 +39,7 @@ public sealed class DrydockDbContext(DbContextOptions<DrydockDbContext> options)
             e.HasIndex(x => x.Host).IsUnique();
             e.Property(x => x.Name).IsRequired();
             e.Property(x => x.Host).IsRequired();
+            e.Property(x => x.Status).HasEnumStringConversion();
         });
 
         modelBuilder.Entity<Product>(e =>
@@ -53,6 +50,7 @@ public sealed class DrydockDbContext(DbContextOptions<DrydockDbContext> options)
             e.Property(x => x.Slug).IsRequired();
             e.Property(x => x.Name).IsRequired();
             e.Property(x => x.Repo).IsRequired();
+            e.Property(x => x.Status).HasEnumStringConversion();
         });
 
         modelBuilder.Entity<Deployment>(e =>
@@ -60,6 +58,7 @@ public sealed class DrydockDbContext(DbContextOptions<DrydockDbContext> options)
             e.ToTable("deployments");
             e.HasKey(x => x.Id);
             e.HasIndex(x => new { x.ProductId, x.CreatedAtUtc });
+            e.Property(x => x.Status).HasEnumStringConversion();
         });
 
         modelBuilder.Entity<ManagedDomain>(e =>
@@ -68,6 +67,7 @@ public sealed class DrydockDbContext(DbContextOptions<DrydockDbContext> options)
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.Name).IsUnique();
             e.Property(x => x.Name).IsRequired();
+            e.Property(x => x.Status).HasEnumStringConversion();
         });
 
         modelBuilder.Entity<SecretEntry>(e =>
@@ -76,6 +76,7 @@ public sealed class DrydockDbContext(DbContextOptions<DrydockDbContext> options)
             e.HasKey(x => x.Id);
             e.HasIndex(x => new { x.Scope, x.RefId, x.Key }).IsUnique();
             e.Property(x => x.Key).IsRequired();
+            e.Property(x => x.Scope).HasEnumStringConversion();
         });
     }
 }

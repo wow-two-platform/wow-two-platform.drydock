@@ -9,6 +9,7 @@ Per-version progress docs for Drydock. One folder per version, named exactly the
 
 | Version | Theme | Status |
 |---|---|---|
-| `v0.1` | First deploy to a real box | ⏳ Planned |
+| `v0.1` | Sign in, register, find the ready version | ✅ Complete |
+| `v0.2` | Full SDK adoption + initial polish | 🚧 In Progress |
 
 > Only the next version is documented (convention). Deferred work / known issues live in `../planning/backlog.md`, not here. P0 (Clean-Arch skeleton + Servers vertical) shipped before version docs existed — it has no `v0.x` doc.

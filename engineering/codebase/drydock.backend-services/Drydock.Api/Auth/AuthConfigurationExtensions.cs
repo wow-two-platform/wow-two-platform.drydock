@@ -105,11 +105,11 @@ public static class AuthConfigurationExtensions
                         return Task.CompletedTask;
                     };
                 },
-                // Scopes: identity ("user:email") + "repo" so the signed-in user's token can read
-                // their repositories — public AND private — for product repo-existence verification.
-                // Widening "repo" requires re-consent: the admin must sign out and back in to mint a
-                // token carrying the new scope. Add "read:packages" later when deploys pull from GHCR.
-                "user:email", "repo");
+                // Scopes: identity ("user:email") + "repo" (read public AND private repos for product
+                // verification) + "read:packages" (pull image manifests from GHCR for the version check).
+                // Widening scopes requires re-consent: the admin must sign out and back in to mint a
+                // token carrying them.
+                "user:email", "repo", "read:packages");
         }
 
         // Fallback policy: every endpoint without an explicit [Authorize]/[AllowAnonymous] still requires the

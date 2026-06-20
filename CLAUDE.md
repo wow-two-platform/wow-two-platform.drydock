@@ -39,9 +39,8 @@ list); the others exist as Domain entities + DbSets and get their Application/Ap
 cd engineering/codebase/drydock.backend-services && dotnet build Drydock.slnx
 dotnet run --project Drydock.Api --launch-profile https   # 8210 https / 8211 http
 
-# EF migrations (local tool pinned in .config/dotnet-tools.json)
-dotnet tool restore
-dotnet ef migrations add <Name> --project Drydock.Persistence --startup-project Drydock.Api
+# DB migrations: hand-authored SQL (bespoke migrator, applied on boot). No EF tooling.
+# Add one → Drydock.Persistence/Migrations/{NNN-name}/{Apply,Rollback}.sql
 
 # Frontend
 cd engineering/codebase/drydock.frontend-services && npm install && npm run dev   # 5174, proxies /api → 8211
@@ -54,8 +53,9 @@ npm run deploy   # build + copy SPA into Drydock.Api/wwwroot
   `Domain/Results`, `ResultError` → HTTP status via `ApiResults`. Controllers send MediatR requests
   via `ISender` and `Match` the `Result`.
 - **Ports:** HTTPS even (8210) + HTTP odd (8211), per the wow-two launch-profile rule.
-- **DB:** SQLite (`drydock.db`), one file, trivial to back up. Swap the provider in
-  `Persistence/DependencyInjection.cs` for Postgres if/when multi-instance is needed.
+- **DB:** Postgres (Npgsql). Schema owned by the **bespoke SQL migrator**
+  (`…Beta.Data.Migrations.Bespoke`) over hand-authored `Migrations/{NNN}/{Apply,Rollback}.sql`;
+  EF Core is a pure mapper. Migrates on boot; Testcontainers-PG under E2E.
 
 ## Beta SDK usage (per workspace direction)
 

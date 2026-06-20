@@ -4,4 +4,5 @@
   <Project Path="Drydock.Domain/Drydock.Domain.csproj" />
   <Project Path="Drydock.Infrastructure/Drydock.Infrastructure.csproj" />
   <Project Path="Drydock.Persistence/Drydock.Persistence.csproj" />
+  <Project Path="Drydock.IntegrationTests/Drydock.IntegrationTests.csproj" />
 </Solution>

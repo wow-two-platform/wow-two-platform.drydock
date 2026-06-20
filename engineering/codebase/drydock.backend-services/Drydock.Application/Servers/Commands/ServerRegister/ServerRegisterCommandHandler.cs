@@ -9,7 +9,7 @@ using WoW.Two.Sdk.Backend.Beta.Mediator.Result;
 namespace Drydock.Application.Servers.Commands.ServerRegister;
 
 /// <summary>Handles <see cref="ServerRegisterCommand"/>.</summary>
-public sealed class ServerRegisterCommandHandler(IServerStore store, IClock clock)
+public sealed class ServerRegisterCommandHandler(IServerStore store, TimeProvider timeProvider)
     : ICommandHandler<ServerRegisterCommand, AppResult<ServerRegisterResult.Success, ServerRegisterResult.Failure>>
 {
     /// <inheritdoc />
@@ -32,7 +32,7 @@ public sealed class ServerRegisterCommandHandler(IServerStore store, IClock cloc
             SshPort = request.SshPort is > 0 and <= 65535 ? request.SshPort : 22,
             Region = request.Region,
             Status = ServerStatus.Unknown,
-            CreatedAtUtc = clock.UtcNow
+            CreatedAtUtc = timeProvider.GetUtcNow()
         };
 
         await store.AddAsync(server, cancellationToken);

@@ -2,7 +2,7 @@ using Drydock.Persistence;
 
 namespace Drydock.Api.Configurations;
 
-/// <summary>Startup initialization — applies migrations / creates the SQLite schema on first run.</summary>
+/// <summary>Startup initialization — applies pending SQL migrations (the bespoke migrator creates the schema on first run).</summary>
 public static class AppInitialization
 {
     /// <summary>Ensures the database schema exists before the host starts serving.</summary>
