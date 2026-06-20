@@ -1,4 +1,3 @@
-using Drydock.Domain.Results;
 using WoW.Two.Sdk.Backend.Beta.Mediator.Result;
 
 namespace Drydock.Application.Products.Commands.ProductDelete;
@@ -11,6 +10,6 @@ public abstract record ProductDeleteResult
     /// <summary>The product was deleted — no payload, the controller maps it to <c>NoContent</c>.</summary>
     public sealed record Success : ProductDeleteResult, ISuccessResult;
 
-    /// <summary>The product could not be deleted — <see cref="IDrydockFailure.Category"/> maps the status.</summary>
-    public sealed record Failure(string ErrorMessage, FailureCategory Category) : ProductDeleteResult, IDrydockFailure;
+    /// <summary>The product could not be deleted — <see cref="ICategorizedFailure.Category"/> maps the status.</summary>
+    public sealed record Failure(string ErrorMessage, FailureCategory Category) : ProductDeleteResult, ICategorizedFailure;
 }

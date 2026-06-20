@@ -22,11 +22,6 @@ public static class HostConfiguration
             o.EnableRateLimiting = false;
             o.EnableOtlpExporters = false;
             o.ExposeOpenApi = builder.Environment.IsDevelopment();
-
-            // TEMP: the published SDK maps /health WITHOUT AllowAnonymous, and Drydock's default-deny fallback would 401 it.
-            // Park the SDK probe off the canonical path; the anonymous /health below stays authoritative. Once the SDK ships
-            // anonymous health (this branch's fix), drop the /health MapGet and reset this to the default "/health".
-            o.HealthEndpointPath = "/_health";
         });
 
         builder
@@ -55,11 +50,6 @@ public static class HostConfiguration
         app.UseDrydockAuth();
 
         app.MapControllers();
-
-        // Canonical liveness — anonymous so external probes (LB / Docker / Traefik) reach it under the default-deny fallback.
-        // TEMP bridge until the SDK health endpoint ships AllowAnonymous (see HealthEndpointPath note above), then removed.
-        app.MapGet("/health", () => Results.Ok(new { status = "healthy", service = "Drydock" }))
-            .AllowAnonymous();
 
         // An unmatched /api/* must 404 as JSON — never fall through to the SPA shell. An HTML body for an API path is
         // cacheable and breaks clients (it caused the products cache-confusion bug).

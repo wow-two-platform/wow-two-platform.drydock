@@ -1,5 +1,4 @@
 using Drydock.Application.Products.Models;
-using Drydock.Domain.Results;
 using WoW.Two.Sdk.Backend.Beta.Mediator.Result;
 
 namespace Drydock.Application.Products.Commands.ProductCreate;
@@ -12,6 +11,6 @@ public abstract record ProductCreateResult
     /// <summary>The product was registered.</summary>
     public sealed record Success(ProductDto Product) : ProductCreateResult, ISuccessResult;
 
-    /// <summary>The product could not be registered — <see cref="IDrydockFailure.Category"/> maps the status.</summary>
-    public sealed record Failure(string ErrorMessage, FailureCategory Category) : ProductCreateResult, IDrydockFailure;
+    /// <summary>The product could not be registered — <see cref="ICategorizedFailure.Category"/> maps the status.</summary>
+    public sealed record Failure(string ErrorMessage, FailureCategory Category) : ProductCreateResult, ICategorizedFailure;
 }

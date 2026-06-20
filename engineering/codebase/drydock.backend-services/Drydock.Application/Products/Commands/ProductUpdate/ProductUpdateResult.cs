@@ -1,5 +1,4 @@
 using Drydock.Application.Products.Models;
-using Drydock.Domain.Results;
 using WoW.Two.Sdk.Backend.Beta.Mediator.Result;
 
 namespace Drydock.Application.Products.Commands.ProductUpdate;
@@ -12,6 +11,6 @@ public abstract record ProductUpdateResult
     /// <summary>The product was updated.</summary>
     public sealed record Success(ProductDto Product) : ProductUpdateResult, ISuccessResult;
 
-    /// <summary>The product could not be updated — <see cref="IDrydockFailure.Category"/> maps the status.</summary>
-    public sealed record Failure(string ErrorMessage, FailureCategory Category) : ProductUpdateResult, IDrydockFailure;
+    /// <summary>The product could not be updated — <see cref="ICategorizedFailure.Category"/> maps the status.</summary>
+    public sealed record Failure(string ErrorMessage, FailureCategory Category) : ProductUpdateResult, ICategorizedFailure;
 }

@@ -6,10 +6,11 @@ using Drydock.Application.Products.Models;
 using Drydock.Application.Products.Queries.ProductGetAll;
 using Drydock.Application.Products.Queries.ProductGetById;
 using Drydock.Application.Products.Queries.ProductVersionStatus;
-using Drydock.Domain.Common;
+using WoW.Two.Sdk.Backend.Beta.Web.Contracts;
 using Microsoft.AspNetCore.Mvc;
 using WoW.Two.Sdk.Backend.Beta.Mediator;
 using WoW.Two.Sdk.Backend.Beta.Mediator.Result;
+using WoW.Two.Sdk.Backend.Beta.Web.Results;
 
 namespace Drydock.Api.Controllers;
 
@@ -27,7 +28,7 @@ public sealed class ProductsController(ISender sender) : ControllerBase
 
         return result.Match<IActionResult>(
             ok => Ok(ApiResponse<IReadOnlyList<ProductDto>>.Ok(ok.Data.Products)),
-            fail => Problem(detail: fail.Error.ErrorMessage, statusCode: ApiResults.ToStatusCode(fail.Error.Category)));
+            fail => Problem(detail: fail.Error.ErrorMessage, statusCode: fail.Error.Category.ToStatusCode()));
     }
 
     /// <summary>Gets a product by id.</summary>
@@ -40,7 +41,7 @@ public sealed class ProductsController(ISender sender) : ControllerBase
 
         return result.Match<IActionResult>(
             ok => Ok(ApiResponse<ProductDto>.Ok(ok.Data.Product)),
-            fail => Problem(detail: fail.Error.ErrorMessage, statusCode: ApiResults.ToStatusCode(fail.Error.Category)));
+            fail => Problem(detail: fail.Error.ErrorMessage, statusCode: fail.Error.Category.ToStatusCode()));
     }
 
     /// <summary>Gets a product's ready build/image status by id.</summary>
@@ -53,7 +54,7 @@ public sealed class ProductsController(ISender sender) : ControllerBase
 
         return result.Match<IActionResult>(
             ok => Ok(ApiResponse<ProductVersionDto>.Ok(ok.Data.Version)),
-            fail => Problem(detail: fail.Error.ErrorMessage, statusCode: ApiResults.ToStatusCode(fail.Error.Category)));
+            fail => Problem(detail: fail.Error.ErrorMessage, statusCode: fail.Error.Category.ToStatusCode()));
     }
 
     /// <summary>Creates a product.</summary>
@@ -68,7 +69,7 @@ public sealed class ProductsController(ISender sender) : ControllerBase
 
         return result.Match<IActionResult>(
             ok => CreatedAtAction(nameof(GetById), new { id = ok.Data.Product.Id }, ApiResponse<ProductDto>.Ok(ok.Data.Product)),
-            fail => Problem(detail: fail.Error.ErrorMessage, statusCode: ApiResults.ToStatusCode(fail.Error.Category)));
+            fail => Problem(detail: fail.Error.ErrorMessage, statusCode: fail.Error.Category.ToStatusCode()));
     }
 
     /// <summary>Updates a product.</summary>
@@ -82,7 +83,7 @@ public sealed class ProductsController(ISender sender) : ControllerBase
 
         return result.Match<IActionResult>(
             ok => Ok(ApiResponse<ProductDto>.Ok(ok.Data.Product)),
-            fail => Problem(detail: fail.Error.ErrorMessage, statusCode: ApiResults.ToStatusCode(fail.Error.Category)));
+            fail => Problem(detail: fail.Error.ErrorMessage, statusCode: fail.Error.Category.ToStatusCode()));
     }
 
     /// <summary>Deletes a product.</summary>
@@ -95,6 +96,6 @@ public sealed class ProductsController(ISender sender) : ControllerBase
 
         return result.Match<IActionResult>(
             NoContent,
-            fail => Problem(detail: fail.Error.ErrorMessage, statusCode: ApiResults.ToStatusCode(fail.Error.Category)));
+            fail => Problem(detail: fail.Error.ErrorMessage, statusCode: fail.Error.Category.ToStatusCode()));
     }
 }

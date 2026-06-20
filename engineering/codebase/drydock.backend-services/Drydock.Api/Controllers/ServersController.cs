@@ -1,10 +1,11 @@
 using Drydock.Application.Servers.Commands.ServerRegister;
 using Drydock.Application.Servers.Models;
 using Drydock.Application.Servers.Queries.ServerGetAll;
-using Drydock.Domain.Common;
+using WoW.Two.Sdk.Backend.Beta.Web.Contracts;
 using Microsoft.AspNetCore.Mvc;
 using WoW.Two.Sdk.Backend.Beta.Mediator;
 using WoW.Two.Sdk.Backend.Beta.Mediator.Result;
+using WoW.Two.Sdk.Backend.Beta.Web.Results;
 
 namespace Drydock.Api.Controllers;
 
@@ -22,7 +23,7 @@ public sealed class ServersController(ISender sender) : ControllerBase
 
         return result.Match<IActionResult>(
             ok => Ok(ApiResponse<IReadOnlyList<ServerDto>>.Ok(ok.Data.Servers)),
-            fail => Problem(detail: fail.Error.ErrorMessage, statusCode: ApiResults.ToStatusCode(fail.Error.Category)));
+            fail => Problem(detail: fail.Error.ErrorMessage, statusCode: fail.Error.Category.ToStatusCode()));
     }
 
     /// <summary>Creates a server.</summary>
@@ -36,6 +37,6 @@ public sealed class ServersController(ISender sender) : ControllerBase
 
         return result.Match<IActionResult>(
             ok => CreatedAtAction(nameof(Get), new { id = ok.Data.Server.Id }, ApiResponse<ServerDto>.Ok(ok.Data.Server)),
-            fail => Problem(detail: fail.Error.ErrorMessage, statusCode: ApiResults.ToStatusCode(fail.Error.Category)));
+            fail => Problem(detail: fail.Error.ErrorMessage, statusCode: fail.Error.Category.ToStatusCode()));
     }
 }

@@ -9,7 +9,7 @@
   <ItemGroup>
     <!-- Bespoke SQL migrator (engine + Postgres dialect + connection factory) ships in the mono-lib SDK
          (aligned with the rest of drydock's 10.0.24-beta refs). -->
-    <PackageReference Include="WoW2.Sdk.Backend.Beta" Version="10.0.24-beta" />
+    <PackageReference Include="WoW2.Sdk.Backend.Beta" Version="10.0.26-beta" />
     <!-- EF Core (Npgsql provider) stays as a pure mapper over the SQL-owned schema; snake_case naming. -->
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.*" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.*" />

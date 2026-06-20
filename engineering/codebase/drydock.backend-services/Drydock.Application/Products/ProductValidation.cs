@@ -1,5 +1,5 @@
 using Drydock.Application.Abstractions;
-using Drydock.Domain.Results;
+using WoW.Two.Sdk.Backend.Beta.Mediator.Result;
 
 namespace Drydock.Application.Products;
 
