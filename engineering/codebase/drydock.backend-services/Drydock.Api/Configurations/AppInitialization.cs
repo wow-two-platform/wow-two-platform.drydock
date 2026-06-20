@@ -1,4 +1,4 @@
-using Drydock.Persistence;
+using WoW.Two.Sdk.Backend.Beta.Data.Migrations.Bespoke;
 
 namespace Drydock.Api.Configurations;
 
@@ -8,6 +8,17 @@ public static class AppInitialization
     /// <summary>Ensures the database schema exists before the host starts serving.</summary>
     public static async Task InitializeAsync(this WebApplication app)
     {
-        await app.Services.InitializeDatabaseAsync();
+        using var scope = app.Services.CreateScope();
+        var services = scope.ServiceProvider;
+
+        // CREATE DATABASE can't run inside the target DB — the dialect connects to the maintenance DB first.
+        // Read the raw string from configuration: NpgsqlDataSource.ConnectionString redacts the password.
+        var connectionString = DrydockDatabase.ConnectionString(services.GetRequiredService<IConfiguration>());
+
+        var dialect = services.GetRequiredService<IMigrationDialect>();
+        await dialect.EnsureDatabaseExistsAsync(connectionString);
+
+        var runner = services.GetRequiredService<IMigrationRunnerService>();
+        await runner.ApplyPendingAsync("startup");
     }
 }

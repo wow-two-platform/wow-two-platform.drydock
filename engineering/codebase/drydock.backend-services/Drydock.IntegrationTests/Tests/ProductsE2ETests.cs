@@ -43,6 +43,14 @@ public sealed class ProductsE2ETests(DrydockAppFixture fixture) : DrydockE2EBase
     }
 
     [Fact]
+    public async Task Post_InvalidRepo_Returns400()
+    {
+        var response = await AdminClient.PostJsonAsync("api/products", ProductBody("bad-repo", "Bad Repo", "not-a-valid-repo"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
     public async Task Get_Admin_Returns200()
     {
         var response = await AdminClient.GetAsync("api/products");

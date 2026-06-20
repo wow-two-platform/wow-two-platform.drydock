@@ -13,11 +13,6 @@ public sealed class ProductUpdateCommandHandler(IProductStore store, IGitHubClie
     public async ValueTask<AppResult<ProductUpdateResult.Success, ProductUpdateResult.Failure>> HandleAsync(
         ProductUpdateCommand request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.Name))
-            return Fail(FailureCategory.Validation, "Name is required.");
-        if (!ProductValidation.IsValidRepo(request.Repo))
-            return Fail(FailureCategory.Validation, "Repo must be a 'owner/repo' reference (a single slash, no spaces, no scheme).");
-
         var product = await store.FindAsync(request.Id, cancellationToken);
         if (product is null)
             return Fail(FailureCategory.NotFound, $"Product '{request.Id}' was not found.");

@@ -12,17 +12,7 @@ public static class HostConfiguration
         // Local-only dev overrides first — visible to AddApiDefaults' config reads.
         builder.AddSettings();
 
-        // SDK boot floor: structured logging, tracing, metrics, health, ProblemDetails, secure headers, compression, OpenAPI.
-        // Output cache + rate limiting OFF — single-user control plane with cookie-scoped responses; the edge proxy owns throttling.
-        // OTLP exporters OFF — no collector yet (tracing still fills Activity, so ProblemDetails stays trace-correlated). OpenAPI dev-only.
-        builder.AddApiDefaults(o =>
-        {
-            o.ServiceName = "drydock";
-            o.EnableOutputCache = false;
-            o.EnableRateLimiting = false;
-            o.EnableOtlpExporters = false;
-            o.ExposeOpenApi = builder.Environment.IsDevelopment();
-        });
+        builder.AddPlatformDefaults();
 
         builder
             .AddPersistenceLayer()
@@ -37,6 +27,10 @@ public static class HostConfiguration
     /// <summary>Configures the middleware pipeline and maps endpoints.</summary>
     public static WebApplication Configure(this WebApplication app)
     {
+        // TEMP: activate the SDK's registered exception handlers (validation → 400 ProblemDetails). Drop once
+        // UseApiDefaults wires UseExceptionHandler itself (this branch's SDK fix, in the next publish).
+        app.UseExceptionHandler();
+
         // Serve the React dashboard from wwwroot (single-deploy: API + UI in one host). Static assets stay public so the
         // sign-in screen loads before auth, and are registered before the SDK pipeline so they short-circuit.
         app.UseDefaultFiles();

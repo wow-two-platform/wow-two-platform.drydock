@@ -15,14 +15,6 @@ public sealed class ProductCreateCommandHandler(IProductStore store, TimeProvide
     public async ValueTask<AppResult<ProductCreateResult.Success, ProductCreateResult.Failure>> HandleAsync(
         ProductCreateCommand request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.Slug))
-            return Fail(FailureCategory.Validation, "Slug is required.");
-        if (string.IsNullOrWhiteSpace(request.Name))
-            return Fail(FailureCategory.Validation, "Name is required.");
-        if (!ProductValidation.IsValidRepo(request.Repo))
-            return Fail(FailureCategory.Validation, "Repo must be a 'owner/repo' reference (a single slash, no spaces, no scheme).");
-
-        // Format passed (cheap) — now confirm the repo actually exists on GitHub for this admin.
         var repoFailure = await ProductValidation.VerifyRepoExistsAsync(gitHub, request.Repo.Trim(), cancellationToken);
         if (repoFailure is { } rf)
             return Fail(rf.Category, rf.Message);

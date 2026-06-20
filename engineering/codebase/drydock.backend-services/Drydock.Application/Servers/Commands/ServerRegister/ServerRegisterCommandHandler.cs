@@ -15,10 +15,6 @@ public sealed class ServerRegisterCommandHandler(IServerStore store, TimeProvide
     public async ValueTask<AppResult<ServerRegisterResult.Success, ServerRegisterResult.Failure>> HandleAsync(
         ServerRegisterCommand request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.Name))
-            return Fail(FailureCategory.Validation, "Name is required.");
-        if (string.IsNullOrWhiteSpace(request.Host))
-            return Fail(FailureCategory.Validation, "Host is required.");
         if (await store.ExistsByHostAsync(request.Host.Trim(), cancellationToken))
             return Fail(FailureCategory.Conflict, $"A server with host '{request.Host}' already exists.");
 

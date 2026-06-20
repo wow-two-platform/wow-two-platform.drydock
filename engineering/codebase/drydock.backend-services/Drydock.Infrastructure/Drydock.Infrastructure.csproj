@@ -20,4 +20,10 @@
     <ProjectReference Include="..\Drydock.Domain\Drydock.Domain.csproj" />
   </ItemGroup>
 
+  <!-- The host composition root owns all wiring (see host-configuration convention): it registers the
+       internal GitHub and GHCR clients by concrete type, so it needs visibility into them. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Drydock.Api" />
+  </ItemGroup>
+
 </Project>
