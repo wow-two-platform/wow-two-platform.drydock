@@ -1,9 +1,7 @@
 using System.Data.Common;
-using System.Net.Http.Headers;
 using System.Text.Json.Serialization;
 using Drydock.Application;
 using Drydock.Application.Abstractions;
-using Drydock.Infrastructure.GitHub;
 using Drydock.Persistence;
 using Drydock.Persistence.Stores;
 using Microsoft.EntityFrameworkCore;
@@ -12,6 +10,9 @@ using WoW.Two.Sdk.Backend.Beta.Data.Dapper;
 using WoW.Two.Sdk.Backend.Beta.Data.Migrations.Bespoke;
 using WoW.Two.Sdk.Backend.Beta.Foundation.Time;
 using WoW.Two.Sdk.Backend.Beta.Foundation.Validation;
+using WoW.Two.Sdk.Backend.Beta.Integrations;
+using WoW.Two.Sdk.Backend.Beta.Integrations.Ghcr;
+using WoW.Two.Sdk.Backend.Beta.Integrations.GitHub;
 using WoW.Two.Sdk.Backend.Beta.Mediator;
 using WoW.Two.Sdk.Backend.Beta.Mediator.Validation;
 using WoW.Two.Sdk.Backend.Beta.Meta;
@@ -65,29 +66,15 @@ public static class HostConfigurationExtensions
         return builder;
     }
 
-    /// <summary>Registers the infrastructure layer — the SDK time provider and the typed GitHub and GHCR clients (SSH/registrar/DNS adapters land here next).</summary>
+    /// <summary>Registers the infrastructure layer — the SDK time provider, the GitHub and GHCR integration clients, and the OAuth-token source (SSH/registrar/DNS adapters land here next).</summary>
     public static WebApplicationBuilder AddInfrastructureLayer(this WebApplicationBuilder builder)
     {
         builder.Services.AddTimeProviders();
 
-        // The GitHub adapter reads the signed-in admin's OAuth token off the current request.
-        builder.Services.AddHttpContextAccessor();
-
-        // Typed client for the GitHub REST API. Constant headers live here; the per-request
-        // Authorization (the user's OAuth token) is attached inside the adapter.
-        builder.Services.AddHttpClient<IGitHubClient, GitHubClient>(client =>
-        {
-            client.BaseAddress = new Uri("https://api.github.com/");
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("Drydock");
-            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
-        });
-
-        // Typed client for the GitHub Container Registry (GHCR) v2 API — confirms a published image tag
-        // exists. Calls absolute ghcr.io URLs (token endpoint and manifest), so no base address.
-        builder.Services.AddHttpClient<IContainerRegistryClient, GhcrClient>(client =>
-        {
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("Drydock");
-        });
+        // The integration clients read the signed-in admin's OAuth token off the current request.
+        builder.Services.AddHttpContextAccessTokenProvider();
+        builder.Services.AddGitHubIntegration();
+        builder.Services.AddGhcrIntegration();
 
         return builder;
     }

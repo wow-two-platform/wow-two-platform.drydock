@@ -9,10 +9,7 @@
 
   <ItemGroup>
     <!-- Mediator (ISender.SendAsync) + AppResult.Match — controllers dispatch + collapse the union. -->
-    <PackageReference Include="WoW2.Sdk.Backend.Beta" Version="10.0.26-beta" />
-    <!-- GitHub OAuth provider. Same package + version the beta SDK wraps, so v0.2 swaps to
-         WoW.Two.Sdk.Backend.Beta.Identity.OAuth.GitHub with no behaviour change. -->
-    <PackageReference Include="AspNet.Security.OAuth.GitHub" Version="10.0.0" />
+    <PackageReference Include="WoW2.Sdk.Backend.Beta" Version="10.0.31-beta" />
   </ItemGroup>
 
   <ItemGroup>

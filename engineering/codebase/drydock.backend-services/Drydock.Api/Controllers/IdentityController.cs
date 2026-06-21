@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using WoW.Two.Sdk.Backend.Beta.Identity.Claims;
 
 namespace Drydock.Api.Controllers;
 
@@ -40,9 +41,9 @@ public sealed class IdentityController(IOptions<GitHubOAuthSettings> gitHub) : C
             return Unauthorized();
 
         return Ok(new CurrentUser(
-            Login: User.FindFirstValue(ClaimTypes.Name) ?? "",
-            Name: User.FindFirstValue("urn:github:name") ?? User.FindFirstValue(ClaimTypes.Name) ?? "",
-            Avatar: User.FindFirstValue("urn:github:avatar")));
+            Login: User.GetUsername() ?? User.FindFirstValue(ClaimTypes.Name) ?? "",
+            Name: User.GetDisplayName() ?? User.GetUsername() ?? "",
+            Avatar: User.GetAvatar()));
     }
 
     /// <summary>Signs the caller out.</summary>

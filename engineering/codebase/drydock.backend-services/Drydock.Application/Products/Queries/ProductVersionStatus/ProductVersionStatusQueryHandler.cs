@@ -1,5 +1,7 @@
 using Drydock.Application.Abstractions;
 using Drydock.Application.Products.Models;
+using WoW.Two.Sdk.Backend.Beta.Integrations.GitHub;
+using WoW.Two.Sdk.Backend.Beta.Integrations.Ghcr;
 using WoW.Two.Sdk.Backend.Beta.Mediator.Cqrs;
 using WoW.Two.Sdk.Backend.Beta.Mediator.Result;
 
@@ -20,6 +22,12 @@ public sealed class ProductVersionStatusQueryHandler(
     /// <summary>The floating tag the publish workflow pushes on a manual (no-release) dispatch.</summary>
     private const string LatestTag = "latest";
 
+    /// <summary>The publish-image workflow path that marks a repo as image-producing.</summary>
+    private const string PublishWorkflowPath = ".github/workflows/publish-docker-image.yml";
+
+    /// <summary>The publish-image workflow file name, used to query its runs via the Actions API.</summary>
+    private const string PublishWorkflowFile = "publish-docker-image.yml";
+
     /// <inheritdoc />
     public async ValueTask<AppOutcome> HandleAsync(ProductVersionStatusQuery request, CancellationToken cancellationToken)
     {
@@ -30,10 +38,10 @@ public sealed class ProductVersionStatusQueryHandler(
         var repo = product.Repo;
 
         // No image-publishing workflow → nothing builds images for this repo.
-        var marker = await gitHub.PublishWorkflowExistsAsync(repo, cancellationToken);
-        if (marker is MarkerCheck.Unauthorized or MarkerCheck.Failed)
-            return Ok(Unknown(GitHubReason(marker is MarkerCheck.Unauthorized)));
-        if (marker is MarkerCheck.Absent)
+        var marker = await gitHub.FileExistsAsync(repo, PublishWorkflowPath, cancellationToken);
+        if (marker is FileCheck.Unauthorized or FileCheck.Failed)
+            return Ok(Unknown(GitHubReason(marker is FileCheck.Unauthorized)));
+        if (marker is FileCheck.Absent)
             return Ok(NoCi());
 
         // Resolve the latest released version — the version we'd want to deploy.
@@ -96,7 +104,7 @@ public sealed class ProductVersionStatusQueryHandler(
     private async Task<ProductVersionDto> ResolveBuildStatusAsync(
         string repo, ReleaseInfo latestRelease, CancellationToken cancellationToken)
     {
-        var run = await gitHub.GetLatestPublishRunAsync(repo, cancellationToken);
+        var run = await gitHub.GetLatestWorkflowRunAsync(repo, PublishWorkflowFile, cancellationToken);
         switch (run)
         {
             case BuildRunCheck.Running:

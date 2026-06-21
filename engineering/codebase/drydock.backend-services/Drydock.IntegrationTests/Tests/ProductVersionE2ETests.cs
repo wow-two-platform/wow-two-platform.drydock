@@ -1,8 +1,9 @@
 using System.Net;
 using AwesomeAssertions;
-using Drydock.Application.Abstractions;
 using Drydock.IntegrationTests.Harness;
 using Drydock.IntegrationTests.Support;
+using WoW.Two.Sdk.Backend.Beta.Integrations.GitHub;
+using WoW.Two.Sdk.Backend.Beta.Integrations.Ghcr;
 
 namespace Drydock.IntegrationTests.Tests;
 
@@ -21,7 +22,7 @@ public sealed class ProductVersionE2ETests(DrydockAppFixture fixture) : DrydockE
         var id = await RegisterProductAsync("ready-product");
 
         // Latest release v2.0.0 plus a published image for it → Ready.
-        Fixture.GitHub.Marker = MarkerCheck.Present;
+        Fixture.GitHub.Marker = FileCheck.Present;
         Fixture.GitHub.Releases = [Release("v2.0.0"), Release("v1.0.0")];
         Fixture.Registry.ExistingTags.Add("v2.0.0");
 
@@ -39,7 +40,7 @@ public sealed class ProductVersionE2ETests(DrydockAppFixture fixture) : DrydockE
         var id = await RegisterProductAsync("lagging-product");
 
         // Latest v2.0.0 has no image; the older v1.0.0 does → LatestNotReady (ready lags the latest).
-        Fixture.GitHub.Marker = MarkerCheck.Present;
+        Fixture.GitHub.Marker = FileCheck.Present;
         Fixture.GitHub.Releases = [Release("v2.0.0"), Release("v1.0.0")];
         Fixture.Registry.ExistingTags.Add("v1.0.0");
 
@@ -57,7 +58,7 @@ public sealed class ProductVersionE2ETests(DrydockAppFixture fixture) : DrydockE
         var id = await RegisterProductAsync("never-built-product");
 
         // CI exists and there are releases, but no image is published for any of them → NeverBuilt.
-        Fixture.GitHub.Marker = MarkerCheck.Present;
+        Fixture.GitHub.Marker = FileCheck.Present;
         Fixture.GitHub.Releases = [Release("v1.0.0")];
         // Registry left empty → every tag is Missing.
 
@@ -74,7 +75,7 @@ public sealed class ProductVersionE2ETests(DrydockAppFixture fixture) : DrydockE
         var id = await RegisterProductAsync("no-release-product");
 
         // CI exists but the repo has published no releases → NeverBuilt.
-        Fixture.GitHub.Marker = MarkerCheck.Present;
+        Fixture.GitHub.Marker = FileCheck.Present;
         Fixture.GitHub.Releases = [];
 
         var version = await GetVersionAsync(id);
@@ -90,7 +91,7 @@ public sealed class ProductVersionE2ETests(DrydockAppFixture fixture) : DrydockE
         var id = await RegisterProductAsync("no-ci-product");
 
         // No publish workflow → nothing builds images for the repo → NoCi (terminal).
-        Fixture.GitHub.Marker = MarkerCheck.Absent;
+        Fixture.GitHub.Marker = FileCheck.Absent;
         Fixture.GitHub.Releases = [Release("v1.0.0")];
         Fixture.Registry.ExistingTags.Add("v1.0.0");
 
@@ -107,7 +108,7 @@ public sealed class ProductVersionE2ETests(DrydockAppFixture fixture) : DrydockE
         var id = await RegisterProductAsync("unknown-product");
 
         // CI + a latest release, but the registry refuses the probe → Unknown (couldn't determine).
-        Fixture.GitHub.Marker = MarkerCheck.Present;
+        Fixture.GitHub.Marker = FileCheck.Present;
         Fixture.GitHub.Releases = [Release("v1.0.0")];
         Fixture.Registry.Override = ImageCheck.Unauthorized;
 
@@ -123,7 +124,7 @@ public sealed class ProductVersionE2ETests(DrydockAppFixture fixture) : DrydockE
         var id = await RegisterProductAsync("unreleased-product");
 
         // CI exists, no releases, but a manual dispatch pushed :latest → UnreleasedBuild.
-        Fixture.GitHub.Marker = MarkerCheck.Present;
+        Fixture.GitHub.Marker = FileCheck.Present;
         Fixture.GitHub.Releases = [];
         Fixture.Registry.ExistingTags.Add("latest");
 
@@ -140,7 +141,7 @@ public sealed class ProductVersionE2ETests(DrydockAppFixture fixture) : DrydockE
         var id = await RegisterProductAsync("pending-product");
 
         // Latest release has no image and its publish run is in progress → BuildPending.
-        Fixture.GitHub.Marker = MarkerCheck.Present;
+        Fixture.GitHub.Marker = FileCheck.Present;
         Fixture.GitHub.Releases = [Release("v1.0.0")];
         Fixture.GitHub.PublishRun = BuildRunCheck.Running;
 
@@ -157,7 +158,7 @@ public sealed class ProductVersionE2ETests(DrydockAppFixture fixture) : DrydockE
         var id = await RegisterProductAsync("failed-product");
 
         // Latest release has no image and its publish run failed → BuildFailed.
-        Fixture.GitHub.Marker = MarkerCheck.Present;
+        Fixture.GitHub.Marker = FileCheck.Present;
         Fixture.GitHub.Releases = [Release("v1.0.0")];
         Fixture.GitHub.PublishRun = BuildRunCheck.Failed;
 

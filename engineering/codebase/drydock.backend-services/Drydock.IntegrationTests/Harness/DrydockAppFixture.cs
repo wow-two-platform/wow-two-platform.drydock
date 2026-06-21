@@ -1,9 +1,10 @@
-using Drydock.Application.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Testcontainers.PostgreSql;
 using WoW.Two.Sdk.Backend.Beta.Data.Dapper;
 using WoW.Two.Sdk.Backend.Beta.Data.Migrations.Bespoke;
+using WoW.Two.Sdk.Backend.Beta.Integrations.GitHub;
+using WoW.Two.Sdk.Backend.Beta.Integrations.Ghcr;
 
 namespace Drydock.IntegrationTests.Harness;
 
@@ -106,7 +107,7 @@ public sealed class DrydockAppFixture : IAsyncLifetime
     private void ResetStubs()
     {
         GitHub.Result = RepoCheck.Exists;
-        GitHub.Marker = MarkerCheck.Present;
+        GitHub.Marker = FileCheck.Present;
         GitHub.Releases = [];
         GitHub.ReleaseOutcome = ReleaseLookup.Found;
         GitHub.PublishRun = BuildRunCheck.None;

@@ -27,10 +27,6 @@ public static class HostConfiguration
     /// <summary>Configures the middleware pipeline and maps endpoints.</summary>
     public static WebApplication Configure(this WebApplication app)
     {
-        // TEMP: activate the SDK's registered exception handlers (validation → 400 ProblemDetails). Drop once
-        // UseApiDefaults wires UseExceptionHandler itself (this branch's SDK fix, in the next publish).
-        app.UseExceptionHandler();
-
         // Serve the React dashboard from wwwroot (single-deploy: API + UI in one host). Static assets stay public so the
         // sign-in screen loads before auth, and are registered before the SDK pipeline so they short-circuit.
         app.UseDefaultFiles();

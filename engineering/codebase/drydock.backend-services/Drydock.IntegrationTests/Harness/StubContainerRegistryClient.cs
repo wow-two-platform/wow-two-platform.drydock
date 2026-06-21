@@ -1,4 +1,4 @@
-using Drydock.Application.Abstractions;
+using WoW.Two.Sdk.Backend.Beta.Integrations.Ghcr;
 
 namespace Drydock.IntegrationTests.Harness;
 

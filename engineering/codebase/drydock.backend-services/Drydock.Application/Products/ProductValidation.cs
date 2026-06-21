@@ -1,4 +1,4 @@
-using Drydock.Application.Abstractions;
+using WoW.Two.Sdk.Backend.Beta.Integrations.GitHub;
 using WoW.Two.Sdk.Backend.Beta.Mediator.Result;
 
 namespace Drydock.Application.Products;
