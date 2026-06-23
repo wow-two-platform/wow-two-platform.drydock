@@ -1,13 +1,8 @@
-using System.Data.Common;
-using System.Text.Json.Serialization;
 using Drydock.Application;
 using Drydock.Application.Abstractions;
 using Drydock.Persistence;
 using Drydock.Persistence.Stores;
-using Microsoft.EntityFrameworkCore;
-using Npgsql;
-using WoW.Two.Sdk.Backend.Beta.Data.Dapper;
-using WoW.Two.Sdk.Backend.Beta.Data.Migrations.Bespoke;
+using WoW.Two.Sdk.Backend.Beta.Data;
 using WoW.Two.Sdk.Backend.Beta.Foundation.Time;
 using WoW.Two.Sdk.Backend.Beta.Foundation.Validation;
 using WoW.Two.Sdk.Backend.Beta.Integrations;
@@ -16,6 +11,7 @@ using WoW.Two.Sdk.Backend.Beta.Integrations.GitHub;
 using WoW.Two.Sdk.Backend.Beta.Mediator;
 using WoW.Two.Sdk.Backend.Beta.Mediator.Validation;
 using WoW.Two.Sdk.Backend.Beta.Meta;
+using WoW.Two.Sdk.Backend.Beta.Web.Json;
 
 namespace Drydock.Api.Configurations;
 
@@ -43,25 +39,19 @@ public static class HostConfigurationExtensions
         return builder;
     }
 
-    /// <summary>Registers the persistence layer — Npgsql data source, EF Core context (pure mapper), stores, and the bespoke SQL migrator.</summary>
+    /// <summary>Registers the persistence layer — the SDK one-call Postgres bundle (data source, connection factory, audit interceptor, snake_case EF context, embedded bespoke migrator) plus the Drydock stores.</summary>
     public static WebApplicationBuilder AddPersistenceLayer(this WebApplicationBuilder builder)
     {
-        // Shared Npgsql data source: EF resolves the concrete NpgsqlDataSource; the migrator binds to it as a base DbDataSource.
-        builder.Services.AddSingleton(_ => new NpgsqlDataSourceBuilder(DrydockDatabase.ConnectionString(builder.Configuration)).Build());
-        builder.Services.AddSingleton<DbDataSource>(sp => sp.GetRequiredService<NpgsqlDataSource>());
-
-        // SDK connection seam: DataSourceConnectionFactory as IDbConnectionFactory, backed by the DbDataSource above.
-        builder.Services.AddDataSourceConnectionFactory();
-
-        builder.Services.AddDbContext<DrydockDbContext>((sp, options) =>
-            options.UseNpgsql(sp.GetRequiredService<NpgsqlDataSource>())
-                   .UseSnakeCaseNamingConvention());
+        // One-call host floor for the context: resolves the connection string, builds the shared NpgsqlDataSource,
+        // registers the Dapper connection factory + audit interceptor, adds the snake_case EF context, and wires the
+        // embedded bespoke migrator over typeof(DrydockDbContext).Assembly. Keep Drydock's existing config key
+        // (ConnectionStrings:Drydock) instead of the SDK default (DatabaseOptions:ConnectionString); env DB_CONNECTION still overrides.
+        builder.Services.AddPostgresPersistence<DrydockDbContext>(
+            builder.Configuration,
+            o => o.ConnectionStringConfigKey = DrydockDatabase.ConnectionStringConfigKey);
 
         builder.Services.AddScoped<IServerStore, EfServerStore>();
         builder.Services.AddScoped<IProductStore, EfProductStore>();
-
-        // SQL migrator (embedded source) — owns the Postgres schema; EF is a pure mapper over it.
-        builder.Services.AddDatabaseBespokeMigrations(typeof(DrydockDbContext).Assembly);
 
         return builder;
     }
@@ -89,12 +79,12 @@ public static class HostConfigurationExtensions
         return builder;
     }
 
-    /// <summary>Registers API services — controllers + enum-as-string JSON (OpenAPI is wired by <c>AddApiDefaults</c>).</summary>
+    /// <summary>Registers API services — controllers + enum-as-string JSON via the SDK helper (OpenAPI is wired by <c>AddApiDefaults</c>).</summary>
     public static WebApplicationBuilder AddApiServices(this WebApplicationBuilder builder)
     {
         builder.Services
             .AddControllers()
-            .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+            .AddJsonStringEnums();
 
         return builder;
     }

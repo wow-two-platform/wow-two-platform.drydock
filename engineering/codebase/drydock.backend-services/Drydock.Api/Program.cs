@@ -1,4 +1,5 @@
 using Drydock.Api.Configurations;
+using WoW.Two.Sdk.Backend.Beta.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Configure();
@@ -6,6 +7,7 @@ builder.Configure();
 var app = builder.Build();
 app.Configure();
 
-await app.InitializeAsync();
+// Create the database if missing, then apply all pending bespoke SQL migrations (idempotent — runs on every boot).
+await app.Services.MigrateBespokeOnStartupAsync();
 
 app.Run();

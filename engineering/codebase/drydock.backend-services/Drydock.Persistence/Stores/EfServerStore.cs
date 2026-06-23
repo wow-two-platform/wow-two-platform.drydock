@@ -17,11 +17,21 @@ internal sealed class EfServerStore(DrydockDbContext db) : IServerStore
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<Server>> ListAsync(CancellationToken ct = default) =>
-        await db.Servers.AsNoTracking().OrderByDescending(s => s.CreatedAtUtc).ToListAsync(ct);
+        await db.Servers.AsNoTracking()
+            .OrderByDescending(s => s.CreatedAtUtc)
+            .ThenByDescending(s => s.Id)
+            .ToListAsync(ct);
 
     /// <inheritdoc />
     public async Task<Server?> FindAsync(Guid id, CancellationToken ct = default) =>
         await db.Servers.FirstOrDefaultAsync(s => s.Id == id, ct);
+
+    /// <inheritdoc />
+    public async Task RemoveAsync(Server server, CancellationToken ct = default)
+    {
+        db.Servers.Remove(server);
+        await db.SaveChangesAsync(ct);
+    }
 
     /// <inheritdoc />
     public async Task<bool> ExistsByHostAsync(string host, CancellationToken ct = default) =>

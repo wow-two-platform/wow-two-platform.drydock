@@ -9,7 +9,7 @@
 
   <ItemGroup>
     <!-- Mediator (ISender.SendAsync) + AppResult.Match — controllers dispatch + collapse the union. -->
-    <PackageReference Include="WoW2.Sdk.Backend.Beta" Version="10.0.34-beta" />
+    <PackageReference Include="WoW2.Sdk.Backend.Beta" Version="10.0.37-beta" />
   </ItemGroup>
 
   <ItemGroup>

@@ -53,6 +53,12 @@ public sealed class DrydockAppFixture : IAsyncLifetime
     {
         await _postgres.StartAsync();
 
+        // AddPostgresPersistence resolves the connection string eagerly at service registration, where the host hook's
+        // config layer isn't applied yet — so use the DB_CONNECTION env seam (it wins over config and is visible at
+        // registration time) to point the SDK persistence bundle + bespoke migrator at the container DB. The in-memory
+        // config below (the app's own ConnectionStrings:Drydock key) is the belt-and-suspenders for any later config read.
+        Environment.SetEnvironmentVariable("DB_CONNECTION", _postgres.ConnectionString);
+
         _host = new WebApiTestHost<Program>
         {
             // The SDK host has no connection-string knob — inject it the way the app reads it (ConnectionStrings:Drydock).
@@ -86,6 +92,9 @@ public sealed class DrydockAppFixture : IAsyncLifetime
             await _host.DisposeAsync();
 
         await _postgres.DisposeAsync();
+
+        // Don't leak the container connection string into other test processes.
+        Environment.SetEnvironmentVariable("DB_CONNECTION", null);
     }
 
     /// <summary>Truncates every data table between tests via Respawn (the migration history is preserved), and resets the stubs.</summary>

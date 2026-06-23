@@ -59,4 +59,36 @@ public sealed class ServersE2ETests(DrydockAppFixture fixture) : DrydockE2EBase(
 
         duplicate.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
+
+    [Fact]
+    public async Task Delete_Admin_Returns204_ThenGetReturns404()
+    {
+        var id = await CreateServerAsync("del-server", "10.2.0.1");
+
+        var delete = await AdminClient.DeleteAsync($"api/servers/{id}");
+        delete.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        // The row is gone — listing must no longer include it (there is no GET-by-id route for servers).
+        var get = await AdminClient.GetAsync("api/servers");
+        get.StatusCode.Should().Be(HttpStatusCode.OK);
+        var servers = await get.ReadEnvelopeAsync<IReadOnlyList<ServerResponse>>();
+        servers.Should().NotContain(s => s.Id == id);
+    }
+
+    [Fact]
+    public async Task Delete_MissingId_Returns404()
+    {
+        var response = await AdminClient.DeleteAsync($"api/servers/{Guid.NewGuid()}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    private async Task<Guid> CreateServerAsync(string name, string host)
+    {
+        var response = await AdminClient.PostJsonAsync("api/servers", ServerBody(name, host));
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var server = await response.ReadEnvelopeAsync<ServerResponse>();
+        return server.Id;
+    }
 }

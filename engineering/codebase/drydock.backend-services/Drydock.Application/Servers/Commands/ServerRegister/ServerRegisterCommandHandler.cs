@@ -24,7 +24,8 @@ public sealed class ServerRegisterCommandHandler(IServerStore store, TimeProvide
             Name = request.Name.Trim(),
             Host = request.Host.Trim(),
             SshUser = string.IsNullOrWhiteSpace(request.SshUser) ? "root" : request.SshUser.Trim(),
-            SshPort = request.SshPort is > 0 and <= 65535 ? request.SshPort : 22,
+            // The validator has already rejected any explicitly out-of-range port; only an omitted 0 reaches here → default 22.
+            SshPort = ServerValidation.IsValidPort(request.SshPort) ? request.SshPort : 22,
             Region = request.Region,
             Status = ServerStatus.Unknown,
             CreatedAtUtc = timeProvider.GetUtcNow()

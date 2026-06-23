@@ -1,8 +1,14 @@
 <Solution>
-  <Project Path="Drydock.Api/Drydock.Api.csproj" />
-  <Project Path="Drydock.Application/Drydock.Application.csproj" />
-  <Project Path="Drydock.Domain/Drydock.Domain.csproj" />
-  <Project Path="Drydock.Infrastructure/Drydock.Infrastructure.csproj" />
-  <Project Path="Drydock.Persistence/Drydock.Persistence.csproj" />
-  <Project Path="Drydock.IntegrationTests/Drydock.IntegrationTests.csproj" />
+  <Folder Name="/services/">
+    <Project Path="Drydock.Api/Drydock.Api.csproj" />
+    <Project Path="Drydock.Application/Drydock.Application.csproj" />
+    <Project Path="Drydock.Domain/Drydock.Domain.csproj" />
+    <Project Path="Drydock.Infrastructure/Drydock.Infrastructure.csproj" />
+    <Project Path="Drydock.Persistence/Drydock.Persistence.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="Drydock.Tests/Drydock.Tests.csproj" />
+    <Project Path="Drydock.IntegrationTests/Drydock.IntegrationTests.csproj" />
+    <Project Path="Drydock.Migrations.Tests/Drydock.Migrations.Tests.csproj" />
+  </Folder>
 </Solution>

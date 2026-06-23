@@ -24,13 +24,14 @@ engineering/              ← the execution (build · ship · run)
 Follows `wow-two-ws/conventions/development/repo/repo-structure.md`.
 
 Backend layers: `Domain` (entities/enums/Result) → `Application` (MediatR CQRS + store abstractions)
-→ `Infrastructure` (adapters) + `Persistence` (EF Core SQLite) → `Api` (slim host). Mirrors the
+→ `Infrastructure` (adapters) + `Persistence` (EF Core + Postgres) → `Api` (slim host). Mirrors the
 `wow-two-platform.secrets-vault` sibling exactly.
 
 ## Core domains (the 5 things Drydock manages)
 
-Products · Servers · Deployments · Domains · Secrets. v1 wires **Servers** end-to-end (register +
-list); the others exist as Domain entities + DbSets and get their Application/Api verticals next.
+Products · Servers · Deployments · Domains · Secrets. **Products** (create/list/update/delete +
+version-resolution) and **Servers** (register/list/delete) are wired end-to-end; Deployments/Domains/Secrets
+exist as Domain entities + DbSets, verticals next.
 
 ## Build & run
 
@@ -46,6 +47,17 @@ dotnet run --project Drydock.Api --launch-profile https   # 8210 https / 8211 ht
 cd engineering/codebase/drydock.frontend-services && npm install && npm run dev   # 5174, proxies /api → 8211
 npm run deploy   # build + copy SPA into Drydock.Api/wwwroot
 ```
+
+## Testing
+
+3-tier, e2e-first (run all: `dotnet test Drydock.slnx`). Solution folders: `services/` + `tests/`.
+
+- **`Drydock.Tests`** — unit (pure logic: version-state machine, validators). Docker-free.
+- **`Drydock.Migrations.Tests`** — integration (migrator + persistence vs real PG, no HTTP). Docker.
+- **`Drydock.IntegrationTests`** — e2e (full host + Testcontainers PG, on `…Beta.Testing`). Docker.
+
+Reserve unit for I/O-free logic; everything user-facing is covered e2e. Full rule:
+`wow-two-ws/conventions/development/backend/testing/testing.md`.
 
 ## Conventions
 
@@ -63,11 +75,11 @@ npm run deploy   # build + copy SPA into Drydock.Api/wwwroot
   EmptyState, Alert, Spinner, TextInput, …) before hand-rolling. Tailwind v4 wiring: `index.css`
   imports `tailwindcss` + `@wow-two-beta/ui/styles.css` and `@source`s the package's `dist` so its
   utility classes are generated. If a component is missing, build it locally, then migrate it upstream.
-- **Backend → `WoW.Two.Sdk.Backend.Beta` (migration target, not yet referenced).** v1 uses raw
-  MediatR + EF Core (the proven secrets-vault pattern) so the scaffold builds cleanly today. The beta
-  backend is on nuget.org but still maturing (some modules compile-excluded; bespoke mediator surface).
-  **Plan:** once a restore-verified spike confirms its hosting/observability/problemdetails/mediator
-  helpers, migrate `Api/Configurations` + the pipeline onto it. Build-locally-then-migrate is the rule.
+- **Backend → `WoW.Two.Sdk.Backend.Beta` (adopted, `10.0.34-beta`).** `v0.2` migrated every layer onto
+  the SDK: host floor (`AddApiDefaults`/`UseApiDefaults`), mediator + results + validation, identity
+  (GitHub OAuth + cookie + allowlist/default-deny), `Integrations.GitHub`/`Ghcr` clients, the bespoke SQL
+  migrator, and `…Beta.Testing` for the test harness. Products hold business logic only; new infra proves
+  inline then extracts to the SDK in the next `+0.1` (see `engineering/planning/backlog.md`).
 
 ## Security
 
@@ -77,5 +89,4 @@ encrypt secrets at rest, use scoped tokens, and keep an audit trail.
 
 ## Out of scope (deliberately, for now)
 
-Auth/multi-tenant/billing (single-user — bind to Tailscale). No tests yet in the scaffold; add them
-alongside the SSH deploy executor (the first logic worth locking down).
+Auth/multi-tenant/billing (single-user — bind to Tailscale).

@@ -21,7 +21,7 @@
       stubs, and DrydockAppFixture (DB lifecycle composing PostgresFixture).
     -->
     <ItemGroup>
-        <PackageReference Include="WoW2.Sdk.Backend.Beta.Testing" Version="10.0.34-beta"/>
+        <PackageReference Include="WoW2.Sdk.Backend.Beta.Testing" Version="10.0.37-beta"/>
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0"/>
         <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2"/>
     </ItemGroup>

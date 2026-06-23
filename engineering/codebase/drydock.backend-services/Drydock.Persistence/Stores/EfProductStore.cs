@@ -17,7 +17,10 @@ internal sealed class EfProductStore(DrydockDbContext db) : IProductStore
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<Product>> ListAsync(CancellationToken ct = default) =>
-        await db.Products.AsNoTracking().OrderByDescending(p => p.CreatedAtUtc).ToListAsync(ct);
+        await db.Products.AsNoTracking()
+            .OrderByDescending(p => p.CreatedAtUtc)
+            .ThenByDescending(p => p.Id)
+            .ToListAsync(ct);
 
     /// <inheritdoc />
     public async Task<Product?> FindAsync(Guid id, CancellationToken ct = default) =>

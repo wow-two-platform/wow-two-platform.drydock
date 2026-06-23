@@ -1,3 +1,4 @@
+using Drydock.Application.Servers.Commands.ServerDelete;
 using Drydock.Application.Servers.Commands.ServerRegister;
 using Drydock.Application.Servers.Models;
 using Drydock.Application.Servers.Queries.ServerGetAll;
@@ -37,6 +38,19 @@ public sealed class ServersController(ISender sender) : ControllerBase
 
         return result.Match<IActionResult>(
             ok => CreatedAtAction(nameof(Get), new { id = ok.Data.Server.Id }, ApiResponse<ServerDto>.Ok(ok.Data.Server)),
+            fail => Problem(detail: fail.Error.ErrorMessage, statusCode: fail.Error.Category.ToStatusCode()));
+    }
+
+    /// <summary>Deletes a server.</summary>
+    [HttpDelete("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteById(Guid id, CancellationToken ct)
+    {
+        var result = await sender.SendAsync(new ServerDeleteCommand(id), ct);
+
+        return result.Match<IActionResult>(
+            NoContent,
             fail => Problem(detail: fail.Error.ErrorMessage, statusCode: fail.Error.Category.ToStatusCode()));
     }
 }

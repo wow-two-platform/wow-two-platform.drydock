@@ -1,21 +1,20 @@
 using Drydock.Domain.Deployments.Entities;
-using Drydock.Domain.Deployments.Enums;
 using Drydock.Domain.Domains.Entities;
-using Drydock.Domain.Domains.Enums;
 using Drydock.Domain.Products.Entities;
-using Drydock.Domain.Products.Enums;
 using Drydock.Domain.Secrets.Entities;
-using Drydock.Domain.Secrets.Enums;
 using Drydock.Domain.Servers.Entities;
-using Drydock.Domain.Servers.Enums;
 using Microsoft.EntityFrameworkCore;
 using WoW.Two.Sdk.Backend.Beta.Data.EntityFrameworkCore.Naming;
+using WoW.Two.Sdk.Backend.Beta.Data.EntityFrameworkCore.Sqlite;
 
 namespace Drydock.Persistence;
 
 /// <summary>EF Core context for the Drydock control plane — a pure mapper over the Postgres schema the bespoke SQL migrator owns. Snake_case naming + enums-as-snake_case-text; <c>DateTimeOffset</c> → <c>timestamptz</c> natively.</summary>
 public sealed class DrydockDbContext(DbContextOptions<DrydockDbContext> options) : DbContext(options)
 {
+    /// <summary>The EF Core SQLite provider name — gates the SQLite-only <c>DateTimeOffset</c> binary conversion (test hosts only; Npgsql maps <c>DateTimeOffset</c> natively).</summary>
+    private const string SqliteProviderName = "Microsoft.EntityFrameworkCore.Sqlite";
+
     /// <summary>Gets the registered deploy-target servers.</summary>
     public DbSet<Server> Servers => Set<Server>();
 
@@ -30,18 +29,6 @@ public sealed class DrydockDbContext(DbContextOptions<DrydockDbContext> options)
 
     /// <summary>Gets the encrypted secrets.</summary>
     public DbSet<SecretEntry> Secrets => Set<SecretEntry>();
-
-    /// <inheritdoc />
-    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
-    {
-        // Store every enum as snake_case text via the SDK reversible converter (member-built reverse map → multi-word
-        // values round-trip losslessly, e.g. RolledBack ↔ rolled_back). One place; Postgres-native casing; text columns unchanged.
-        configurationBuilder.Properties<ServerStatus>().HaveConversion<EnumCaseConverter<ServerStatus>>();
-        configurationBuilder.Properties<ProductStatus>().HaveConversion<EnumCaseConverter<ProductStatus>>();
-        configurationBuilder.Properties<DeploymentStatus>().HaveConversion<EnumCaseConverter<DeploymentStatus>>();
-        configurationBuilder.Properties<DomainStatus>().HaveConversion<EnumCaseConverter<DomainStatus>>();
-        configurationBuilder.Properties<SecretScope>().HaveConversion<EnumCaseConverter<SecretScope>>();
-    }
 
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -87,5 +74,15 @@ public sealed class DrydockDbContext(DbContextOptions<DrydockDbContext> options)
             e.HasIndex(x => new { x.Scope, x.RefId, x.Key }).IsUnique();
             e.Property(x => x.Key).IsRequired();
         });
+
+        // Store every enum in the model as snake_case text via the SDK reversible converter (member-built reverse map →
+        // multi-word values round-trip losslessly, e.g. RolledBack ↔ rolled_back). One call replaces the per-enum list;
+        // runs after the entities are mapped. Postgres-native casing; text columns unchanged.
+        modelBuilder.ApplyEnumStringConversions();
+
+        // SQLite has no native DateTimeOffset (Npgsql maps it natively) — under the SQLite test provider, store every
+        // DateTimeOffset as a binary Int64 so range reads and ORDER BY match Postgres. No-op under Npgsql.
+        if (Database.ProviderName == SqliteProviderName)
+            modelBuilder.ApplyDateTimeOffsetToBinaryConversion();
     }
 }
