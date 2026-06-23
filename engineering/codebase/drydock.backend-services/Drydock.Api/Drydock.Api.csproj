@@ -9,7 +9,7 @@
 
   <ItemGroup>
     <!-- Mediator (ISender.SendAsync) + AppResult.Match — controllers dispatch + collapse the union. -->
-    <PackageReference Include="WoW2.Sdk.Backend.Beta" Version="10.0.31-beta" />
+    <PackageReference Include="WoW2.Sdk.Backend.Beta" Version="10.0.34-beta" />
   </ItemGroup>
 
   <ItemGroup>
@@ -18,5 +18,26 @@
     <ProjectReference Include="..\Drydock.Persistence\Drydock.Persistence.csproj" />
     <ProjectReference Include="..\Drydock.Domain\Drydock.Domain.csproj" />
   </ItemGroup>
+
+  <PropertyGroup>
+    <!-- drydock.frontend-services is a sibling of drydock.backend-services under engineering/codebase/. -->
+    <SpaRoot>$(MSBuildProjectDirectory)\..\..\drydock.frontend-services\</SpaRoot>
+  </PropertyGroup>
+  <ItemGroup>
+    <SpaInputs Include="$(SpaRoot)src\**\*;$(SpaRoot)index.html;$(SpaRoot)package.json;$(SpaRoot)vite.config.ts" />
+  </ItemGroup>
+  <!--
+    Rebuild the SPA into wwwroot on backend build; incremental via Inputs/Outputs (no-op when SPA unchanged).
+    Uses npm (drydock is npm, not pnpm) and `npm run deploy` (vite build → dist → copied into wwwroot by
+    scripts/deploy.mjs, since vite outDir is `dist` here, not wwwroot).
+    SkipSpaBuild guard: the Docker `dotnet publish` stage runs on the .NET SDK image, which has NO Node —
+    its node stage already built the SPA into wwwroot, so that stage passes -p:SkipSpaBuild=true to skip this.
+  -->
+  <Target Name="BuildSpa" BeforeTargets="Build"
+          Condition="'$(SkipSpaBuild)' != 'true'"
+          Inputs="@(SpaInputs)" Outputs="$(MSBuildProjectDirectory)\wwwroot\index.html">
+    <Exec Command="npm ci" WorkingDirectory="$(SpaRoot)" Condition="!Exists('$(SpaRoot)node_modules')" />
+    <Exec Command="npm run deploy" WorkingDirectory="$(SpaRoot)" />
+  </Target>
 
 </Project>

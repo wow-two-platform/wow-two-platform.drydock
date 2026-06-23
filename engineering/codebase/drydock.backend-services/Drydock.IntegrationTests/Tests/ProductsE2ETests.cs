@@ -2,6 +2,7 @@ using System.Net;
 using AwesomeAssertions;
 using Drydock.IntegrationTests.Harness;
 using Drydock.IntegrationTests.Support;
+using WoW.Two.Sdk.Backend.Beta.Testing.Web;
 
 namespace Drydock.IntegrationTests.Tests;
 

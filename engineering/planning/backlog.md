@@ -1,6 +1,6 @@
 # Drydock — Backlog
 
-*Last updated: 2026-06-16*
+*Last updated: 2026-06-22*
 
 Deferred work + known issues. Version docs (`../versions/`) stay clean — items land here, not there.
 **Ordered queue: top = next to pull.** Grouped by theme; ordered within. Type: `feature` · `issue` · `check` · `idea`. Order is the priority — no future-version tags. Strike-through + ✅ when done (kept for traceability).
@@ -23,11 +23,20 @@ Deferred work + known issues. Version docs (`../versions/`) stay clean — items
 | ~~10~~ | ~~`DateTimeOffset`→binary SQLite convention~~ | — | ~~obsolete~~ — SQLite path removed 2026-06-20; tests run on Postgres |
 | ~~11~~ | ~~migrate-on-boot + design-time factory~~ | `Data.Migrations.Bespoke` | ✅ done — extracted by the migration lane (bespoke SQL migrator), 2026-06-20 |
 | 12 | slim host wiring (`Program.cs`/`Api/Configurations`) | `Meta` (`AddApiDefaults`/`UseApiDefaults`) | adopt (partial) |
-| 13 | single-host SPA serving + `/api/*` JSON-404 | `Web.Hosting` (new `Spa` leaf) | new |
+| 13 | single-host SPA serving + `/api/*` JSON-404 | `Web.Hosting` (new `Spa` leaf) | new — **highest cross-portfolio ROI** (drydock+smart-qr+vault all hand-roll it; 2026-06-22 SDK-% audit) |
+| 14 | `StubGitHubClient`/`StubContainerRegistryClient` (E2E doubles for SDK `Integrations.GitHub`/`Ghcr`) | new `Testing.Integrations.{GitHub,Ghcr}` doubles | new — surfaced by 2026-06-22 SDK-% audit; pairs with the Iter-7 test adoption |
 
 **Stays (business logic, never extracted):** the 5 domain aggregates + enums · all `Products`/`Servers` CQRS verticals + DTOs · `ProductValidation` · `IGitHubClient`/`GitHubClient` (request-scoped repo-existence probe — product-specific) · store *interfaces* (+ `Exists*` predicates) · DbContext entity mappings · controllers · settings *values* + `launchSettings`.
 
 **Decide once (every portfolio product hits it):** `IClock` is `DateTimeOffset`-based in drydock but **NodaTime** in the SDK — adopt NodaTime (+ touch the ~3 handlers reading `clock.UtcNow`) OR have `Foundation.Time` expose a `DateTimeOffset`/`TimeProvider` clock so adoption is a pure delete.
+
+## Build & dev-loop (local single-host build)
+
+> Drydock-actionable **now** — no SDK dependency (unlike the Iter 7 test adoption, which is gated on the SDK closing its 5 testing gaps).
+
+| Item | Type | Notes |
+|---|---|---|
+| ~~Frontend build wiring — MSBuild `BuildSpa` target on `Drydock.Api`~~ ✅ | feature | **Done 2026-06-22** — `Drydock.Api.csproj` `BuildSpa` target (`BeforeTargets="Build"`, `Inputs`/`Outputs` incremental, `npm ci` only when `node_modules` absent → `npm run deploy` → `wwwroot/`); ports smart-qr `f55d296`. **Docker guard:** `Condition="'$(SkipSpaBuild)' != 'true'"` + `-p:SkipSpaBuild=true` on the Dockerfile publish (`Dockerfile:28`) so the Node-less .NET publish stage skips it (its node stage already built the SPA). Verified: 1st build → SPA in `wwwroot`; 2nd build → incremental skip; guard → skips. **Open follow-up → mirror to `secrets-vault`** (`SecretsVault.Api.csproj`). |
 
 ## Make products publishable (prerequisite for the whole deploy model)
 

@@ -25,7 +25,7 @@ WORKDIR /src
 COPY drydock.backend-services/ ./
 # The built SPA lands in wwwroot so `dotnet publish` bundles it into the output.
 COPY --from=spa /spa/dist ./Drydock.Api/wwwroot
-RUN dotnet publish Drydock.Api/Drydock.Api.csproj -c Release -o /app
+RUN dotnet publish Drydock.Api/Drydock.Api.csproj -c Release -o /app -p:SkipSpaBuild=true
 
 # ---- Stage 3: runtime ----
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final

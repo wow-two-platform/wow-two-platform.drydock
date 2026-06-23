@@ -1,31 +1,31 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Testcontainers.PostgreSql;
-using WoW.Two.Sdk.Backend.Beta.Data.Dapper;
-using WoW.Two.Sdk.Backend.Beta.Data.Migrations.Bespoke;
 using WoW.Two.Sdk.Backend.Beta.Integrations.GitHub;
 using WoW.Two.Sdk.Backend.Beta.Integrations.Ghcr;
+using WoW.Two.Sdk.Backend.Beta.Testing;
+using WoW.Two.Sdk.Backend.Beta.Testing.Containers;
 
 namespace Drydock.IntegrationTests.Harness;
 
 /// <summary>
 /// Owns the single in-process Drydock.Api host the whole E2E run drives, backed by an ephemeral Postgres
-/// container (Testcontainers). The host migrates on boot (<c>app.InitializeAsync()</c> → the bespoke SQL
-/// migrator), so the schema exists by the time the first client is created. <see cref="ResetAsync"/> drops and
-/// re-migrates the DB between tests for isolation.
+/// container. The container + between-test reset are owned by the SDK <see cref="PostgresFixture"/> (Testcontainers
+/// + Respawn); this fixture stays the only Drydock-specific piece — it knows the connection-string key, the
+/// test-auth + GitHub/GHCR stub wiring, and composes the host on top of the SDK <see cref="WebApiTestHost{TEntryPoint}"/>.
 /// </summary>
 /// <remarks>
-/// This is the only Drydock-specific piece of the harness — it knows the connection-string key, the bespoke
-/// migrator, and the test-auth + GitHub-stub wiring. The generic host wrapper
-/// (<see cref="WebApiTestHost{TEntryPoint}"/>) stays extractable to the SDK.
+/// Lifecycle: start the Postgres fixture → build the host (its <c>InitializeAsync()</c> runs the bespoke SQL migrator,
+/// so the schema exists) → snapshot the post-migration schema once via <see cref="PostgresFixture.InitializeRespawnerAsync"/>.
+/// <see cref="ResetAsync"/> then truncates data (Respawn ignores <c>migration_history</c>, so migrations never re-run).
 /// </remarks>
 public sealed class DrydockAppFixture : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder()
-        .WithImage("postgres:16-alpine")
-        .Build();
+    private readonly PostgresFixture _postgres = new(new PostgreSqlBuilder().WithImage("postgres:16-alpine").Build());
 
     private WebApiTestHost<Program>? _host;
+    private bool _respawnerReady;
 
     /// <summary>The booted Api host.</summary>
     public WebApiTestHost<Program> Host =>
@@ -55,7 +55,12 @@ public sealed class DrydockAppFixture : IAsyncLifetime
 
         _host = new WebApiTestHost<Program>
         {
-            ConnectionString = _postgres.GetConnectionString(),
+            // The SDK host has no connection-string knob — inject it the way the app reads it (ConnectionStrings:Drydock).
+            ConfigureHostHook = builder => builder.ConfigureAppConfiguration((_, config) =>
+                config.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["ConnectionStrings:Drydock"] = _postgres.ConnectionString,
+                })),
             ConfigureServicesHook = services =>
             {
                 services.UseTestAdminAuth();
@@ -83,23 +88,17 @@ public sealed class DrydockAppFixture : IAsyncLifetime
         await _postgres.DisposeAsync();
     }
 
-    /// <summary>Drops and re-creates the schema via the bespoke migrator so each test starts from an empty database.</summary>
+    /// <summary>Truncates every data table between tests via Respawn (the migration history is preserved), and resets the stubs.</summary>
     public async Task ResetAsync()
     {
-        using var scope = Host.Services.CreateScope();
-
-        // Wipe the schema (drops every table incl. migration_history), then let the migrator re-apply the baseline.
-        var connections = scope.ServiceProvider.GetRequiredService<IDbConnectionFactory>();
-        await using (var connection = await connections.CreateOpenAsync())
+        // Snapshot the schema once, after the host has migrated — the respawner reflects the real post-migration shape.
+        if (!_respawnerReady)
         {
-            using var command = connection.CreateCommand();
-            command.CommandText = "drop schema public cascade; create schema public;";
-            await command.ExecuteNonQueryAsync();
+            await _postgres.InitializeRespawnerAsync();
+            _respawnerReady = true;
         }
 
-        var runner = scope.ServiceProvider.GetRequiredService<IMigrationRunnerService>();
-        await runner.ApplyPendingAsync("test-reset");
-
+        await _postgres.ResetAsync();
         ResetStubs();
     }
 

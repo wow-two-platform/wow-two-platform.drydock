@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { Button } from '@wow-two-beta/ui/actions';
 import { Card } from '@wow-two-beta/ui/display';
 import { Alert } from '@wow-two-beta/ui/feedback';
-import { TextInput } from '@wow-two-beta/ui/forms';
+import { Select, TextInput } from '@wow-two-beta/ui/forms';
 import { ApiError } from '../api/client';
 import type { ProductDto, ProductStatus } from '../api/types';
 import { parseRepoInput } from '../lib/ParseRepoInput';
@@ -100,18 +100,19 @@ export function RegisterProductForm({ product, create, update, onSaved, onCancel
           </Field>
           <Field label="Repo (owner/repo or URL)">
             <div className="flex items-stretch gap-2">
-              <select
-                className="h-9 shrink-0 rounded-md border border-border bg-background px-2 text-sm text-foreground"
+              <Select
                 value={provider}
-                onChange={(e) => setProvider(e.target.value)}
-                aria-label="Repository provider"
+                onValueChange={(opt) => setProvider(opt?.value ?? 'github')}
               >
-                {PROVIDER_OPTIONS.map((p) => (
-                  <option key={p.value} value={p.value} disabled={p.disabled}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
+                <Select.Trigger className="h-9 shrink-0" aria-label="Repository provider">
+                  <Select.Value />
+                </Select.Trigger>
+                <Select.Content>
+                  {PROVIDER_OPTIONS.map((p) => (
+                    <Select.Item key={p.value} itemKey={p.value} label={p.label} isDisabled={p.disabled} />
+                  ))}
+                </Select.Content>
+              </Select>
               <div className="flex-1">
                 <TextInput
                   value={repo}
@@ -125,17 +126,19 @@ export function RegisterProductForm({ product, create, update, onSaved, onCancel
           </Field>
           {isEdit && (
             <Field label="Status">
-              <select
-                className="h-9 rounded-md border border-border bg-background px-3 text-sm text-foreground"
+              <Select<ProductStatus>
                 value={status}
-                onChange={(e) => setStatus(e.target.value as ProductStatus)}
+                onValueChange={(opt) => setStatus(opt?.value ?? status)}
               >
-                {STATUS_OPTIONS.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
+                <Select.Trigger className="h-9">
+                  <Select.Value />
+                </Select.Trigger>
+                <Select.Content>
+                  {STATUS_OPTIONS.map((s) => (
+                    <Select.Item key={s} itemKey={s} label={s} />
+                  ))}
+                </Select.Content>
+              </Select>
             </Field>
           )}
         </div>

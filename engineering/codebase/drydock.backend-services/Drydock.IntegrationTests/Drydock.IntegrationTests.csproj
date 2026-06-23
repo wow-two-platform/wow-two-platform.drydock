@@ -11,18 +11,19 @@
     <!--
       E2E integration tests — boots the real Drydock.Api host in-process via WebApplicationFactory<Program>
       against an ephemeral Postgres container (Testcontainers); migrate-on-boot (the bespoke SQL migrator)
-      builds the schema. Package versions mirror SmartQr.IntegrationTests.
+      builds the schema.
 
-      The Harness/ host wrapper (WebApiTestHost) is intentionally host-agnostic and extracts to the
-      backend-beta SDK later; only DrydockAppFixture (the Postgres DB lifecycle) is product-specific.
+      Harness now rides the SDK testing package (WoW2.Sdk.Backend.Beta.Testing): WebApiTestHost<Program>,
+      PostgresFixture (Testcontainers + Respawn), and the Web JSON/envelope helpers all come from it. It
+      transitively brings Microsoft.AspNetCore.Mvc.Testing, xunit, AwesomeAssertions, Testcontainers.PostgreSql,
+      Respawn + Npgsql — so only the test RUNNER (which the helper package deliberately omits) is referenced here.
+      Drydock-specific bits that stay local: the header-gated test-admin auth + policy rebind, the GitHub/GHCR
+      stubs, and DrydockAppFixture (DB lifecycle composing PostgresFixture).
     -->
     <ItemGroup>
-        <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.*"/>
+        <PackageReference Include="WoW2.Sdk.Backend.Beta.Testing" Version="10.0.34-beta"/>
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0"/>
-        <PackageReference Include="xunit" Version="2.9.2"/>
         <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2"/>
-        <PackageReference Include="AwesomeAssertions" Version="9.0.0"/>
-        <PackageReference Include="Testcontainers.PostgreSql" Version="4.1.0"/>
     </ItemGroup>
 
     <ItemGroup>
