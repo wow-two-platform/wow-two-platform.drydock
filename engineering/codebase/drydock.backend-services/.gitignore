@@ -127,7 +127,8 @@ ipch/
 *.sap
 
 # Visual Studio Trace Files
-*.e2e
+# NOTE: dropped the stock `*.e2e` pattern — on case-insensitive filesystems (macOS) it matches the
+# Drydock.Tests.E2E project directory and blocks staging it. VS trace files aren't produced here anyway.
 
 # TFS 2012 Local Workspace
 $tf/

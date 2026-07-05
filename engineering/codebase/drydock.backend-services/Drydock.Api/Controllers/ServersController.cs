@@ -6,14 +6,14 @@ using WoW.Two.Sdk.Backend.Beta.Web.Contracts;
 using Microsoft.AspNetCore.Mvc;
 using WoW.Two.Sdk.Backend.Beta.Mediator;
 using WoW.Two.Sdk.Backend.Beta.Mediator.Result;
-using WoW.Two.Sdk.Backend.Beta.Web.Results;
+using WoW.Two.Sdk.Backend.Beta.Web.ErrorMapping;
 
 namespace Drydock.Api.Controllers;
 
 /// <summary>Manages servers.</summary>
 [ApiController]
 [Route("api/servers")]
-public sealed class ServersController(ISender sender) : ControllerBase
+public sealed class ServersController(ISender sender, IErrorHttpStatusCodeMapper errorMapper) : ControllerBase
 {
     /// <summary>Gets all registered servers.</summary>
     [HttpGet]
@@ -24,7 +24,7 @@ public sealed class ServersController(ISender sender) : ControllerBase
 
         return result.Match<IActionResult>(
             ok => Ok(ApiResponse<IReadOnlyList<ServerDto>>.Ok(ok.Data.Servers)),
-            fail => Problem(detail: fail.Error.ErrorMessage, statusCode: fail.Error.Category.ToStatusCode()));
+            fail => Problem(detail: fail.Error.Message, statusCode: errorMapper.ToStatusCode(fail.Error)));
     }
 
     /// <summary>Creates a server.</summary>
@@ -38,7 +38,7 @@ public sealed class ServersController(ISender sender) : ControllerBase
 
         return result.Match<IActionResult>(
             ok => CreatedAtAction(nameof(Get), new { id = ok.Data.Server.Id }, ApiResponse<ServerDto>.Ok(ok.Data.Server)),
-            fail => Problem(detail: fail.Error.ErrorMessage, statusCode: fail.Error.Category.ToStatusCode()));
+            fail => Problem(detail: fail.Error.Message, statusCode: errorMapper.ToStatusCode(fail.Error)));
     }
 
     /// <summary>Deletes a server.</summary>
@@ -51,6 +51,6 @@ public sealed class ServersController(ISender sender) : ControllerBase
 
         return result.Match<IActionResult>(
             NoContent,
-            fail => Problem(detail: fail.Error.ErrorMessage, statusCode: fail.Error.Category.ToStatusCode()));
+            fail => Problem(detail: fail.Error.Message, statusCode: errorMapper.ToStatusCode(fail.Error)));
     }
 }

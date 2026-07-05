@@ -10,4 +10,4 @@ namespace Drydock.Application.Products.Commands.ProductCreate;
 public sealed record ProductCreateCommand(
     string Slug,
     string Name,
-    string Repo) : ICommand<AppResult<ProductCreateResult.Success, ProductCreateResult.Failure>>;
+    string Repo) : ICommand<AppResult<ProductCreateResult>>;

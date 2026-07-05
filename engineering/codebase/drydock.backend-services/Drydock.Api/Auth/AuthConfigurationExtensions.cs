@@ -1,6 +1,6 @@
 using Drydock.Infrastructure.Settings;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.Extensions.Options;
+using WoW.Two.Sdk.Backend.Beta.Foundation.Configuration;
 using WoW.Two.Sdk.Backend.Beta.Identity.Authorization;
 using WoW.Two.Sdk.Backend.Beta.Identity.Claims;
 using WoW.Two.Sdk.Backend.Beta.Identity.Cookies;
@@ -27,11 +27,12 @@ public static class AuthConfigurationExtensions
     /// <param name="builder">The web application builder.</param>
     public static WebApplicationBuilder AddAuthentication(this WebApplicationBuilder builder)
     {
-        builder.Services.AddOptions<GitHubOAuthSettings>().Bind(builder.Configuration.GetSection("Identity:GitHub"));
-        builder.Services.AddOptions<AuthSettings>().Bind(builder.Configuration.GetSection("Identity"));
+        // Bind both settings through the SDK loader: section bind + environment-variable overlay (+ required validation).
+        // GitHubOAuthSettings is also registered as IOptions<T> — IdentityController reads it to gate sign-in on IsConfigured.
+        builder.Services.AddEnvironmentOverlaidOptions<GitHubOAuthSettings>(builder.Configuration, "Identity:GitHub");
 
-        var gitHub = builder.Configuration.GetSection("Identity:GitHub").Get<GitHubOAuthSettings>() ?? new GitHubOAuthSettings();
-        var authSettings = builder.Configuration.GetSection("Identity").Get<AuthSettings>() ?? new AuthSettings();
+        var gitHub = ConfigurationLoader.Load<GitHubOAuthSettings>(builder.Configuration, "Identity:GitHub");
+        var authSettings = ConfigurationLoader.Load<AuthSettings>(builder.Configuration, "Identity");
 
         // Cookie holds the session; API mode returns 401/403 (not a 302) so the SPA renders its own sign-in.
         builder.Services.AddCookieAuthentication(o =>

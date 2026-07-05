@@ -1,5 +1,6 @@
 using Drydock.Application.Abstractions;
 using Drydock.Application.Products.Models;
+using WoW.Two.Sdk.Backend.Beta.Foundation.Errors;
 using WoW.Two.Sdk.Backend.Beta.Integrations.GitHub;
 using WoW.Two.Sdk.Backend.Beta.Integrations.Ghcr;
 using WoW.Two.Sdk.Backend.Beta.Mediator.Cqrs;
@@ -7,11 +8,11 @@ using WoW.Two.Sdk.Backend.Beta.Mediator.Result;
 
 namespace Drydock.Application.Products.Queries.ProductVersionStatus;
 
-using AppOutcome = AppResult<ProductVersionStatusResult.Success, ProductVersionStatusResult.Failure>;
+using AppOutcome = AppResult<ProductVersionStatusResult>;
 
 /// <summary>Handles <see cref="ProductVersionStatusQuery"/>.</summary>
 public sealed class ProductVersionStatusQueryHandler(
-    IProductStore store,
+    IProductRepository store,
     IGitHubClient gitHub,
     IContainerRegistryClient registry)
     : IQueryHandler<ProductVersionStatusQuery, AppOutcome>
@@ -33,7 +34,7 @@ public sealed class ProductVersionStatusQueryHandler(
     {
         var product = await store.FindAsync(request.ProductId, cancellationToken);
         if (product is null)
-            return Fail(FailureCategory.NotFound, $"Product '{request.ProductId}' was not found.");
+            return AppOutcome.Fail(AppErrors.NotFound($"Product '{request.ProductId}' was not found."));
 
         var repo = product.Repo;
 
@@ -201,11 +202,6 @@ public sealed class ProductVersionStatusQueryHandler(
 
     private static AppOutcome Ok(ProductVersionDto version)
     {
-        return new AppOutcome.Success(new ProductVersionStatusResult.Success(version));
-    }
-
-    private static AppOutcome Fail(FailureCategory category, string message)
-    {
-        return new AppOutcome.Failure(new ProductVersionStatusResult.Failure(message, category));
+        return AppOutcome.Ok(new ProductVersionStatusResult(version));
     }
 }

@@ -1,25 +1,24 @@
 using Drydock.Application.Abstractions;
+using WoW.Two.Sdk.Backend.Beta.Foundation.Errors;
 using WoW.Two.Sdk.Backend.Beta.Mediator.Cqrs;
 using WoW.Two.Sdk.Backend.Beta.Mediator.Result;
 
 namespace Drydock.Application.Servers.Commands.ServerDelete;
 
 /// <summary>Handles <see cref="ServerDeleteCommand"/>.</summary>
-public sealed class ServerDeleteCommandHandler(IServerStore store)
-    : ICommandHandler<ServerDeleteCommand, AppResult<ServerDeleteResult.Success, ServerDeleteResult.Failure>>
+public sealed class ServerDeleteCommandHandler(IServerRepository store)
+    : ICommandHandler<ServerDeleteCommand, AppResult<ServerDeleteResult>>
 {
     /// <inheritdoc />
-    public async ValueTask<AppResult<ServerDeleteResult.Success, ServerDeleteResult.Failure>> HandleAsync(
+    public async ValueTask<AppResult<ServerDeleteResult>> HandleAsync(
         ServerDeleteCommand request, CancellationToken cancellationToken)
     {
         var server = await store.FindAsync(request.Id, cancellationToken);
         if (server is null)
-            return new AppResult<ServerDeleteResult.Success, ServerDeleteResult.Failure>.Failure(
-                new ServerDeleteResult.Failure($"Server '{request.Id}' was not found.", FailureCategory.NotFound));
+            return AppResult<ServerDeleteResult>.Fail(AppErrors.NotFound($"Server '{request.Id}' was not found."));
 
         await store.RemoveAsync(server, cancellationToken);
 
-        return new AppResult<ServerDeleteResult.Success, ServerDeleteResult.Failure>.Success(
-            new ServerDeleteResult.Success());
+        return AppResult<ServerDeleteResult>.Ok(new ServerDeleteResult());
     }
 }

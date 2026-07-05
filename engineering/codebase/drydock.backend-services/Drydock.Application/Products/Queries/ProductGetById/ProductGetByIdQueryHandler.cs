@@ -1,25 +1,24 @@
 using Drydock.Application.Abstractions;
 using Drydock.Application.Products.Models;
+using WoW.Two.Sdk.Backend.Beta.Foundation.Errors;
 using WoW.Two.Sdk.Backend.Beta.Mediator.Cqrs;
 using WoW.Two.Sdk.Backend.Beta.Mediator.Result;
 
 namespace Drydock.Application.Products.Queries.ProductGetById;
 
 /// <summary>Handles <see cref="ProductGetByIdQuery"/>.</summary>
-public sealed class ProductGetByIdQueryHandler(IProductStore store)
-    : IQueryHandler<ProductGetByIdQuery, AppResult<ProductGetByIdResult.Success, ProductGetByIdResult.Failure>>
+public sealed class ProductGetByIdQueryHandler(IProductRepository store)
+    : IQueryHandler<ProductGetByIdQuery, AppResult<ProductGetByIdResult>>
 {
     /// <inheritdoc />
-    public async ValueTask<AppResult<ProductGetByIdResult.Success, ProductGetByIdResult.Failure>> HandleAsync(
+    public async ValueTask<AppResult<ProductGetByIdResult>> HandleAsync(
         ProductGetByIdQuery request, CancellationToken cancellationToken)
     {
         var product = await store.FindAsync(request.Id, cancellationToken);
         if (product is null)
-            return new AppResult<ProductGetByIdResult.Success, ProductGetByIdResult.Failure>.Failure(
-                new ProductGetByIdResult.Failure($"Product '{request.Id}' was not found.", FailureCategory.NotFound));
+            return AppResult<ProductGetByIdResult>.Fail(AppErrors.NotFound($"Product '{request.Id}' was not found."));
 
-        return new AppResult<ProductGetByIdResult.Success, ProductGetByIdResult.Failure>.Success(
-            new ProductGetByIdResult.Success(new ProductDto(
-                product.Id, product.Slug, product.Name, product.Repo, product.Status, product.CreatedAtUtc)));
+        return AppResult<ProductGetByIdResult>.Ok(new ProductGetByIdResult(new ProductDto(
+            product.Id, product.Slug, product.Name, product.Repo, product.Status, product.CreatedAt)));
     }
 }

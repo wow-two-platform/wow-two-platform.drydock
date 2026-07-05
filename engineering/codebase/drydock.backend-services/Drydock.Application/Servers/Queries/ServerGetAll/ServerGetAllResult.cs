@@ -1,16 +1,7 @@
 using Drydock.Application.Servers.Models;
-using WoW.Two.Sdk.Backend.Beta.Mediator.Result;
 
 namespace Drydock.Application.Servers.Queries.ServerGetAll;
 
-/// <summary>Outcome of listing all servers.</summary>
-public abstract record ServerGetAllResult
-{
-    private ServerGetAllResult() { }
-
-    /// <summary>The servers were listed.</summary>
-    public sealed record Success(IReadOnlyList<ServerDto> Servers) : ServerGetAllResult, ISuccessResult;
-
-    /// <summary>The servers could not be listed — <see cref="ICategorizedFailure.Category"/> maps the status.</summary>
-    public sealed record Failure(string ErrorMessage, FailureCategory Category) : ServerGetAllResult, ICategorizedFailure;
-}
+/// <summary>Success payload of listing all servers — carried by the operation's <c>AppResult&lt;ServerGetAllResult&gt;</c>; failures surface as an <c>AppError</c>.</summary>
+/// <param name="Servers">The registered servers.</param>
+public sealed record ServerGetAllResult(IReadOnlyList<ServerDto> Servers);

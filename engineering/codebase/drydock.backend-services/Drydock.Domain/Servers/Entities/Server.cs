@@ -4,8 +4,11 @@ using Drydock.Domain.Servers.Enums;
 namespace Drydock.Domain.Servers.Entities;
 
 /// <summary>A Hetzner VPS that Drydock deploys products onto over SSH.</summary>
-public sealed class Server : IKeyedEntity<Guid>
+public sealed class Server : IKeyedEntity<Guid>, IHasTableName, IAuditable
 {
+    /// <summary>Gets the storage table name — the single source of truth shared by EF mapping and hand-written SQL.</summary>
+    public static string TableName => "servers";
+
     /// <summary>Gets the server's unique identifier.</summary>
     public Guid Id { get; init; }
 
@@ -33,9 +36,14 @@ public sealed class Server : IKeyedEntity<Guid>
     /// <summary>Gets or sets the current connectivity state.</summary>
     public ServerStatus Status { get; set; } = ServerStatus.Unknown;
 
-    /// <summary>Gets the UTC instant the server was registered.</summary>
-    public DateTimeOffset CreatedAtUtc { get; init; }
+    /// <summary>Gets or sets the UTC instant the server was registered. Stamped by the SDK audit interceptor on insert
+    /// (column <c>created_at_utc</c>); never hand-set.</summary>
+    public DateTimeOffset CreatedAt { get; set; }
 
-    /// <summary>Gets or sets the UTC instant of the last reachability check.</summary>
+    /// <summary>Gets or sets the UTC instant of the last change. Stamped by the SDK audit interceptor on insert and update
+    /// (column <c>updated_at_utc</c>); never hand-set.</summary>
+    public DateTimeOffset UpdatedAt { get; set; }
+
+    /// <summary>Gets or sets the UTC instant of the last reachability check. Domain data (set by the reachability probe), not an audit field.</summary>
     public DateTimeOffset? LastCheckedAtUtc { get; set; }
 }

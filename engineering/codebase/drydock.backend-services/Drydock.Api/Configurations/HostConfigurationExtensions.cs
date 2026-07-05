@@ -1,7 +1,7 @@
 using Drydock.Application;
 using Drydock.Application.Abstractions;
 using Drydock.Persistence;
-using Drydock.Persistence.Stores;
+using Drydock.Persistence.Repositories;
 using WoW.Two.Sdk.Backend.Beta.Data;
 using WoW.Two.Sdk.Backend.Beta.Foundation.Time;
 using WoW.Two.Sdk.Backend.Beta.Foundation.Validation;
@@ -50,8 +50,8 @@ public static class HostConfigurationExtensions
             builder.Configuration,
             o => o.ConnectionStringConfigKey = DrydockDatabase.ConnectionStringConfigKey);
 
-        builder.Services.AddScoped<IServerStore, EfServerStore>();
-        builder.Services.AddScoped<IProductStore, EfProductStore>();
+        builder.Services.AddScoped<IServerRepository, EfServerRepository>();
+        builder.Services.AddScoped<IProductRepository, EfProductRepository>();
 
         return builder;
     }

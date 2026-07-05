@@ -5,4 +5,4 @@ namespace Drydock.Application.Products.Queries.ProductGetAll;
 
 /// <summary>Represents a query to get all products.</summary>
 public sealed record ProductGetAllQuery
-    : IQuery<AppResult<ProductGetAllResult.Success, ProductGetAllResult.Failure>>;
+    : IQuery<AppResult<ProductGetAllResult>>;

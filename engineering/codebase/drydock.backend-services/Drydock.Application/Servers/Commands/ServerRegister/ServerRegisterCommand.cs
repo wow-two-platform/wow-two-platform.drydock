@@ -14,4 +14,4 @@ public sealed record ServerRegisterCommand(
     string Host,
     string SshUser,
     int SshPort,
-    string? Region) : ICommand<AppResult<ServerRegisterResult.Success, ServerRegisterResult.Failure>>;
+    string? Region) : ICommand<AppResult<ServerRegisterResult>>;

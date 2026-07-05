@@ -1,5 +1,6 @@
 using Drydock.Api.Auth;
 using WoW.Two.Sdk.Backend.Beta.Meta;
+using WoW.Two.Sdk.Backend.Beta.Web.Hosting;
 
 namespace Drydock.Api.Configurations;
 
@@ -27,10 +28,10 @@ public static class HostConfiguration
     /// <summary>Configures the middleware pipeline and maps endpoints.</summary>
     public static WebApplication Configure(this WebApplication app)
     {
-        // Serve the React dashboard from wwwroot (single-deploy: API + UI in one host). Static assets stay public so the
-        // sign-in screen loads before auth, and are registered before the SDK pipeline so they short-circuit.
-        app.UseDefaultFiles();
-        app.UseStaticFiles();
+        // Serve the React dashboard from wwwroot (single-deploy: API + UI in one host) via the SDK SPA-hosting helper.
+        // Static assets stay public so the sign-in screen loads before auth, and are registered before the SDK pipeline
+        // so they short-circuit.
+        app.UseSpaHosting();
 
         // SDK pipeline: forwarded headers, secure headers, response compression; maps OpenAPI (dev) + the SDK health probe.
         app.UseApiDefaults();
@@ -41,11 +42,9 @@ public static class HostConfiguration
 
         app.MapControllers();
 
-        // An unmatched /api/* must 404 as JSON — never fall through to the SPA shell. An HTML body for an API path is
-        // cacheable and breaks clients (it caused the products cache-confusion bug).
-        app.MapFallback("/api/{**slug}", () => Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Not Found"))
-            .AllowAnonymous();
-        app.MapFallbackToFile("index.html").AllowAnonymous();
+        // SDK SPA fallback: an unmatched /api/* 404s as JSON (never falls through to the SPA shell — an HTML body for an
+        // API path is cacheable and breaks clients), every other unmatched route falls back to index.html. Both anonymous.
+        app.MapSpaFallback();
 
         return app;
     }

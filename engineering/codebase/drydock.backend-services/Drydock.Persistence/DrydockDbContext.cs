@@ -4,13 +4,14 @@ using Drydock.Domain.Products.Entities;
 using Drydock.Domain.Secrets.Entities;
 using Drydock.Domain.Servers.Entities;
 using Microsoft.EntityFrameworkCore;
+using WoW.Two.Sdk.Backend.Beta.Data.EntityFrameworkCore;
 using WoW.Two.Sdk.Backend.Beta.Data.EntityFrameworkCore.Naming;
 using WoW.Two.Sdk.Backend.Beta.Data.EntityFrameworkCore.Sqlite;
 
 namespace Drydock.Persistence;
 
-/// <summary>EF Core context for the Drydock control plane — a pure mapper over the Postgres schema the bespoke SQL migrator owns. Snake_case naming + enums-as-snake_case-text; <c>DateTimeOffset</c> → <c>timestamptz</c> natively.</summary>
-public sealed class DrydockDbContext(DbContextOptions<DrydockDbContext> options) : DbContext(options)
+/// <summary>EF Core context for the Drydock control plane — a pure mapper over the Postgres schema the bespoke SQL migrator owns. Snake_case naming + enums-as-snake_case-text; <c>DateTimeOffset</c> → <c>timestamptz</c> natively. On the SDK <see cref="AppDbContextBase"/>, so the audit interceptor stamps the <c>IAuditable</c> create/update timestamps.</summary>
+public sealed class DrydockDbContext(DbContextOptions<DrydockDbContext> options) : AppDbContextBase(options)
 {
     /// <summary>The EF Core SQLite provider name — gates the SQLite-only <c>DateTimeOffset</c> binary conversion (test hosts only; Npgsql maps <c>DateTimeOffset</c> natively).</summary>
     private const string SqliteProviderName = "Microsoft.EntityFrameworkCore.Sqlite";
@@ -33,30 +34,40 @@ public sealed class DrydockDbContext(DbContextOptions<DrydockDbContext> options)
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // Base applies the SDK conventions and this assembly's IEntityTypeConfiguration<T> (none here — harmless no-op).
+        base.OnModelCreating(modelBuilder);
+
         modelBuilder.Entity<Server>(e =>
         {
-            e.ToTable("servers");
+            e.ToTable(Server.TableName);
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.Host).IsUnique();
             e.Property(x => x.Name).IsRequired();
             e.Property(x => x.Host).IsRequired();
+            // IAuditable maps onto the existing schema-first columns (no rename → no migration for created_at_utc).
+            e.Property(x => x.CreatedAt).HasColumnName("created_at_utc");
+            e.Property(x => x.UpdatedAt).HasColumnName("updated_at_utc");
         });
 
         modelBuilder.Entity<Product>(e =>
         {
-            e.ToTable("products");
+            e.ToTable(Product.TableName);
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.Slug).IsUnique();
             e.Property(x => x.Slug).IsRequired();
             e.Property(x => x.Name).IsRequired();
             e.Property(x => x.Repo).IsRequired();
+            e.Property(x => x.CreatedAt).HasColumnName("created_at_utc");
+            e.Property(x => x.UpdatedAt).HasColumnName("updated_at_utc");
         });
 
         modelBuilder.Entity<Deployment>(e =>
         {
-            e.ToTable("deployments");
+            e.ToTable(Deployment.TableName);
             e.HasKey(x => x.Id);
-            e.HasIndex(x => new { x.ProductId, x.CreatedAtUtc });
+            e.Property(x => x.CreatedAt).HasColumnName("created_at_utc");
+            e.Property(x => x.UpdatedAt).HasColumnName("updated_at_utc");
+            e.HasIndex(x => new { x.ProductId, x.CreatedAt });
         });
 
         modelBuilder.Entity<ManagedDomain>(e =>

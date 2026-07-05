@@ -13,4 +13,4 @@ public sealed record ProductUpdateCommand(
     Guid Id,
     string Name,
     string Repo,
-    ProductStatus Status) : ICommand<AppResult<ProductUpdateResult.Success, ProductUpdateResult.Failure>>;
+    ProductStatus Status) : ICommand<AppResult<ProductUpdateResult>>;

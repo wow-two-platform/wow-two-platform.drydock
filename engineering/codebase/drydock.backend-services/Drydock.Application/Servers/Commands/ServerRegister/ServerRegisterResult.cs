@@ -1,16 +1,7 @@
 using Drydock.Application.Servers.Models;
-using WoW.Two.Sdk.Backend.Beta.Mediator.Result;
 
 namespace Drydock.Application.Servers.Commands.ServerRegister;
 
-/// <summary>Outcome of registering a server.</summary>
-public abstract record ServerRegisterResult
-{
-    private ServerRegisterResult() { }
-
-    /// <summary>The server was registered.</summary>
-    public sealed record Success(ServerDto Server) : ServerRegisterResult, ISuccessResult;
-
-    /// <summary>The server could not be registered — <see cref="ICategorizedFailure.Category"/> maps the status.</summary>
-    public sealed record Failure(string ErrorMessage, FailureCategory Category) : ServerRegisterResult, ICategorizedFailure;
-}
+/// <summary>Success payload of registering a server — carried by the operation's <c>AppResult&lt;ServerRegisterResult&gt;</c>; failures surface as an <c>AppError</c>.</summary>
+/// <param name="Server">The registered server.</param>
+public sealed record ServerRegisterResult(ServerDto Server);
