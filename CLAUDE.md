@@ -23,7 +23,7 @@ engineering/              ← the execution (build · ship · run)
 
 Follows `wow-two-ws/conventions/development/repo/repo-structure.md`.
 
-Backend layers: `Domain` (entities/enums/Result) → `Application` (MediatR CQRS + store abstractions)
+Backend layers: `Domain` (entities/enums/Result) → `Application` (MediatR CQRS + repository abstractions)
 → `Infrastructure` (adapters) + `Persistence` (EF Core + Postgres) → `Api` (slim host). Mirrors the
 `wow-two-platform.secrets-vault` sibling exactly.
 
@@ -50,11 +50,15 @@ npm run deploy   # build + copy SPA into Drydock.Api/wwwroot
 
 ## Testing
 
-3-tier, e2e-first (run all: `dotnet test Drydock.slnx`). Solution folders: `services/` + `tests/`.
+4-tier `{Product}.Tests.{Type}`, e2e-first (run all: `dotnet test Drydock.slnx`). Solution folders: `services/` + `tests/`.
 
-- **`Drydock.Tests`** — unit (pure logic: version-state machine, validators). Docker-free.
-- **`Drydock.Migrations.Tests`** — integration (migrator + persistence vs real PG, no HTTP). Docker.
-- **`Drydock.IntegrationTests`** — e2e (full host + Testcontainers PG, on `…Beta.Testing`). Docker.
+- **`Drydock.Tests.Unit`** — pure logic (version-state machine, validators). Docker-free.
+- **`Drydock.Tests.Integration`** — the EF model below the pipeline: `DrydockDbContext` over the SDK
+  `RelationalTestDb` (enum round-trip, repository predicates/ordering, unique-index constraints), no HTTP.
+  Provider-switchable PG↔SQLite (`DRYDOCK_TEST_DB=sqlite`). Docker (PG default).
+- **`Drydock.Tests.E2E`** — full host + Testcontainers PG (on `…Beta.Testing`). The primary tier. Docker.
+- **`Drydock.Tests.Migrations`** — specialized: the bespoke SQL migrator's apply/idempotency/rollback over a real
+  PG, on the SDK `MigratorHarness` + `MigratorPostgresFixture` (embedded `Migrations/NNN/*.sql`). Docker.
 
 Reserve unit for I/O-free logic; everything user-facing is covered e2e. Full rule:
 `wow-two-ws/conventions/development/backend/testing/testing.md`.

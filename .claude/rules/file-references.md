@@ -29,13 +29,14 @@
 | Project | What it is |
 |---|---|
 | `Drydock.Api` | HTTP host — control-plane controllers; single-host SPA serving |
-| `Drydock.Application` | Use cases — MediatR handlers, store abstractions, DTOs |
+| `Drydock.Application` | Use cases — MediatR handlers, repository abstractions, DTOs |
 | `Drydock.Domain` | Entities (Server/Product/Deployment/ManagedDomain/SecretEntry) + enums + Result |
 | `Drydock.Infrastructure` | Adapters — clock now; SSH / Hetzner / Porkbun / Cloudflare / GHCR next |
-| `Drydock.Persistence` | EF Core + Postgres context, stores, hand-authored SQL migrations |
-| `Drydock.Tests` | **Unit** tier — pure logic (version-state machine, validators); Docker-free |
-| `Drydock.IntegrationTests` | **E2E** tier — full host + Testcontainers PG (on `…Beta.Testing`) |
-| `Drydock.Migrations.Tests` | **Integration** tier — migrator + persistence vs real PG, no HTTP |
+| `Drydock.Persistence` | EF Core + Postgres context, repositories, hand-authored SQL migrations |
+| `Drydock.Tests.Unit` | **Unit** tier — pure logic (version-state machine, validators); Docker-free |
+| `Drydock.Tests.Integration` | **Integration** tier — EF model below the pipeline (enum round-trip, repository predicates/ordering, constraints) over the SDK `RelationalTestDb`, no HTTP; PG↔SQLite |
+| `Drydock.Tests.E2E` | **E2E** tier — full host + Testcontainers PG (on `…Beta.Testing`) |
+| `Drydock.Tests.Migrations` | **Migrations** tier — bespoke SQL migrator apply/idempotency/rollback over real PG, on the SDK `MigratorHarness` |
 
 ### `codebase/drydock.frontend-services/` (React)
 | App | What it is |
