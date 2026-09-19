@@ -4,9 +4,11 @@ import json
 import os
 from pathlib import Path
 import tempfile
+import tarfile
 import unittest
 from unittest.mock import patch
 import runner
+import transport
 
 
 class FakeDocker:
@@ -201,6 +203,29 @@ class RunnerTests(unittest.TestCase):
         with patch("sys.argv", ["runner.py", "apply", "--target", str(target), "--bundle", str(self.bundle)]):
             with patch.object(runner, "apply", return_value={"status": "rolled_back"}):
                 self.assertEqual(1, runner.main())
+
+    def test_archive_import_validates_and_never_overwrites_a_release(self):
+        archive = self.root / "release.tar.gz"
+        with tarfile.open(archive, "w:gz") as package:
+            for name in ("release.json", "compose.json"):
+                package.add(self.bundle / name, arcname=name)
+        inventory = self.root / "inventory"
+        result = transport.import_bundle(inventory, archive, "pilot-v1")
+        self.assertEqual("pilot-v1", result["id"])
+        self.assertEqual("v1", transport.releases(inventory)[0]["release"])
+        with self.assertRaisesRegex(ValueError, "already exists"):
+            transport.import_bundle(inventory, archive, "pilot-v1")
+
+    def test_archive_import_rejects_links(self):
+        archive = self.root / "release.tar.gz"
+        with tarfile.open(archive, "w:gz") as package:
+            member = tarfile.TarInfo("release.json")
+            member.type = tarfile.SYMTYPE
+            member.linkname = "/etc/passwd"
+            package.addfile(member)
+            package.add(self.bundle / "compose.json", arcname="compose.json")
+        with self.assertRaisesRegex(ValueError, "Invalid archive"):
+            transport.import_bundle(self.root / "inventory", archive, "pilot-v1")
 
 
 if __name__ == "__main__":

@@ -96,6 +96,8 @@ Never use group/world-writable settings. Cookie key volumes must remain writable
 From the repository root, using the same inventory as the dashboard:
 
 ```sh
+python3 engineering/codebase/drydock.runner-services/transport.py import \
+  --root /path/to/inventory --archive foreverpin-release.tar.gz --bundle foreverpin-v1
 python3 engineering/codebase/drydock.runner-services/transport.py targets --root /path/to/inventory
 python3 engineering/codebase/drydock.runner-services/transport.py releases --root /path/to/inventory
 python3 engineering/codebase/drydock.runner-services/transport.py submit \

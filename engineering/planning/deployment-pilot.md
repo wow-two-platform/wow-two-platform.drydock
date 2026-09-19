@@ -144,7 +144,7 @@ No active-active promise is made by adding a second server row.
 Execution evidence and exact commands belong in [deployment operations](../deployment/deployment.md).
 Unchecked items remain open regardless of build success.
 
-Local evidence on September 19: 121 DryDock backend tests; 25 runner/SSH-adapter tests;
+Local evidence on September 19: 121 DryDock backend tests; 27 runner/SSH-adapter tests;
 213 ForeverPin backend tests and four frontend tests. Clean images started on Docker Desktop `linux/arm64`.
 A real guest-created URL code persisted across replacement, rendered SVG and returned its expected redirect.
 The target runner applied digest-pinned images, recovered from an intentionally unhealthy release,
@@ -154,6 +154,20 @@ Real SSH, hosted CI, `linux/amd64`, TLS/OAuth/Stripe and encrypted off-provider 
 The pilot exposed a URL routing defect: URL content has no static payload encoder, but redirect resolution used
 that encoder as its destination. The redirect service now reads validated HTTP(S) URL content directly.
 Its HTTP tests use actual URL rules instead of the text-content workaround.
+
+Cookie key files in both applications also retained identical hashes across container replacement.
+The same management image returned different public Google configuration from a target setting file.
+The bundle importer accepted the tested release archive and rejects links or duplicate bundle IDs.
+
+## Commit coordination
+
+- The deployment backend, runner and packaging are committed in DryDock.
+- The new dashboard panel uses the existing, uncommitted UI SDK upgrade to `0.0.95`.
+  That upgrade and its related UI edits predate this task; the panel waits for the coordinated frontend batch.
+- ForeverPin's packaging/release batch overlaps another task's staged review improvements.
+  Preserve that prepared batch; the URL-routing repair and smoke script are an additional tested batch.
+- Hosted publication must include the intended combined working tree; local image builds are not evidence
+  that a partial commit contains every tested frontend dependency.
 
 ## Launch decisions for the wiring session
 

@@ -7,6 +7,7 @@ import re
 import shlex
 import subprocess
 import sys
+import tarfile
 import tempfile
 import uuid
 from runner import SLUG, require, read_json, write_json, validate_bundle, validate_target
@@ -67,6 +68,28 @@ def releases(root):
     return result
 
 
+def import_bundle(root, archive, bundle_id):
+    destination = child(root, "bundles", bundle_id)
+    require(not destination.exists(), "Bundle ID already exists")
+    expected = {"release.json", "compose.json"}
+    with tempfile.TemporaryDirectory() as temporary:
+        source = Path(temporary)
+        with tarfile.open(archive, "r:gz") as package:
+            members = package.getmembers()
+            require(len(members) == 2 and {member.name for member in members} == expected,
+                    "Archive must contain only release.json and compose.json")
+            for member in members:
+                require(member.isfile() and member.size <= 1024 * 1024, "Invalid archive member")
+                with package.extractfile(member) as stream:
+                    (source / member.name).write_bytes(stream.read())
+        manifest = validate_bundle(source)
+        destination.mkdir(parents=True, mode=0o700)
+        # Publish the manifest last so discovery cannot observe an incomplete bundle.
+        for name in ("compose.json", "release.json"):
+            (destination / name).write_bytes((source / name).read_bytes())
+    return {"id": bundle_id, "product": manifest["product"], "release": manifest["release"]}
+
+
 def submit(root, target_id, bundle_id, actor):
     config = read_json(child(root, "targets", target_id, ".json"))
     bundle = child(root, "bundles", bundle_id)
@@ -114,16 +137,19 @@ def status(root, job_id):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["targets", "releases", "submit", "status"])
+    parser.add_argument("action", choices=["import", "targets", "releases", "submit", "status"])
     parser.add_argument("--root", required=True)
     parser.add_argument("--target")
     parser.add_argument("--bundle")
     parser.add_argument("--actor", default="operator")
     parser.add_argument("--job")
+    parser.add_argument("--archive")
     args = parser.parse_args()
     root = Path(args.root).resolve()
     try:
-        if args.action == "targets":
+        if args.action == "import":
+            result = import_bundle(root, args.archive, args.bundle)
+        elif args.action == "targets":
             result = targets(root)
         elif args.action == "releases":
             result = releases(root)
