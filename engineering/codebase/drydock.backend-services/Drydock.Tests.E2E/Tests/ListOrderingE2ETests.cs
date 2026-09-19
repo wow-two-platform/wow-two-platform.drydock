@@ -7,7 +7,7 @@ using WoW.Two.Sdk.Backend.Beta.Testing.Web;
 namespace Drydock.Tests.E2E.Tests;
 
 /// <summary>
-/// E2E for list ordering — both <c>GET</c> collections return rows newest-first (<c>CreatedAtUtc</c> descending), the
+/// E2E for list ordering — the product <c>GET</c> collection return rows newest-first (<c>CreatedAtUtc</c> descending), the
 /// order the dashboard relies on.
 /// </summary>
 /// <remarks>
@@ -46,24 +46,4 @@ public sealed class ListOrderingE2ETests(DrydockAppFixture fixture) : DrydockE2E
         products.Select(p => p.Slug).Should().Equal(creationOrder.Reverse());
     }
 
-    [Fact]
-    public async Task GetServers_ReturnsNewestFirst()
-    {
-        var creationOrder = new[] { "10.1.0.1", "10.1.0.2", "10.1.0.3", "10.1.0.4" };
-        foreach (var host in creationOrder)
-        {
-            var created = await AdminClient.PostJsonAsync("api/servers",
-                new { name = host, host, sshUser = "root", sshPort = 22, region = "hel1" });
-            created.StatusCode.Should().Be(HttpStatusCode.Created);
-            Fixture.Host.Clock.Advance(Tick);
-        }
-
-        var response = await AdminClient.GetAsync("api/servers");
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var servers = await response.ReadEnvelopeAsync<IReadOnlyList<ServerResponse>>();
-
-        servers.Should().HaveCount(creationOrder.Length);
-        servers.Select(s => s.CreatedAtUtc).Should().BeInDescendingOrder();
-        servers.Select(s => s.Host).Should().Equal(creationOrder.Reverse());
-    }
 }

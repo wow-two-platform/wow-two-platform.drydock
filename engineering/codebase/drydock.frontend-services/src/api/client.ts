@@ -1,31 +1,23 @@
 // Thin same-origin API client for the Drydock management plane.
 // All URLs are relative ("/api/...") because the SPA is served from the .NET host
 // (and proxied to the backend in dev — see vite.config.ts).
+import { ApiError, type ProblemDetails } from '@wow-two-beta/ui/foundation/http';
+
 import type {
   ApiResponse,
   CreateProductRequest,
   CurrentUser,
-  ProblemDetails,
   ProductDto,
   ProductVersionDto,
-  RegisterServerRequest,
   ServerDto,
   SystemStatus,
   UpdateProductRequest,
 } from './types';
 
-/** Error carrying the server's RFC 7807 detail (or a transport-level message). */
-export class ApiError extends Error {
-  readonly status: number;
-  readonly problem: ProblemDetails | null;
-
-  constructor(message: string, status: number, problem: ProblemDetails | null) {
-    super(message);
-    this.name = 'ApiError';
-    this.status = status;
-    this.problem = problem;
-  }
-}
+// The SDK transport error (RFC 7807 problem body + HTTP status). Thrown here so the
+// forms engine's default `mapSubmitError` (`fieldErrors`) recognizes failures and lands
+// ProblemDetails field errors on form fields automatically.
+export { ApiError };
 
 /** Extracts the best human-readable message from a failed response body. */
 async function toApiError(res: Response): Promise<ApiError> {
@@ -43,7 +35,7 @@ async function toApiError(res: Response): Promise<ApiError> {
   } catch {
     // Non-JSON error body — fall through to status text.
   }
-  return new ApiError(detail ?? res.statusText ?? `Request failed (${res.status})`, res.status, problem);
+  return new ApiError(res.status, problem, detail ?? res.statusText ?? `Request failed (${res.status})`);
 }
 
 /**
@@ -69,7 +61,7 @@ async function request<T>(input: string, init?: RequestInitWithSignal): Promise<
       },
     });
   } catch (cause) {
-    throw new ApiError(cause instanceof Error ? cause.message : 'Network request failed', 0, null);
+    throw new ApiError(0, null, cause instanceof Error ? cause.message : 'Network request failed');
   }
 
   if (!res.ok) {
@@ -117,14 +109,6 @@ export const api = {
   /** GET /api/servers — all registered servers. */
   listServers(signal?: AbortSignal): Promise<ServerDto[]> {
     return requestData<ServerDto[]>('/api/servers', { signal });
-  },
-
-  /** POST /api/servers — register a new deploy-target server. */
-  registerServer(body: RegisterServerRequest): Promise<ServerDto> {
-    return requestData<ServerDto>('/api/servers', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    });
   },
 
   /** GET /api/products — all registered products. */

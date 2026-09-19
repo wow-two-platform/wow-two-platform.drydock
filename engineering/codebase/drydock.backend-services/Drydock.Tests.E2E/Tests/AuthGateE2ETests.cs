@@ -77,6 +77,6 @@ public sealed class AuthGateE2ETests(DrydockAppFixture fixture) : DrydockE2EBase
         createProduct.StatusCode.Should().Be(HttpStatusCode.Created);
 
         var createServer = await AdminClient.PostJsonAsync("api/servers", ServerBody);
-        createServer.StatusCode.Should().Be(HttpStatusCode.Created);
+        createServer.StatusCode.Should().Be(HttpStatusCode.MethodNotAllowed);
     }
 }

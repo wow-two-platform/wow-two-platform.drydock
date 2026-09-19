@@ -212,7 +212,7 @@ class RunnerTests(unittest.TestCase):
         inventory = self.root / "inventory"
         result = transport.import_bundle(inventory, archive, "pilot-v1")
         self.assertEqual("pilot-v1", result["id"])
-        self.assertEqual("v1", transport.releases(inventory)[0]["release"])
+        self.assertEqual("v1", runner.validate_bundle(inventory / "bundles/pilot-v1")["release"])
         with self.assertRaisesRegex(ValueError, "already exists"):
             transport.import_bundle(inventory, archive, "pilot-v1")
 

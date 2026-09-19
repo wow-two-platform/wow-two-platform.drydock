@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { LogOut } from 'lucide-react';
-import { Button } from '@wow-two-beta/ui/actions';
-import { Avatar, Badge, Heading, Text } from '@wow-two-beta/ui/display';
-import { Spinner } from '@wow-two-beta/ui/feedback';
+import { Button } from '@wow-two-beta/ui/presentation/actions';
+import { Avatar, Badge, Heading, Text } from '@wow-two-beta/ui/presentation/display';
+import { Spinner } from '@wow-two-beta/ui/presentation/feedback';
 import { ProductsPanel } from './components/ProductsPanel';
+import { DeploymentsPanel } from './components/DeploymentsPanel';
 import { ServersPanel } from './components/ServersPanel';
 import { SignInScreen } from './components/SignInScreen';
 import { useAuth } from './hooks/useAuth';
@@ -86,6 +87,7 @@ function Dashboard({ user, onSignOut }: { user: CurrentUser; onSignOut: () => vo
 
       <main className="mx-auto flex max-w-5xl flex-col gap-8 px-6 py-8">
         <ProductsPanel />
+        <DeploymentsPanel />
         <ServersPanel />
       </main>
     </div>

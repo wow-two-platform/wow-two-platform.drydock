@@ -14,7 +14,7 @@ public sealed class DeploymentGateway(DeploymentSettings settings) : IDeployment
     public Task<AppResult<JsonElement>> ReadAsync(string resource, string? id, CancellationToken ct) =>
         resource switch
         {
-            "targets" or "releases" => RunAsync([resource], ct),
+            "servers" or "targets" or "releases" => RunAsync([resource], ct),
             "status" when Guid.TryParse(id, out _) => RunAsync(["status", "--job", id], ct),
             _ => Task.FromResult(AppResult<JsonElement>.Fail(AppErrors.NotFound("Unknown deployment resource.")))
         };
@@ -40,6 +40,7 @@ public sealed class DeploymentGateway(DeploymentSettings settings) : IDeployment
                 CreateNoWindow = true
             }
         };
+        process.StartInfo.Environment["DRYDOCK_GITHUB_TOKEN_FILE"] = settings.GitHubTokenFile;
         process.StartInfo.ArgumentList.Add(settings.TransportPath);
         foreach (var argument in arguments)
             process.StartInfo.ArgumentList.Add(argument);

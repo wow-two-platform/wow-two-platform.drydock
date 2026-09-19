@@ -1,14 +1,16 @@
-import { useState, type ReactNode } from 'react';
-import { Button } from '@wow-two-beta/ui/actions';
-import { Card } from '@wow-two-beta/ui/display';
-import { Alert } from '@wow-two-beta/ui/feedback';
-import { Select, TextInput } from '@wow-two-beta/ui/forms';
-import { ApiError } from '../api/client';
-import type { ProductDto, ProductStatus } from '../api/types';
-import { parseRepoInput } from '../lib/ParseRepoInput';
-import { useProducts } from '../hooks/useProducts';
+import { z } from 'zod';
 
-const STATUS_OPTIONS: ProductStatus[] = ['Draft', 'Active', 'Paused', 'Killed'];
+import { Button } from '@wow-two-beta/ui/presentation/actions';
+import { Card } from '@wow-two-beta/ui/presentation/display';
+import { Alert } from '@wow-two-beta/ui/presentation/feedback';
+import { Field, Select, TextInput } from '@wow-two-beta/ui/presentation/forms';
+
+import type { ProductDto, ProductStatus } from '../api/types';
+import { useAppForm } from '../form';
+import { useProducts } from '../hooks/useProducts';
+import { parseRepoInput } from '../lib/ParseRepoInput';
+
+const STATUS_OPTIONS = ['Draft', 'Active', 'Paused', 'Killed'] as const satisfies readonly ProductStatus[];
 
 // Provider is implied GitHub on the wire (no backend field). GitLab/Bitbucket are listed but
 // disabled — an unsupported provider can't be selected; pasting one of their URLs surfaces an
@@ -18,6 +20,27 @@ const PROVIDER_OPTIONS = [
   { value: 'gitlab', label: 'GitLab (soon)', disabled: true },
   { value: 'bitbucket', label: 'Bitbucket (soon)', disabled: true },
 ] as const;
+
+/** Editable shape of the product form — provider is display-only glue (implied GitHub on the wire). */
+interface ProductValues {
+  slug: string;
+  name: string;
+  provider: string;
+  repo: string;
+  status: ProductStatus;
+}
+
+/** Whole-form validation for {@link ProductValues} — the repo rule reuses the parser so an unsupported host blocks submit with its message. */
+const ProductSchema = z.object({
+  slug: z.string().trim().min(1, 'Slug is required'),
+  name: z.string().trim().min(1, 'Name is required'),
+  provider: z.string(),
+  repo: z.string().superRefine((value, ctx) => {
+    const parsed = parseRepoInput(value);
+    if (parsed.provider === null) ctx.addIssue({ code: 'custom', message: parsed.error });
+  }),
+  status: z.enum(STATUS_OPTIONS),
+});
 
 interface RegisterProductFormProps {
   /** When set, the form edits this product (slug locked); otherwise it creates a new one. */
@@ -31,147 +54,122 @@ interface RegisterProductFormProps {
 /** Inline form to register a new product, or edit an existing one (slug is immutable on edit). */
 export function RegisterProductForm({ product, create, update, onSaved, onCancel }: RegisterProductFormProps) {
   const isEdit = product !== undefined;
-  const [slug, setSlug] = useState(product?.slug ?? '');
-  const [name, setName] = useState(product?.name ?? '');
-  const [provider, setProvider] = useState('github');
-  const [repo, setRepo] = useState(product?.repo ?? '');
-  const [repoError, setRepoError] = useState<string | null>(null);
-  const [status, setStatus] = useState<ProductStatus>(product?.status ?? 'Draft');
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  // Runs on every repo-input change (covers paste): a supported URL is stripped to owner/repo and
-  // the field is rewritten; an unsupported host / unparseable value sets an inline error that
-  // blocks submit; a bare owner/repo is accepted as-is.
-  function onRepoChange(value: string) {
-    const result = parseRepoInput(value);
-    if (result.provider === null) {
-      // Keep what the user typed (don't strip) and explain why it won't submit.
-      setRepo(value);
-      setRepoError(result.error);
-      return;
-    }
-    setRepo(result.repo);
-    setProvider('github');
-    setRepoError(null);
-  }
-
-  async function submit() {
-    // An unsupported / unparseable repo blocks submit — the inline message already explains why.
-    if (repoError !== null) return;
-
-    setSubmitting(true);
-    setError(null);
-    try {
+  const form = useAppForm<ProductValues>({
+    defaultValues: {
+      slug: product?.slug ?? '',
+      name: product?.name ?? '',
+      provider: 'github',
+      repo: product?.repo ?? '',
+      status: product?.status ?? 'Draft',
+    },
+    schema: ProductSchema,
+    onSubmit: async (values) => {
       // Provider is implied GitHub — only `owner/repo` goes to the backend.
       if (isEdit) {
-        await update(product.id, { name, repo: repo.trim(), status });
+        await update(product.id, { name: values.name, repo: values.repo.trim(), status: values.status });
       } else {
-        await create({ slug: slug.trim(), name, repo: repo.trim() });
+        await create({ slug: values.slug.trim(), name: values.name, repo: values.repo.trim() });
       }
       onSaved();
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : `Failed to ${isEdit ? 'update' : 'register'} product.`);
-    } finally {
-      setSubmitting(false);
-    }
+    },
+  });
+
+  // Runs on every repo-input change (covers paste): a supported URL is stripped to owner/repo and
+  // the field is rewritten; an unsupported host / unparseable value keeps what the user typed —
+  // the schema re-runs the parser and its message blocks submit; a bare owner/repo is accepted as-is.
+  function onRepoChange(value: string, setValue: (value: string) => void) {
+    const result = parseRepoInput(value);
+    setValue(result.provider === null ? value : result.repo);
   }
 
   return (
     <Card className="border border-border p-5">
-      <form
-        className="flex flex-col gap-4"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void submit();
-        }}
-      >
+      <form className="flex flex-col gap-4" onSubmit={(e) => void form.handleSubmit(e)}>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Slug">
-            <TextInput
-              value={slug}
-              onChange={(e) => setSlug(e.target.value)}
-              placeholder="my-product"
-              disabled={isEdit}
-            />
-          </Field>
-          <Field label="Name">
-            <TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder="My Product" />
-          </Field>
-          <Field label="Repo (owner/repo or URL)">
-            <div className="flex items-stretch gap-2">
-              <Select
-                value={provider}
-                onValueChange={(opt) => setProvider(opt?.value ?? 'github')}
-              >
-                <Select.Trigger className="h-9 shrink-0" aria-label="Repository provider">
-                  <Select.Value />
-                </Select.Trigger>
-                <Select.Content>
-                  {PROVIDER_OPTIONS.map((p) => (
-                    <Select.Item key={p.value} itemKey={p.value} label={p.label} isDisabled={p.disabled} />
-                  ))}
-                </Select.Content>
-              </Select>
-              <div className="flex-1">
-                <TextInput
-                  value={repo}
-                  onChange={(e) => onRepoChange(e.target.value)}
-                  placeholder="octocat/hello-world"
-                  aria-invalid={repoError !== null}
-                />
-              </div>
-            </div>
-            {repoError && <span className="text-xs text-danger-600">{repoError}</span>}
-          </Field>
+          <form.Field name="slug">
+            {(f) => (
+              <Field label="Slug" isDisabled={isEdit}>
+                <TextInput value={f.value} onChange={(e) => f.setValue(e.target.value)} onBlur={f.onBlur} placeholder="my-product" />
+              </Field>
+            )}
+          </form.Field>
+          <form.Field name="name">
+            {(f) => (
+              <Field label="Name">
+                <TextInput value={f.value} onChange={(e) => f.setValue(e.target.value)} onBlur={f.onBlur} placeholder="My Product" />
+              </Field>
+            )}
+          </form.Field>
+          <form.Field name="repo">
+            {(f) => (
+              <Field label="Repo (owner/repo or URL)">
+                <div className="flex items-stretch gap-2">
+                  <form.Field name="provider">
+                    {(prov) => (
+                      <Select value={prov.value} onValueChange={(opt) => prov.setValue(opt?.value ?? 'github')}>
+                        <Select.Trigger className="h-9 shrink-0" aria-label="Repository provider">
+                          <Select.Value />
+                        </Select.Trigger>
+                        <Select.Content>
+                          {PROVIDER_OPTIONS.map((p) => (
+                            <Select.Item key={p.value} itemKey={p.value} label={p.label} isDisabled={p.disabled} />
+                          ))}
+                        </Select.Content>
+                      </Select>
+                    )}
+                  </form.Field>
+                  <div className="flex-1">
+                    <TextInput
+                      value={f.value}
+                      onChange={(e) => onRepoChange(e.target.value, f.setValue)}
+                      onBlur={f.onBlur}
+                      placeholder="octocat/hello-world"
+                    />
+                  </div>
+                </div>
+              </Field>
+            )}
+          </form.Field>
           {isEdit && (
-            <Field label="Status">
-              <Select<ProductStatus>
-                value={status}
-                onValueChange={(opt) => setStatus(opt?.value ?? status)}
-              >
-                <Select.Trigger className="h-9">
-                  <Select.Value />
-                </Select.Trigger>
-                <Select.Content>
-                  {STATUS_OPTIONS.map((s) => (
-                    <Select.Item key={s} itemKey={s} label={s} />
-                  ))}
-                </Select.Content>
-              </Select>
-            </Field>
+            <form.Field name="status">
+              {(f) => (
+                <Field label="Status">
+                  <Select<ProductStatus> value={f.value} onValueChange={(opt) => f.setValue(opt?.value ?? f.value)}>
+                    <Select.Trigger className="h-9">
+                      <Select.Value />
+                    </Select.Trigger>
+                    <Select.Content>
+                      {STATUS_OPTIONS.map((s) => (
+                        <Select.Item key={s} itemKey={s} label={s} />
+                      ))}
+                    </Select.Content>
+                  </Select>
+                </Field>
+              )}
+            </form.Field>
           )}
         </div>
 
-        {error && (
-          <Alert severity="danger" title={`Could not ${isEdit ? 'save' : 'register'}`} description={error} />
-        )}
+        <form.Subscribe selector={(s) => s.submitError}>
+          {(error) =>
+            error && <Alert severity="danger" title={`Could not ${isEdit ? 'save' : 'register'}`} description={error.message} />
+          }
+        </form.Subscribe>
 
         <div className="flex items-center justify-end gap-2">
           <Button type="button" variant="ghost" tone="neutral" onClick={onCancel}>
             Cancel
           </Button>
-          <Button
-            type="button"
-            variant="solid"
-            tone="primary"
-            isLoading={submitting}
-            disabled={repoError !== null}
-            onClick={() => void submit()}
-          >
-            {isEdit ? 'Save changes' : 'Register product'}
-          </Button>
+          <form.Subscribe selector={(s) => s.isSubmitting}>
+            {(busy) => (
+              <Button type="submit" variant="solid" tone="primary" isLoading={busy}>
+                {isEdit ? 'Save changes' : 'Register product'}
+              </Button>
+            )}
+          </form.Subscribe>
         </div>
       </form>
     </Card>
-  );
-}
-
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1.5">
-      <span className="text-xs font-medium text-muted-foreground">{label}</span>
-      {children}
-    </label>
   );
 }

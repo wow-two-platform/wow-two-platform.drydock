@@ -1,56 +1,36 @@
-using Drydock.Application.Servers.Commands.ServerDelete;
-using Drydock.Application.Servers.Commands.ServerRegister;
-using Drydock.Application.Servers.Models;
-using Drydock.Application.Servers.Queries.ServerGetAll;
-using WoW.Two.Sdk.Backend.Beta.Web.Contracts;
+using System.Text.Json;
+using Drydock.Application.Deployments;
 using Microsoft.AspNetCore.Mvc;
 using WoW.Two.Sdk.Backend.Beta.Mediator;
 using WoW.Two.Sdk.Backend.Beta.Mediator.Result;
+using WoW.Two.Sdk.Backend.Beta.Web.Contracts;
 using WoW.Two.Sdk.Backend.Beta.Web.ErrorMapping;
 
 namespace Drydock.Api.Controllers;
 
-/// <summary>Manages servers.</summary>
+/// <summary>Displays the fleet defined in reviewed source code.</summary>
 [ApiController]
 [Route("api/servers")]
-public sealed class ServersController(ISender sender, IErrorHttpStatusCodeMapper errorMapper) : ControllerBase
+public sealed class ServersController(ISender sender, IErrorHttpStatusCodeMapper errors) : ControllerBase
 {
-    /// <summary>Gets all registered servers.</summary>
+    /// <summary>Lists configured hosts without probing their reachability.</summary>
     [HttpGet]
-    [ProducesResponseType<ApiResponse<IReadOnlyList<ServerDto>>>(StatusCodes.Status200OK)]
     public async Task<IActionResult> Get(CancellationToken ct)
     {
-        var result = await sender.SendAsync(new ServerGetAllQuery(), ct);
-
+        var result = await sender.SendAsync(new DeploymentReadQuery("servers"), ct);
         return result.Match<IActionResult>(
-            ok => Ok(ApiResponse<IReadOnlyList<ServerDto>>.Ok(ok.Data.Servers)),
-            fail => Problem(detail: fail.Error.Message, statusCode: errorMapper.ToStatusCode(fail.Error)));
+            ok => Ok(ApiResponse<JsonElement>.Ok(ok.Data)),
+            fail => Problem(detail: fail.Error.Message, statusCode: errors.ToStatusCode(fail.Error)));
     }
 
-    /// <summary>Creates a server.</summary>
+    /// <summary>Rejects dynamic registration from older clients.</summary>
     [HttpPost]
-    [ProducesResponseType<ApiResponse<ServerDto>>(StatusCodes.Status201Created)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> Create([FromBody] ServerRegisterCommand command, CancellationToken ct)
-    {
-        var result = await sender.SendAsync(command, ct);
+    public IActionResult Create() => CodeOwned();
 
-        return result.Match<IActionResult>(
-            ok => CreatedAtAction(nameof(Get), new { id = ok.Data.Server.Id }, ApiResponse<ServerDto>.Ok(ok.Data.Server)),
-            fail => Problem(detail: fail.Error.Message, statusCode: errorMapper.ToStatusCode(fail.Error)));
-    }
-
-    /// <summary>Deletes a server.</summary>
+    /// <summary>Rejects dynamic removal from older clients.</summary>
     [HttpDelete("{id:guid}")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> DeleteById(Guid id, CancellationToken ct)
-    {
-        var result = await sender.SendAsync(new ServerDeleteCommand(id), ct);
+    public IActionResult DeleteById(Guid id) => CodeOwned();
 
-        return result.Match<IActionResult>(
-            NoContent,
-            fail => Problem(detail: fail.Error.Message, statusCode: errorMapper.ToStatusCode(fail.Error)));
-    }
+    private IActionResult CodeOwned() => Problem(statusCode: StatusCodes.Status405MethodNotAllowed,
+        detail: "VPS integrations are defined in code. This inventory is read-only.");
 }

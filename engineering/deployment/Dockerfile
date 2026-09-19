@@ -7,17 +7,19 @@ COPY drydock.frontend-services/ ./
 RUN npm run build
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+ARG TARGETARCH
 WORKDIR /src
 COPY drydock.backend-services/ ./
 COPY --from=spa /spa/dist ./Drydock.Api/wwwroot
-RUN dotnet publish Drydock.Api/Drydock.Api.csproj -c Release -o /app -p:BuildSpa=false
+RUN case "$TARGETARCH" in amd64) rid=linux-x64 ;; arm64) rid=linux-arm64 ;; *) exit 1 ;; esac \
+    && dotnet publish Drydock.Api/Drydock.Api.csproj -c Release -o /app -r "$rid" --self-contained false -p:BuildSpa=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 RUN apt-get update && apt-get install -y --no-install-recommends curl python3 openssh-client \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /app ./
-COPY drydock.runner-services/runner.py drydock.runner-services/transport.py /app/runner/
+COPY drydock.runner-services/runner.py drydock.runner-services/transport.py drydock.runner-services/fleet.py drydock.runner-services/artifacts.py /app/runner/
 RUN mkdir -p /data/keys /data/deployments && chown -R app:app /data
 ENV ASPNETCORE_HTTP_PORTS=8080 DataProtection__KeyPath=/data/keys
 USER app

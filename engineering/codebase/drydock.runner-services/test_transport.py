@@ -57,6 +57,18 @@ class TransportTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             transport.child(self.root, "targets", "escape", ".json")
 
+    def test_status_retains_the_submission_host_after_fleet_edits(self):
+        job = "00000000-0000-0000-0000-000000000001"
+        remote_job = "00000000-0000-0000-0000-000000000002"
+        transport.write_json(self.root / "jobs" / (job + ".json"),
+                             {"id": job, "targetId": "removed", "remoteJobId": remote_job,
+                              "remote": "/srv/drydock/incoming/pilot", "ssh": self.config})
+        with patch.object(transport, "Ssh") as ssh:
+            ssh.return_value.run.return_value = json.dumps({"id": remote_job, "status": "succeeded"})
+            result = transport.status(self.root, job)
+            self.assertEqual("succeeded", result["status"])
+            ssh.assert_called_once_with(self.config)
+
 
 if __name__ == "__main__":
     unittest.main()

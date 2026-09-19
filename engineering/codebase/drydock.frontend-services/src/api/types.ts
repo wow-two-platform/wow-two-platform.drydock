@@ -1,30 +1,22 @@
-/** Connectivity state of a registered server (mirrors the backend enum, serialized as a string). */
-export type ServerStatus = 'Unknown' | 'Reachable' | 'Unreachable' | 'Provisioning';
+/** Providers implemented by the fleet catalog; adding one requires code. */
+export enum VpsProvider {
+  Hetzner = 'Hetzner',
+}
 
-/** A registered deploy-target server. */
+/** A configured deployment host. */
 export interface ServerDto {
   id: string;
   name: string;
+  provider: VpsProvider;
   host: string;
   sshUser: string;
-  region: string | null;
-  status: ServerStatus;
-  createdAtUtc: string;
-}
-
-/** Body for registering a server. */
-export interface RegisterServerRequest {
-  name: string;
-  host: string;
-  sshUser: string;
-  sshPort: number;
-  region: string | null;
+  region: string;
 }
 
 /** Lifecycle state of a portfolio product (mirrors the backend enum, serialized as a string). */
 export type ProductStatus = 'Draft' | 'Active' | 'Paused' | 'Killed';
 
-/** A registered portfolio product (single-host: one repo → one image). */
+/** A registered portfolio product (one repo → a release bundle). */
 export interface ProductDto {
   id: string;
   slug: string;
@@ -77,17 +69,11 @@ export interface SystemStatus {
   status: string;
 }
 
-/** RFC 7807 problem detail returned on errors. */
-export interface ProblemDetails {
-  title?: string;
-  detail?: string;
-  status?: number;
-}
-
 /**
  * Success envelope the backend wraps every resource 2xx body in (`ApiResponse<T>`):
  * the payload travels under `data`. Errors are NOT enveloped — they go out as
- * {@link ProblemDetails} (RFC 7807) and are read off the failed response directly.
+ * RFC 7807 `ProblemDetails` (the SDK `foundation/http` type) and are read off the
+ * failed response directly.
  */
 export interface ApiResponse<T> {
   data: T;

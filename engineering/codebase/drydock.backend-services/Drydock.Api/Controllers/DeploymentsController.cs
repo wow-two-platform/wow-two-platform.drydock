@@ -19,7 +19,7 @@ public sealed class DeploymentsController(ISender sender, IErrorHttpStatusCodeMa
     public async Task<IActionResult> Targets(CancellationToken ct) =>
         Render(await sender.SendAsync(new DeploymentReadQuery("targets"), ct));
 
-    /// <summary>Lists locally imported and validated release bundles.</summary>
+    /// <summary>Lists published deployment artifacts from approved repositories.</summary>
     [HttpGet("releases")]
     public async Task<IActionResult> Releases(CancellationToken ct) =>
         Render(await sender.SendAsync(new DeploymentReadQuery("releases"), ct));

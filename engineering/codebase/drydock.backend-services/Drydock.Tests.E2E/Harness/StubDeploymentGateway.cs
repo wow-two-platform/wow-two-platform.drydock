@@ -12,7 +12,8 @@ public sealed class StubDeploymentGateway : IDeploymentGateway
 
     public Task<AppResult<JsonElement>> ReadAsync(string resource, string? id, CancellationToken ct) =>
         Task.FromResult(AppResult<JsonElement>.Ok(JsonSerializer.SerializeToElement(
-            new[] { new { id = "pilot", product = "foreverpin", environment = "staging" } })));
+            resource == "servers" ? new object[] { new { id = "pilot-host", name = "Pilot", provider = "Hetzner", host = "vps.example.net", region = "hel1", sshUser = "deploy" } }
+                : new object[] { new { id = "pilot", product = "foreverpin", environment = "staging" } })));
 
     public Task<AppResult<JsonElement>> StartAsync(string target, string release, string actor, CancellationToken ct)
     {

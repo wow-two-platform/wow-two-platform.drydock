@@ -12,10 +12,12 @@
     "deploy": "npm run build && node ./scripts/deploy.mjs"
   },
   "dependencies": {
-    "@wow-two-beta/ui": "0.0.68",
+    "@tanstack/react-form": "^1.33.1",
+    "@wow-two-beta/ui": "0.0.95",
     "lucide-react": "^0.460.0",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.0",

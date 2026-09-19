@@ -38,41 +38,6 @@ public sealed class ValidationProblemDetailsE2ETests(DrydockAppFixture fixture) 
     }
 
     [Fact]
-    public async Task Post_Server_EmptyHost_Returns400ProblemDetails()
-    {
-        var response = await AdminClient.PostJsonAsync("api/servers", new { name = "no-host", host = "", sshUser = "root", sshPort = 22, region = "hel1" });
-
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        var problem = await response.ReadProblemAsync();
-        problem.Status.Should().Be(400);
-        problem.Title.Should().NotBeNullOrWhiteSpace();
-    }
-
-    [Fact]
-    public async Task Post_Server_MalformedHost_Returns400ProblemDetails()
-    {
-        // Non-empty but not a valid host shape (URL scheme) — previously slipped through, now rejected.
-        var response = await AdminClient.PostJsonAsync("api/servers", new { name = "bad-host", host = "http://10.0.0.1", sshUser = "root", sshPort = 22, region = "hel1" });
-
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        var problem = await response.ReadProblemAsync();
-        problem.Status.Should().Be(400);
-        problem.Title.Should().NotBeNullOrWhiteSpace();
-    }
-
-    [Fact]
-    public async Task Post_Server_OutOfRangePort_Returns400ProblemDetails()
-    {
-        // Out-of-range port — previously silently coerced to 22, now rejected.
-        var response = await AdminClient.PostJsonAsync("api/servers", new { name = "bad-port", host = "10.0.0.1", sshUser = "root", sshPort = 70000, region = "hel1" });
-
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        var problem = await response.ReadProblemAsync();
-        problem.Status.Should().Be(400);
-        problem.Title.Should().NotBeNullOrWhiteSpace();
-    }
-
-    [Fact]
     public async Task Put_Product_InvalidRepo_Returns400ProblemDetails()
     {
         var create = await AdminClient.PostJsonAsync("api/products", new { slug = "put-bad-repo", name = "OK", repo = Repo });

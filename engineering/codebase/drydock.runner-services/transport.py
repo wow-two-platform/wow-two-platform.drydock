@@ -10,6 +10,8 @@ import sys
 import tarfile
 import tempfile
 import uuid
+import fleet
+import artifacts
 from runner import SLUG, require, read_json, write_json, validate_bundle, validate_target
 
 
@@ -50,22 +52,17 @@ class Ssh:
 
 def targets(root):
     result = []
-    for path in sorted((root / "targets").glob("*.json")):
-        config = read_json(path)
+    for binding in fleet.TARGETS:
+        config = fleet.resolve_target(root, binding.id)
         validate_target(config["target"])
-        result.append({"id": path.stem, "product": config["target"]["product"],
+        result.append({"id": binding.id, "product": config["target"]["product"],
                        "environment": config["target"]["environment"],
-                       "serverId": config.get("serverId"), "host": config["ssh"]["host"]})
+                       "serverId": config["serverId"], "provider": config["provider"], "host": config["ssh"]["host"]})
     return result
 
 
 def releases(root):
-    result = []
-    for path in sorted((root / "bundles").glob("*/release.json")):
-        manifest = validate_bundle(path.parent)
-        result.append({"id": path.parent.name, "product": manifest["product"], "release": manifest["release"],
-                       "sourceCommit": manifest["sourceCommit"], "platform": manifest["platform"]})
-    return result
+    return artifacts.available()
 
 
 def import_bundle(root, archive, bundle_id):
@@ -91,8 +88,8 @@ def import_bundle(root, archive, bundle_id):
 
 
 def submit(root, target_id, bundle_id, actor):
-    config = read_json(child(root, "targets", target_id, ".json"))
-    bundle = child(root, "bundles", bundle_id)
+    config = fleet.resolve_target(root, target_id)
+    bundle = artifacts.prepare(root, bundle_id, import_bundle)
     manifest = validate_bundle(bundle)
     target_root, _ = validate_target(config["target"], manifest)
     require(re.fullmatch(r"/[A-Za-z0-9/_-]+", str(target_root)), "SSH root requires a simple absolute path")
@@ -108,7 +105,7 @@ def submit(root, target_id, bundle_id, actor):
         ssh.copy([runner_path, bundle / "release.json", bundle / "compose.json", target_path], remote)
     # Record the submission before launching; remote state remains recoverable if the response is lost.
     record = {"id": request_id, "targetId": target_id, "bundleId": bundle_id, "remote": remote,
-              "actor": actor, "status": "submitting"}
+              "actor": actor, "status": "submitting", "ssh": config["ssh"], "serverId": config["serverId"]}
     write_json(root / "jobs" / (request_id + ".json"), record)
     command = shlex.join(["python3", remote + "/runner.py", "launch", "--bundle", remote,
                           "--target", remote + "/target.json", "--actor", actor])
@@ -123,11 +120,13 @@ def status(root, job_id):
     record = read_json(root / "jobs" / (job_id + ".json"))
     if "remoteJobId" not in record:
         return {"id": job_id, "status": "unknown", "targetId": record["targetId"]}
-    config = read_json(child(root, "targets", record["targetId"], ".json"))
+    ssh_config = record.get("ssh")
+    if ssh_config is None:
+        ssh_config = fleet.resolve_target(root, record["targetId"])["ssh"]
     remote = record["remote"]
     command = shlex.join(["python3", remote + "/runner.py", "status", "--target", remote + "/target.json",
                           "--job", record["remoteJobId"]])
-    result = json.loads(Ssh(config["ssh"]).run(command))
+    result = json.loads(Ssh(ssh_config).run(command))
     result["remoteJobId"] = result["id"]
     result["id"] = job_id
     result["targetId"] = record["targetId"]
@@ -137,7 +136,7 @@ def status(root, job_id):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["import", "targets", "releases", "submit", "status"])
+    parser.add_argument("action", choices=["import", "servers", "targets", "releases", "submit", "status"])
     parser.add_argument("--root", required=True)
     parser.add_argument("--target")
     parser.add_argument("--bundle")
@@ -149,6 +148,8 @@ def main():
     try:
         if args.action == "import":
             result = import_bundle(root, args.archive, args.bundle)
+        elif args.action == "servers":
+            result = fleet.servers()
         elif args.action == "targets":
             result = targets(root)
         elif args.action == "releases":

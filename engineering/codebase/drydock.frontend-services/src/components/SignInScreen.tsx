@@ -1,6 +1,6 @@
 import { Github } from 'lucide-react';
-import { Button } from '@wow-two-beta/ui/actions';
-import { Card, Heading, Text } from '@wow-two-beta/ui/display';
+import { Button } from '@wow-two-beta/ui/presentation/actions';
+import { Card, Heading, Text } from '@wow-two-beta/ui/presentation/display';
 
 interface SignInScreenProps {
   onSignIn: () => void;
