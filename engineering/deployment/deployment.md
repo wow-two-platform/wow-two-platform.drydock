@@ -6,6 +6,7 @@
 
 GitHub Actions builds immutable images. DryDock submits reviewed release bundles over pinned SSH.
 The target-side Python runner owns locks, durable intent, health gates and recovery. The same runner works without the dashboard.
+Git triggers, artifact publication and retention are defined in the [CI policy](../planning/ci-artifact-policy.md).
 
 The [pilot plan](../planning/deployment-pilot.md) owns scope, future VPS wiring and launch gates.
 Local image builds use the current working tree; publishing requires all intended source/dependency changes committed together.
@@ -31,57 +32,49 @@ The runtime runs as `app` and uses PostgreSQL, not SQLite.
 
 ## Runner installation and inventory
 
-The image includes `/app/runner/{runner,transport}.py`.
+The image includes `/app/runner/{runner,transport,fleet,artifacts}.py`.
+`fleet.py` is the reviewed source of provider enums, VPS identities and deployment bindings.
+No `targets/*.json` file or database server row can add an executable target.
+The UI and server API are read-only; adding a host requires a code change and a new DryDock image.
+
 Mount a protected persistent directory at `/data/deployments` containing:
 
 ```text
-targets/<target-id>.json
-bundles/<bundle-id>/release.json
-bundles/<bundle-id>/compose.json
+ssh/<server-id>/identity
+ssh/<server-id>/known_hosts
+bundles/<artifact-id>/{release,compose,source}.json
 jobs/
 observed/
 ```
 
-Target and bundle IDs are lowercase slugs, up to 48 characters.
-Only an operator imports reviewed bundles or edits inventory; the HTTP API accepts IDs, never file paths, credentials or shell commands.
-A manifest hash proves that its Compose file matches; it does not prove publisher identity.
+The checked-in fleet starts empty. During wiring, add verified `Server` and `Target` values in `fleet.py`.
+For example only (these are not enabled hosts):
 
-Example `targets/foreverpin-staging.json`:
-
-```json
-{
-  "serverId": "<registered DryDock server UUID>",
-  "ssh": {
-    "host": "vps.example.net",
-    "port": 22,
-    "user": "deploy",
-    "keyFile": "/run/secrets/deploy_key",
-    "knownHostsFile": "/run/secrets/known_hosts"
-  },
-  "target": {
-    "product": "foreverpin",
-    "environment": "staging",
-    "root": "/srv/drydock",
-    "healthTimeoutSeconds": 120,
-    "minimumFreeBytes": 1073741824,
-    "variables": {
-      "PLATFORM_NETWORK": "platform"
-    },
-    "settings": {
-      "management": "/srv/drydock/config/foreverpin-staging/management.json",
-      "redirect": "/srv/drydock/config/foreverpin-staging/redirect.json"
-    },
-    "smoke": [
-      {"service": "redirect", "path": "/<stable-pilot-slug>", "status": 302}
-    ]
-  }
-}
+```python
+SERVERS = (Server("pilot-host", "Pilot host", VpsProvider.HETZNER,
+                  "vps.example.net", "hel1"),)
+TARGETS = (Target("foreverpin-staging", "pilot-host", "foreverpin",
+                  DeploymentEnvironment.STAGING,
+                  (("management", "/srv/secrets/foreverpin-staging/management.json"),
+                   ("redirect", "/srv/secrets/foreverpin-staging/redirect.json")),
+                  "platform"),)
 ```
 
-Replace placeholders with verified values. The sample smoke path is intentionally invalid until a real slug is assigned.
-`serverId` links the operator binding to inventory for display; this initial adapter does not enforce a database foreign key.
-Registry login belongs to the target deployment account. Use a read-only GHCR token and `docker login --password-stdin`;
-never put a token in a release bundle.
+Add a real redirect smoke probe to the target after the stable pilot code exists.
+The default root is `/srv/drydock`; secret values never enter source, bundles or the browser.
+IDs are stable lowercase slugs; never reuse a host ID for a different machine.
+
+`artifacts.py` declares approved public GitHub repositories and exact service image repositories.
+The catalog lists only published versioned release assets with completed upload and checksum metadata.
+DryDock validates the archive, bundle contents and tag/source commit when a release is selected.
+A GHCR pull remains the definitive image-availability check before container replacement.
+Use `Deployment:GitHubTokenFile` for a mounted read-only catalog token; the operator CLI reads the equivalent
+`DRYDOCK_GITHUB_TOKEN_FILE` environment variable. Anonymous GitHub requests have a lower shared-IP rate limit.
+The token is sent only to the API origin and is removed from CDN redirects. Private release downloads are not yet supported.
+
+Registry login belongs to the target deployment account. Public GHCR images need no pull credential;
+private images require a read-only token and `docker login --password-stdin`.
+Verify first-publish package visibility explicitly; source-repository visibility does not prove image visibility.
 
 The target requires Linux, Python 3, Docker Engine/Compose v2, private configuration files and the external `platform` network.
 A deployment account with Docker access can control the host; membership in the Docker group is privileged.
@@ -96,18 +89,17 @@ Never use group/world-writable settings. Cookie key volumes must remain writable
 From the repository root, using the same inventory as the dashboard:
 
 ```sh
-python3 engineering/codebase/drydock.runner-services/transport.py import \
-  --root /path/to/inventory --archive foreverpin-release.tar.gz --bundle foreverpin-v1
 python3 engineering/codebase/drydock.runner-services/transport.py targets --root /path/to/inventory
 python3 engineering/codebase/drydock.runner-services/transport.py releases --root /path/to/inventory
 python3 engineering/codebase/drydock.runner-services/transport.py submit \
-  --root /path/to/inventory --target foreverpin-staging --bundle foreverpin-v1 --actor operator
+  --root /path/to/inventory --target foreverpin-staging --bundle <artifact-id-from-releases> --actor operator
 python3 engineering/codebase/drydock.runner-services/transport.py status \
   --root /path/to/inventory --job <returned-id>
 ```
 
 - `GET /api/deployments/targets`: configured target bindings.
-- `GET /api/deployments/releases`: validated imported bundles.
+- `GET /api/servers`: hosts defined in code; registration and deletion return `405`.
+- `GET /api/deployments/releases`: published artifacts from approved release sources.
 - `POST /api/deployments`: JSON `{"target":"foreverpin-staging","release":"foreverpin-v1"}`,
   authenticated admin plus `X-Drydock-Action: deploy`.
 - `GET /api/deployments/{id}`: refresh the target-owned outcome.
@@ -117,7 +109,7 @@ python3 engineering/codebase/drydock.runner-services/transport.py status \
 
 The dashboard polls active deployments. Restarting the dashboard does not terminate a launched target worker.
 The initial dashboard displays the current submission; durable history is retained in the inventory and target job directories.
-It does not yet provide a fleet-wide history browser or automatically discover release assets from GitHub.
+It does not yet provide a fleet-wide history browser. Artifact discovery reads GitHub releases without interacting with CI.
 
 ## Target state and recovery
 
@@ -167,7 +159,7 @@ Inspect detailed container logs privately on the target. Runtime Docker logs rot
 10. Bootstrap DryDock privately or use the operator command from a workstation.
 11. Deploy staging, verify real URLs and provider callbacks, restore a backup, promote the same image digests.
 
-Existing product containers keep serving without DryDock. A new VPS takes a new target file using the same release.
+Existing product containers keep serving without DryDock. A new VPS requires a reviewed fleet code change and DryDock rebuild; it uses the same product release.
 Data relocation remains a separately planned copy/restore/cutover operation.
 
 ## Backups and launch gates

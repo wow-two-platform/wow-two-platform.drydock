@@ -3,8 +3,8 @@
 ## What is this
 
 **Drydock** — the internal product ops & deploy control plane for the micro-SaaS portfolio. Deploys
-product front+back to Hetzner VPSs over SSH (Docker + Traefik), buys + wires domains (Porkbun +
-Cloudflare), holds secrets, and watches the fleet. Single-user; **never exposed publicly**.
+product release bundles to code-owned VPS targets over SSH (Docker + ingress). Domain governance,
+secret rotation and fleet monitoring remain planned capabilities. Single-user; **never exposed publicly**.
 
 > This is a **platform service** in the `wow-two-platform` org. It manages the *other* products —
 > it sits above them operationally.
@@ -21,7 +21,7 @@ engineering/              ← the execution (build · ship · run)
     └── drydock.frontend-services/  ← React 19 + Vite + Tailwind v4 + @wow-two-beta/ui
 ```
 
-Follows `wow-two-ws/conventions/development/repo/repo-structure.md`.
+Follows `wow-two-ws/conventions/development/repo/structure/repo-structure.md`.
 
 Backend layers: `Domain` (entities/enums/Result) → `Application` (MediatR CQRS + repository abstractions)
 → `Infrastructure` (adapters) + `Persistence` (EF Core + Postgres) → `Api` (slim host). Mirrors the
@@ -30,8 +30,8 @@ Backend layers: `Domain` (entities/enums/Result) → `Application` (MediatR CQRS
 ## Core domains (the 5 things Drydock manages)
 
 Products · Servers · Deployments · Domains · Secrets. **Products** (create/list/update/delete +
-version-resolution) and **Servers** (register/list/delete) are wired end-to-end; Deployments/Domains/Secrets
-exist as Domain entities + DbSets, verticals next.
+version-resolution) and **Servers** (read-only code-owned fleet) are wired end-to-end. Deployments use the independent
+runner and published artifact catalog. Domains/Secrets remain scaffold models.
 
 ## Build & run
 
@@ -94,3 +94,10 @@ encrypt secrets at rest, use scoped tokens, and keep an audit trail.
 ## Out of scope (deliberately, for now)
 
 Auth/multi-tenant/billing (single-user — bind to Tailscale).
+
+## Fleet and artifact policy
+
+Providers and individual VPS bindings are defined in `engineering/codebase/drydock.runner-services/fleet.py`.
+Provider/environment choices use enums; no dynamic provider plugins or Add VPS UI/API.
+`artifacts.py` owns approved release sources. DryDock consumes published bundles and never triggers builds.
+The detailed Git/CI/registry policy lives in `engineering/planning/ci-artifact-policy.md`.

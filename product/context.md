@@ -1,28 +1,24 @@
-# Drydock — Context
+# DryDock — Context
 
-*Last updated: 2026-06-12*
+*Last updated: 2026-09-19*
 
 ## Current state
 
-P0 scaffolded. Clean-Arch .NET 10 backend (slim host, MediatR CQRS, EF Core + SQLite) + React 19 / Vite / Tailwind v4 dashboard on `@wow-two-beta/ui`, shipped as one single-host Docker image. Five domain modules modelled (`Server`, `Product`, `Deployment`, `ManagedDomain`, `SecretEntry`) + DbSets + `InitialCreate` migration. The **Servers** vertical is wired end-to-end (register + list; duplicate host → 409). Backend builds clean; frontend typechecks + builds. The repo has been restructured to the wow-two product-repo conventions (`product/` + `engineering/codebase/`).
-
-## Active tasks
-
-| Task | Status | Notes |
-|---|---|---|
-| Spike the deploy thread (SSH → compose → `docker compose up -d` → SignalR logs → Traefik + LE → GHCR pull) | todo | P1, step 1 — one hand-configured Hetzner box, hardcoded values |
-| Build Products / Deployments / Domains / Secrets verticals | todo | Entities exist; add Application/Api |
-| Authenticate the control plane | todo | Endpoints currently open |
-
-## Open questions
-
-- Registrar: Porkbun (best API) vs Namecheap (stricter API)?
-- Build bespoke (Docker + Traefik + SSH.NET) vs wrap Coolify as the deploy substrate?
-- One big VPS (bin-pack, Traefik shines) vs one-per-product (isolation)?
-- How many Hetzner servers now — decides multi-server priority.
+DryDock is the private infrastructure-governance control plane. Its essential slice is deploying a published
+ForeverPin release to a reviewed VPS target, with durable outcomes and recovery independent of the dashboard.
+The .NET/React application uses PostgreSQL, GitHub authentication and an explicit production owner allowlist.
+Products, a read-only fleet, release-artifact selection and deployment operations are implemented locally.
+Live VPS wiring and hosted release publication remain open.
 
 ## Decisions
 
-- 2026-06-09 — Name = **Drydock**; provider = **Hetzner Cloud** (full REST API + cloud-init).
-- 2026-06-09 — Bespoke Docker + Traefik + SSH.NET + GHCR as the primary deploy substrate; Coolify as fast-lane fallback.
-- 2026-06-12 — Conform to the repo-structure standard (`product/` + `engineering/codebase/{backend,frontend}-services`, folder-docs).
+- GitHub Actions builds and publishes artifacts; DryDock consumes them without controlling Git or CI.
+- Main pushes validate; explicit version tags are the recommended release cut.
+- Providers and individual VPS bindings are defined in code; selectable provider/environment values use enums.
+- No Add VPS UI, dynamic integration registry or server mutation API.
+- Runtime secrets are mounted separately. Product artifacts remain identical across environments.
+- Image rollback requires schema compatibility; database recovery is an explicit operation.
+- Domain, cost, backup and broader operations governance remain in scope for later slices.
+
+The [CI/artifact policy](../engineering/planning/ci-artifact-policy.md) owns the detailed build and registry analysis.
+The [deployment pilot](../engineering/planning/deployment-pilot.md) owns current verification and live launch gates.

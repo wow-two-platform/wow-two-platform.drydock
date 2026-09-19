@@ -1,12 +1,18 @@
-# Drydock — Flows
+# DryDock — Flows
 
-*Last updated: 2026-06-12*
+*Last updated: 2026-09-19*
 
-User / product flows. One doc per non-trivial flow; this is the index.
+- **Publish a candidate:** commit intended source to `main` → validate in GitHub → tag the chosen commit →
+  CI publishes and smoke-tests both images → attach the digest bundle to a draft → publish the completed release.
+- **Deploy:** refresh published artifacts → choose release and configured environment → submit →
+  target lock and pull → health-gated replacement → durable outcome.
+- **Recover:** inspect the target journal → restore compatible prior images, or explicitly recover data →
+  verify health. The operator runner works without the dashboard. Database restoration is never automatic.
+- **Integrate a VPS:** verify the provider/host → add its provider enum/integration if needed →
+  add host and environment bindings in code → mount credentials → test and rebuild DryDock.
+  No server-registration action appears in the UI.
+- **Move a workload:** prepare another code-owned target → copy/restore data and keys → verify →
+  perform an explicit cutover. Selecting another host does not transfer persistent data.
 
-- **Deploy a product** — push to `main` → GitHub Actions builds web + api images → GHCR → operator clicks **Deploy** → Drydock queues a job (product × server × env) → render `docker-compose.yml` (image tags, Traefik labels, injected secrets) → SSH + `docker compose pull && up -d` → Traefik routes the domain + issues SSL → health check + live logs in the dashboard. **Rollback** = redeploy the previous SHA (one click).
-- **Buy + wire a domain** — search (Porkbun) → buy against pre-funded balance → set nameservers to Cloudflare → create A-record → VPS IP → assign domain → product/env → next deploy writes the Traefik `Host()` rule → cert issued (~1–2 min DNS prop).
-- **Register a server** — add VPS (host/IP, SSH key ref) → test SSH + Docker → it joins the fleet, available as a deploy target.
-- **Teardown / kill** — stop the stack → final backup → archive repo → release/expire the domain (the micro-SaaS kill-gate, executed cleanly).
-
-> Step-by-step deploy/domain detail + data model: `../../engineering/architecture/architecture.md`.
+Future domain purchasing, DNS changes, backup automation and teardown need their own reviewed flows.
+Execution details: [deployment operations](../../engineering/deployment/deployment.md).

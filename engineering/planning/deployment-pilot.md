@@ -17,8 +17,8 @@ no executor, durable worker or deployment API existed at intake.
 
 | Capability | Today’s slice | Later expansion |
 |---|---|---|
-| Inventory | Existing products/servers; explicit host/environment binding | Provider accounts, regions, renewal costs, capacity budgets |
-| Releases | Same-commit image digest map, versioned bundle, config names | Signatures, registry provenance enforcement, retention policies |
+| Inventory | Products and code-owned provider/host/environment bindings | Provider accounts, regions, renewal costs, capacity budgets |
+| Releases | Published artifact catalog, source/digest checks, config names | Signatures, registry provenance enforcement, retention policies |
 | Changes | Explicit deploy, serialized mutation, durable status | Approval policies, scheduled rollout, policy-as-code |
 | Recovery | Previous bundle, schema compatibility gate, independent CLI | Automated restore drills, cross-provider disaster recovery |
 | Secrets | Protected host files and pinned SSH identities | Vault integration, rotation, access audit |
@@ -35,8 +35,9 @@ framework are not prerequisites for this deployment. A single VPS is still one f
 
 - PostgreSQL and bespoke startup migrations are implemented; SQLite packaging and architecture prose were stale.
 - GitHub authentication and a normalized-login allowlist exist; an empty list previously admitted every GitHub user.
-- Products, servers and single-image version lookup work; the UI’s ready-image result is not multi-service release acceptance.
+- Products and the code-owned fleet are available; the UI now lists published multi-service artifacts.
 - SSH key references point to an unfinished secret domain; the initial runner needs explicit file-backed SSH configuration.
+- The server inventory is now read-only and code-owned; provider/environment choices use enums.
 - The control plane remains private. Loopback binding plus an SSH tunnel is sufficient for the initial operator path.
 - A stopped control plane must neither stop products nor prevent an operator deploying or recovering them.
 
@@ -119,14 +120,15 @@ Do not build images on the budget VPS. Count independent backup storage, tax and
 3. Install supported Docker Engine/Compose and Python 3; create the deployment account and protected deployment root.
 4. Configure firewall/private administration, time sync, bounded Docker logs and monitoring.
 5. Start host PostgreSQL/ingress; create isolated product databases and runtime setting files.
-6. Register the server and a target binding in DryDock.
+6. Add a reviewed server/target definition to `fleet.py` and rebuild DryDock.
 7. Run read-only preflight, deploy a staging release, rehearse recovery, verify backup restoration.
 8. Assign production to that host only after DNS/TLS and application tests pass.
 
-A different provider changes the server binding, not the release bundle.
+A new provider requires an enum and integration code; a new VPS requires a fleet code change.
+Neither changes the product release bundle.
 Adding a host does not replicate databases, secrets or volumes. Moving a stateful product requires backup/copy,
 a write-freeze or replication plan, verified restore, DNS TTL planning and an explicit cutover.
-No active-active promise is made by adding a second server row.
+Adding another host definition does not establish active-active service availability.
 
 ## Shipping sequence and acceptance
 
@@ -144,7 +146,7 @@ No active-active promise is made by adding a second server row.
 Execution evidence and exact commands belong in [deployment operations](../deployment/deployment.md).
 Unchecked items remain open regardless of build success.
 
-Local evidence on September 19: 121 DryDock backend tests; 27 runner/SSH-adapter tests;
+Local evidence on September 19: 115 DryDock backend tests; 40 runner/fleet/artifact/SSH-adapter tests;
 213 ForeverPin backend tests and four frontend tests. Clean images started on Docker Desktop `linux/arm64`.
 A real guest-created URL code persisted across replacement, rendered SVG and returned its expected redirect.
 The target runner applied digest-pinned images, recovered from an intentionally unhealthy release,
@@ -159,15 +161,13 @@ Cookie key files in both applications also retained identical hashes across cont
 The same management image returned different public Google configuration from a target setting file.
 The bundle importer accepted the tested release archive and rejects links or duplicate bundle IDs.
 
-## Commit coordination
+## Ownership and publication
 
-- The deployment backend, runner and packaging are committed in DryDock.
-- The new dashboard panel uses the existing, uncommitted UI SDK upgrade to `0.0.95`.
-  That upgrade and its related UI edits predate this task; the panel waits for the coordinated frontend batch.
-- ForeverPin's packaging/release batch overlaps another task's staged review improvements.
-  Preserve that prepared batch; the URL-routing repair and smoke script are an additional tested batch.
-- Hosted publication must include the intended combined working tree; local image builds are not evidence
-  that a partial commit contains every tested frontend dependency.
+This task owns DryDock fully and may commit its complete verified changes.
+ForeverPin remains uncommitted locally unless a release requires the intended source to be published.
+GitHub CI cannot include uncommitted working-tree edits.
+The [CI/artifact policy](ci-artifact-policy.md) owns the main/tag cadence, GHCR retention,
+completed-release discovery and the code-owned VPS model.
 
 ## Launch decisions for the wiring session
 
