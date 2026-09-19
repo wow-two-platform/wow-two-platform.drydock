@@ -1,88 +1,83 @@
-# Drydock — Architecture
+# DryDock architecture
 
-*Last updated: 2026-06-12*
+*Last updated: 2026-09-19*
 
-## Overview
+## Runtime
 
-A single .NET 10 host serves the control-plane HTTP API plus (in production) the React dashboard from its `wwwroot`. Clean Architecture — dependencies point inward, the Domain has no infrastructure dependency. State lives in SQLite. From here Drydock will reach **out** to the fleet: SSH to Hetzner VPSs (Docker + Traefik), REST to a registrar (Porkbun) + Cloudflare, and pull images from GHCR.
+A .NET 10 host serves the private administration API and React dashboard.
+PostgreSQL stores the product/server registries; bespoke SQL migrations run on startup.
+GitHub cookie authentication and an owner allowlist protect administration.
+Production requires a nonempty owner allowlist.
 
-```
-          ┌──────────── Drydock.Api (single host) ─────────────┐
-operator →│ Control plane /api/*   ← React dashboard (wwwroot) │
-          └───────┬───────────────────────────┬────────────────┘
-            Infrastructure                Persistence
-            (clock; next: SSH /           (EF Core + SQLite)
-             Hetzner / Porkbun /                │
-             Cloudflare adapters)               │
-                    └──────────┬────────────────┘
-                     implement ports declared in
-                     Application (MediatR use cases)
-                               │ depends on
-                    Domain (entities, enums, Result — zero infra)
-```
-
-## The five layers (`engineering/codebase/drydock.backend-services/`)
-
-5-layer Clean Architecture per `wow-two-ws/conventions/development/backend/service-architecture.md`.
-
-**1 · `Drydock.Api` — host & composition root.** The only layer that knows HTTP + DI. Slim `Program.cs`; wiring in `Configurations/HostConfiguration*`. Boot applies EF migrations (`AppInitialization`). Controllers: `ServersController` (register + list), `SystemController` (health). Controllers send MediatR requests via `ISender` and `Match` the `Result`; `ResultError` → HTTP status via `ApiResults`. Serves the SPA (default files + static + SPA fallback).
-
-**2 · `Drydock.Application` — use cases & ports.** MediatR handlers (commands/queries), no infrastructure. Servers: `RegisterServerCommand` / `ListServersQuery`. Ports: `IServerStore`, `IClock`. Outcomes as `Result` / `Result<T>`.
-
-**3 · `Drydock.Domain` — the core.** Five domain modules, each entity + enums: `Server`, `Product`, `Deployment`, `ManagedDomain`, `SecretEntry` (all `IKeyedEntity<Guid>`). `Result` / `ResultError` envelope under `Results/`. No infrastructure.
-
-**4 · `Drydock.Infrastructure` — technical adapters.** `SystemClock` today. Next: SSH executor (SSH.NET), Hetzner / Porkbun / Cloudflare clients, GHCR pull — all behind Application ports.
-
-**5 · `Drydock.Persistence` — storage adapter.** `DrydockDbContext` (SQLite), design-time factory, EF store (`EfServerStore`), migrations applied by `MigrateAsync()` on boot (never `EnsureCreated`).
-
-## The 5 things Drydock manages
-
-| Domain | Holds | Key actions |
-|---|---|---|
-| **Products** | name, slug, front/back repo, stack, status | register, scaffold, archive/kill |
-| **Servers (VPS)** | host/IP, SSH key ref, Docker info, capacity | add, test connection, health |
-| **Deployments** | product × server × env, image tags, status, logs | deploy, rollback, restart, teardown |
-| **Domains** | name, registrar, expiry, DNS provider, assigned product | search, buy, point DNS, assign, renew-alert |
-| **Secrets** | scope (global/server/product/env), key, encrypted value | set, inject at deploy, rotate, audit |
-
-> v1 wires **Servers** end-to-end (register + list). The other four exist as Domain entities + DbSets; their Application/Api verticals come next.
-
-## Deploy flow (the core mechanic — P1)
-
-```
-push → GitHub Actions builds web + api images → GHCR (tag = SHA)
-  ▼ operator clicks Deploy (or Action webhook) → queue job for product × server × env
-  ▼ render docker-compose.yml (image tags, Traefik labels w/ assigned domain, injected secrets)
-  ▼ SSH (SSH.NET) → scp compose → `docker compose pull && up -d`
-  ▼ Traefik detects host label → routes domain → issues / renews Let's Encrypt SSL
-  ▼ health check /health; status + streamed logs (SignalR) to dashboard.  Rollback = re-pin prior SHA
+```mermaid
+flowchart LR
+  CI[GitHub Actions] --> Images[Immutable GHCR images]
+  CI --> Bundle[Release manifest + Compose]
+  Bundle --> Import[Reviewed local bundle inventory]
+  Import --> Dock[Private DryDock dashboard/API]
+  Dock --> SSH[Pinned OpenSSH adapter]
+  Operator[Operator CLI] --> SSH
+  SSH --> Runner[Target-owned Python runner]
+  Runner --> Compose[Docker Compose services]
+  Images --> Compose
+  Runner --> Journal[Durable target deployment journal]
+  Journal --> Dock
 ```
 
-## Domain flow (P2)
+## Responsibilities
 
-Search (Porkbun `domain/check`) → buy against pre-funded balance → set nameservers → Cloudflare A-record → VPS IP → assign domain → product/env → next deploy writes the Traefik `Host()` rule → cert issued.
+| Layer | Responsibility |
+|---|---|
+| Domain | Product, server, deployment, domain and secret models |
+| Application | Product/server use cases and deployment gateway requests |
+| Infrastructure | SDK integration clients and bounded runner-process adapter |
+| Persistence | PostgreSQL EF mapping, repositories and bespoke migration files |
+| API | Host wiring, authorization, request validation, controllers and SPA serving |
+| Python runner | Bundle validation, SSH transport, target lock, rollout and recovery |
 
-## API surface (current)
+The pre-existing deployment/domain/secret database entities remain scaffold models.
+The essential deployment execution journal lives on each target, with a durable local submission index.
+It is not yet projected into the old deployment table. This avoids pretending the placeholder's web/API image tags
+represent a verified multi-service release.
 
-| Method | Route | Purpose |
-|---|---|---|
-| GET | `/health` | Liveness |
-| POST | `/api/servers` | Register a server (duplicate host → 409) |
-| GET | `/api/servers` | List servers |
+## Deployment contract
 
-> The control plane is currently **unauthenticated** — it relies on network isolation (single instance, no public ingress; bind to loopback, reach over Tailscale / SSH tunnel). Auth is a hardening step — see `../planning/planning.md`.
+A reviewed bundle contains immutable service image references, one source commit, CPU platform,
+a hashed Compose definition, required configuration names and an explicit rollback-compatibility decision.
+An operator-owned target binding supplies server identity, environment, runtime setting file paths and smoke probes.
+The API accepts target/release IDs only. It cannot upload arbitrary Compose, run shell commands or disclose SSH keys.
 
-## Security model
+The dashboard can list imported bundles, select an environment, submit a deployment and poll its outcome.
+Existing single-image GitHub version discovery is informational; it does not create an accepted multi-service bundle.
+Automatic release-asset import and a history browser remain subsequent UI work.
 
-Drydock will hold the highest-value secret set in the portfolio — VPS SSH keys, registrar billing API, Cloudflare token, GHCR PAT. Secrets encrypted at rest (AES column converter now → migrate to the `wow-two-platform.secrets-vault` service). Scoped tokens (Cloudflare per-zone, GitHub GHCR-read). Never on the public internet — Tailscale / SSH tunnel. Audit log on every deploy, secret change, domain purchase.
+A target lock serializes dashboard and operator changes. Pulls precede mutation.
+The target saves intent before applying Compose, verifies exact image references and health, and records the result.
+An SSH disconnect or control-plane restart does not kill the detached target worker.
+Interrupted or unrecovered mutation requires explicit reconciliation.
 
-## Cross-cutting
+Image recovery requires a declared schema-compatibility guarantee. It does not restore the database.
+Compose replacement has a restart window; this implementation does not promise zero downtime.
 
-- **Data:** SQLite + EF Core; forward-only migrations on boot (`conventions/development/backend/database.md`). Swap the provider in `Persistence/DependencyInjection.cs` for Postgres if multi-instance is needed.
-- **Jobs (P1):** Hangfire — deploys are long-running, need retry + a dashboard.
-- **Live logs (P1):** SignalR — stream deploy/build stdout to the console widget.
-- **Deploy:** one Docker image (SPA → API `wwwroot`), loopback-only — see `../deployment/`.
+## Infrastructure governance
 
-## Ecosystem fit
+Products and servers are the implemented inventory. Deployment is the essential operational slice.
+Domain registration/DNS automation, a secrets vault, provisioning, capacity/cost inventory and continuous fleet monitoring
+remain separate capabilities in the [governance plan](../planning/deployment-pilot.md).
+The first product is ForeverPin: management API/SPA plus redirect API sharing a product database.
 
-A `wow-two-platform` service — it manages the *other* products, so it sits above them operationally. Backend mirrors the `wow-two-platform.secrets-vault` sibling (slim host + MediatR CQRS + EF/SQLite). **Migration target:** `WoW.Two.Sdk.Backend.Beta` (hosting/observability/problemdetails/mediator) once a restore-verified spike confirms it; build-locally-then-migrate is the rule.
+A different VPS uses a new target binding without rebuilding the product.
+State relocation requires an explicit database/volume transfer and cutover plan.
+
+## Security and recovery
+
+DryDock stays private through a tunnel/private network. OpenSSH requires a pinned known-hosts file.
+Runtime secrets live in protected host files, mounted read-only into applications.
+Persistent cookie key volumes survive container replacement.
+The dashboard receives safe failure categories; raw runtime logs remain on the target.
+
+Release bundles are privileged operator inputs. Hash checks bind files together, not publishers to identities.
+Only reviewed CI artifacts may be imported.
+A database backup and the cookie/recovery keys must be recoverable without DryDock.
+
+Executable commands, directory layouts and VPS wiring gates are in [deployment operations](../deployment/deployment.md).

@@ -27,3 +27,5 @@ engineering/codebase/drydock.backend-services/Drydock.Api/wwwroot/*
 .vs/
 .vscode/
 .DS_Store
+__pycache__/
+*.pyc

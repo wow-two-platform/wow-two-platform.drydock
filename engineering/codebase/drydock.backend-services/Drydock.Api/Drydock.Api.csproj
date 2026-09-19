@@ -23,21 +23,14 @@
     <!-- drydock.frontend-services is a sibling of drydock.backend-services under engineering/codebase/. -->
     <SpaRoot>$(MSBuildProjectDirectory)\..\..\drydock.frontend-services\</SpaRoot>
   </PropertyGroup>
-  <ItemGroup>
-    <SpaInputs Include="$(SpaRoot)src\**\*;$(SpaRoot)index.html;$(SpaRoot)package.json;$(SpaRoot)vite.config.ts" />
-  </ItemGroup>
-  <!--
-    Rebuild the SPA into wwwroot on backend build; incremental via Inputs/Outputs (no-op when SPA unchanged).
-    Uses npm (drydock is npm, not pnpm) and `npm run deploy` (vite build → dist → copied into wwwroot by
-    scripts/deploy.mjs, since vite outDir is `dist` here, not wwwroot).
-    SkipSpaBuild guard: the Docker `dotnet publish` stage runs on the .NET SDK image, which has NO Node —
-    its node stage already built the SPA into wwwroot, so that stage passes -p:SkipSpaBuild=true to skip this.
-  -->
-  <Target Name="BuildSpa" BeforeTargets="Build"
-          Condition="'$(SkipSpaBuild)' != 'true'"
-          Inputs="@(SpaInputs)" Outputs="$(MSBuildProjectDirectory)\wwwroot\index.html">
-    <Exec Command="npm ci" WorkingDirectory="$(SpaRoot)" Condition="!Exists('$(SpaRoot)node_modules')" />
+  <Target Name="BuildSpa" BeforeTargets="PrepareForBuild;ResolveProjectStaticWebAssets"
+          Condition="'$(BuildSpa)' != 'false' and '$(SkipSpaBuild)' != 'true' and '$(DesignTimeBuild)' != 'true' and '$(NoBuild)' != 'true'">
+    <Exec Command="npm ci" WorkingDirectory="$(SpaRoot)" />
     <Exec Command="npm run deploy" WorkingDirectory="$(SpaRoot)" />
+    <ItemGroup>
+      <Content Remove="@(Content)" Condition="$([System.String]::Copy('%(Content.Identity)').Replace('\', '/').StartsWith('wwwroot/'))" />
+      <Content Include="wwwroot/**/*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
   </Target>
 
 </Project>

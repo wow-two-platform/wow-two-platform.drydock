@@ -1,42 +1,27 @@
 # syntax=docker/dockerfile:1
-
-# Multi-stage build for Drydock: ONE image serving the .NET API + the React dashboard.
-# The build context MUST be engineering/codebase/, which contains BOTH drydock.backend-services
-# and drydock.frontend-services.
-#
-#   docker build -f engineering/deployment/Dockerfile -t drydock engineering/codebase
-#
-# Run ONE instance. NEVER expose it publicly — bind to loopback and reach it over Tailscale
-# or an SSH tunnel. On first run the app applies EF migrations and creates /data/drydock.db.
-#
-#   docker run -d --name drydock -p 127.0.0.1:8210:8080 -v drydock-data:/data drydock
-
-# ---- Stage 1: build the React dashboard ----
-FROM node:22-alpine AS spa
+FROM node:24.11.0-alpine AS spa
 WORKDIR /spa
 COPY drydock.frontend-services/package.json drydock.frontend-services/package-lock.json ./
 RUN npm ci
 COPY drydock.frontend-services/ ./
-RUN npm run build                          # emits /spa/dist
+RUN npm run build
 
-# ---- Stage 2: publish the .NET API (the SPA arrives from stage 1) ----
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY drydock.backend-services/ ./
-# The built SPA lands in wwwroot so `dotnet publish` bundles it into the output.
 COPY --from=spa /spa/dist ./Drydock.Api/wwwroot
-RUN dotnet publish Drydock.Api/Drydock.Api.csproj -c Release -o /app -p:SkipSpaBuild=true
+RUN dotnet publish Drydock.Api/Drydock.Api.csproj -c Release -o /app -p:BuildSpa=false
 
-# ---- Stage 3: runtime ----
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+RUN apt-get update && apt-get install -y --no-install-recommends curl python3 openssh-client \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /app ./
-
-# SQLite control-plane store on a volume so data survives container replacement.
-ENV ConnectionStrings__Drydock="Data Source=/data/drydock.db"
-RUN mkdir -p /data && chown app:app /data
-VOLUME ["/data"]
-
+COPY drydock.runner-services/runner.py drydock.runner-services/transport.py /app/runner/
+RUN mkdir -p /data/keys /data/deployments && chown -R app:app /data
+ENV ASPNETCORE_HTTP_PORTS=8080 DataProtection__KeyPath=/data/keys
 USER app
 EXPOSE 8080
+HEALTHCHECK --interval=15s --timeout=5s --start-period=60s --retries=4 \
+    CMD curl --fail --silent http://localhost:8080/api/system/ready || exit 1
 ENTRYPOINT ["dotnet", "Drydock.Api.dll"]

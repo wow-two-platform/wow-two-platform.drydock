@@ -1,17 +1,189 @@
-# deployment/
+# Deployment operations
 
-Ops + deploy for Drydock.
+*Last updated: 2026-09-19*
 
-- `Dockerfile` — multi-stage: build the SPA → publish the .NET API with the SPA in `wwwroot` → slim runtime image. Build context is `engineering/codebase/`.
-- `docker-compose.yml` — one `drydock` service (context `../codebase`, dockerfile `../deployment/Dockerfile`).
+## Ownership and current boundary
 
-```bash
-# from engineering/deployment/
-docker compose up -d --build
+GitHub Actions builds immutable images. DryDock submits reviewed release bundles over pinned SSH.
+The target-side Python runner owns locks, durable intent, health gates and recovery. The same runner works without the dashboard.
+
+The [pilot plan](../planning/deployment-pilot.md) owns scope, future VPS wiring and launch gates.
+Local image builds use the current working tree; publishing requires all intended source/dependency changes committed together.
+
+## Local packaging
+
+From this repository root:
+
+```sh
+export POSTGRES_PASSWORD='<local-only generated password>'
+export DRYDOCK_ADMIN='<your GitHub login>'
+docker compose -p drydock-local -f engineering/deployment/docker-compose.yml up --build --wait
 ```
 
-> **Single-host pattern:** the SPA is built and copied into the API's `wwwroot`; the .NET host serves both the API and the dashboard on one origin.
->
-> **Never expose publicly.** Bind to loopback (`127.0.0.1:8210`) and reach over Tailscale / SSH tunnel. SQLite (`drydock.db`) lives on a named volume so the control-plane state survives container replacement.
+This Compose file is a local acceptance stack. Its PostgreSQL database and cookie keys use project-scoped volumes.
+The API binds to loopback. Configure GitHub credentials through a protected `appsettings.Local.json` mount for real sign-in.
+Production refuses an empty `Identity:AllowedGitHubLogins`.
+The local HTTP endpoint is not evidence of real HTTPS/OAuth readiness.
 
-> **Note — this is Drydock's *own* container** (the control plane running locally). The *product* deploy substrate Drydock manages on the fleet (Docker + Traefik per Hetzner VPS, GHCR images) is a runtime concern of the deploy executor, not this folder. See `../architecture/architecture.md` → Deploy flow.
+Build context `engineering/codebase/` excludes local overrides, environment files, private keys, logs and generated output.
+The Node stage builds the SPA; .NET publishes the supplied SPA without running Node again.
+The runtime runs as `app` and uses PostgreSQL, not SQLite.
+
+## Runner installation and inventory
+
+The image includes `/app/runner/{runner,transport}.py`.
+Mount a protected persistent directory at `/data/deployments` containing:
+
+```text
+targets/<target-id>.json
+bundles/<bundle-id>/release.json
+bundles/<bundle-id>/compose.json
+jobs/
+observed/
+```
+
+Target and bundle IDs are lowercase slugs, up to 48 characters.
+Only an operator imports reviewed bundles or edits inventory; the HTTP API accepts IDs, never file paths, credentials or shell commands.
+A manifest hash proves that its Compose file matches; it does not prove publisher identity.
+
+Example `targets/foreverpin-staging.json`:
+
+```json
+{
+  "serverId": "<registered DryDock server UUID>",
+  "ssh": {
+    "host": "vps.example.net",
+    "port": 22,
+    "user": "deploy",
+    "keyFile": "/run/secrets/deploy_key",
+    "knownHostsFile": "/run/secrets/known_hosts"
+  },
+  "target": {
+    "product": "foreverpin",
+    "environment": "staging",
+    "root": "/srv/drydock",
+    "healthTimeoutSeconds": 120,
+    "minimumFreeBytes": 1073741824,
+    "variables": {
+      "PLATFORM_NETWORK": "platform"
+    },
+    "settings": {
+      "management": "/srv/drydock/config/foreverpin-staging/management.json",
+      "redirect": "/srv/drydock/config/foreverpin-staging/redirect.json"
+    },
+    "smoke": [
+      {"service": "redirect", "path": "/<stable-pilot-slug>", "status": 302}
+    ]
+  }
+}
+```
+
+Replace placeholders with verified values. The sample smoke path is intentionally invalid until a real slug is assigned.
+`serverId` links the operator binding to inventory for display; this initial adapter does not enforce a database foreign key.
+Registry login belongs to the target deployment account. Use a read-only GHCR token and `docker login --password-stdin`;
+never put a token in a release bundle.
+
+The target requires Linux, Python 3, Docker Engine/Compose v2, private configuration files and the external `platform` network.
+A deployment account with Docker access can control the host; membership in the Docker group is privileged.
+
+Private settings can be mode `600` owned by the image UID (`1654`) with a runner account able to read them.
+Alternatively, use mode `644` inside a mode `700` directory owned by the deployment account:
+the directory protects host access, while the read-only file bind is readable by the container UID.
+Never use group/world-writable settings. Cookie key volumes must remain writable by UID `1654`.
+
+## Operator and API commands
+
+From the repository root, using the same inventory as the dashboard:
+
+```sh
+python3 engineering/codebase/drydock.runner-services/transport.py targets --root /path/to/inventory
+python3 engineering/codebase/drydock.runner-services/transport.py releases --root /path/to/inventory
+python3 engineering/codebase/drydock.runner-services/transport.py submit \
+  --root /path/to/inventory --target foreverpin-staging --bundle foreverpin-v1 --actor operator
+python3 engineering/codebase/drydock.runner-services/transport.py status \
+  --root /path/to/inventory --job <returned-id>
+```
+
+- `GET /api/deployments/targets`: configured target bindings.
+- `GET /api/deployments/releases`: validated imported bundles.
+- `POST /api/deployments`: JSON `{"target":"foreverpin-staging","release":"foreverpin-v1"}`,
+  authenticated admin plus `X-Drydock-Action: deploy`.
+- `GET /api/deployments/{id}`: refresh the target-owned outcome.
+- HTTP `202` means queued, not deployed.
+- A lost SSH response is an unknown outcome; inspect target state before retrying.
+- Cookie-authenticated cross-origin writes cannot supply the custom header without an allowed CORS preflight.
+
+The dashboard polls active deployments. Restarting the dashboard does not terminate a launched target worker.
+The initial dashboard displays the current submission; durable history is retained in the inventory and target job directories.
+It does not yet provide a fleet-wide history browser or automatically discover release assets from GitHub.
+
+## Target state and recovery
+
+```text
+/srv/drydock/<product>-<environment>/
+  lock
+  active.json
+  current.json
+  jobs/<job-id>.json
+  releases/<job-id>/{release,compose}.json
+```
+
+Pulls finish before replacement. Success requires healthy containers with the exact image references and configured smoke responses.
+Failed image pulls preserve the running release. A failed rollout restores prior images only if the incoming bundle explicitly
+declares `rollbackCompatible: true`. The default release generator leaves this false.
+
+Database restore is never automatic. Image rollback cannot undo a destructive migration or data written after a backup.
+An interrupted or unrecovered mutation blocks another deployment until the operator inspects containers/schema and acknowledges it:
+
+```sh
+python3 /srv/drydock/incoming/<submission>/runner.py status \
+  --target /srv/drydock/incoming/<submission>/target.json --job <remote-job-id>
+python3 /srv/drydock/incoming/<submission>/runner.py acknowledge \
+  --target /srv/drydock/incoming/<submission>/target.json --job <remote-job-id>
+```
+
+Acknowledgement clears the previous-success pointer rather than assuming it is still safe for automatic rollback.
+It changes bookkeeping only. Recover application/database state explicitly before acknowledging.
+A retry after reconciliation establishes a new known-good release.
+
+Raw Docker/SSH output is not returned to the dashboard because it may contain runtime secrets.
+Audit records keep actor, release, source SHA, timestamps, outcome and failure category.
+Inspect detailed container logs privately on the target. Runtime Docker logs rotate in the release bundle.
+
+## VPS wiring checklist
+
+1. Verify provider account, host architecture, capacity and cost in the wiring session.
+2. Verify the SSH fingerprint through the provider console; install the pinned known-hosts file.
+3. Install Docker/Compose and Python using the chosen OS's official instructions.
+4. Configure private administration and firewall; expose only intended ingress on 80/443.
+5. Start one ingress and PostgreSQL on the private platform network.
+6. Create distinct least-privilege databases/users for every product/environment.
+7. Write protected runtime settings and registry credentials.
+8. Route management/redirect domains to `foreverpin-<environment>-management:8080` and
+   `foreverpin-<environment>-redirect:8080`.
+9. Add the ingress IP to `Deployment:TrustedProxies` in both app settings; no trust-all proxy setting.
+10. Bootstrap DryDock privately or use the operator command from a workstation.
+11. Deploy staging, verify real URLs and provider callbacks, restore a backup, promote the same image digests.
+
+Existing product containers keep serving without DryDock. A new VPS takes a new target file using the same release.
+Data relocation remains a separately planned copy/restore/cutover operation.
+
+## Backups and launch gates
+
+Before public cutover, create an encrypted off-provider backup of product/control-plane databases, key volumes and required configuration.
+Hold decryption and recovery credentials outside the VPS. Record recovery time/data-loss targets and backup retention.
+Restore into an empty database and verify a real code resolves before accepting the backup path.
+
+Required live checks: stable printed URL, HTTPS, Google sign-in, Stripe test callback, external redirect monitor, disk/backup-age alerts,
+and measured CPU/RAM headroom. Review SDK dependency advisories reported by the clean image restore.
+The separate ForeverPin product track still owns incomplete content modes and validation features.
+
+## Verification
+
+See the checked acceptance items in the [pilot plan](../planning/deployment-pilot.md).
+Local container evidence is scoped to Docker Desktop `linux/arm64`; a hosted `linux/amd64` workflow run and real SSH/OAuth/TLS remain separate gates.
+
+```sh
+python3 -m unittest discover -s engineering/codebase/drydock.runner-services -v
+dotnet test engineering/codebase/drydock.backend-services/Drydock.slnx -p:BuildSpa=false -m:1
+```

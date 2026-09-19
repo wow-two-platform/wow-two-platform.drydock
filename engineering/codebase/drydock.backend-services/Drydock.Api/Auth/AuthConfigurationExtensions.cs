@@ -33,6 +33,8 @@ public static class AuthConfigurationExtensions
 
         var gitHub = ConfigurationLoader.Load<GitHubOAuthSettings>(builder.Configuration, "Identity:GitHub");
         var authSettings = ConfigurationLoader.Load<AuthSettings>(builder.Configuration, "Identity");
+        if (builder.Environment.IsProduction() && !authSettings.AllowedGitHubLogins.Any(login => !string.IsNullOrWhiteSpace(login)))
+            throw new InvalidOperationException("Production requires Identity:AllowedGitHubLogins.");
 
         // Cookie holds the session; API mode returns 401/403 (not a 302) so the SPA renders its own sign-in.
         builder.Services.AddCookieAuthentication(o =>

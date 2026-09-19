@@ -22,6 +22,7 @@ public static class HostConfigurationExtensions
     public static WebApplicationBuilder AddSettings(this WebApplicationBuilder builder)
     {
         builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: false);
+        builder.AddDeploymentHosting();
         return builder;
     }
 
@@ -60,6 +61,9 @@ public static class HostConfigurationExtensions
     public static WebApplicationBuilder AddInfrastructureLayer(this WebApplicationBuilder builder)
     {
         builder.Services.AddTimeProviders();
+        builder.Services.AddSingleton(builder.Configuration.GetSection("DeploymentRunner")
+            .Get<Drydock.Infrastructure.Settings.DeploymentSettings>() ?? new());
+        builder.Services.AddScoped<IDeploymentGateway, Drydock.Infrastructure.Deployments.DeploymentGateway>();
 
         // The integration clients read the signed-in admin's OAuth token off the current request.
         builder.Services.AddHttpContextAccessTokenProvider();

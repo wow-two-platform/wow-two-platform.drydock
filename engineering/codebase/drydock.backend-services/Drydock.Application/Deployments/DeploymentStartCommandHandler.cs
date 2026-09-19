@@ -1,0 +1,15 @@
+using System.Text.Json;
+using Drydock.Application.Abstractions;
+using WoW.Two.Sdk.Backend.Beta.Mediator.Cqrs;
+using WoW.Two.Sdk.Backend.Beta.Mediator.Result;
+
+namespace Drydock.Application.Deployments;
+
+/// <summary>Handles an explicitly requested deployment.</summary>
+public sealed class DeploymentStartCommandHandler(IDeploymentGateway gateway)
+    : ICommandHandler<DeploymentStartCommand, AppResult<JsonElement>>
+{
+    /// <inheritdoc />
+    public async ValueTask<AppResult<JsonElement>> HandleAsync(DeploymentStartCommand request, CancellationToken cancellationToken) =>
+        await gateway.StartAsync(request.Target, request.Release, request.Actor, cancellationToken);
+}

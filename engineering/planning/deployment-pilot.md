@@ -130,19 +130,30 @@ No active-active promise is made by adding a second server row.
 
 ## Shipping sequence and acceptance
 
-- [ ] Packaging: clean image builds for all three services; no local secrets in contexts.
-- [ ] Startup: local PostgreSQL migrations and database-aware health checks.
-- [ ] Persistence: recreate containers; verify application state and cookie keys survive.
+- [x] Packaging: clean container builds for all three services from the working tree.
+- [x] Startup: local PostgreSQL migrations and database-aware health checks.
+- [x] Persistence: recreate ForeverPin containers; saved code, SVG and redirect survive.
 - [ ] Release: tested workflow publishes immutable service map and matching Compose hash.
-- [ ] Runner: validation, locking, interrupted-state handling and failed-rollout recovery tests.
-- [ ] Control plane: deploy/status API, durable outcome and same independent recovery path.
-- [ ] Documentation: operator commands, settings contract, VPS binding and launch checklist.
+- [x] Runner: validation, locking, interrupted-state handling and failed-rollout recovery tests.
+- [x] Control plane: deploy/status API, durable outcome and same independent recovery path.
+- [x] Documentation: operator commands, settings contract, VPS binding and launch checklist.
 - [ ] Public wiring: chosen host, pinned SSH, ingress, real domains, provider callbacks.
 - [ ] Recovery: encrypted off-host backup restored into an empty environment.
 - [ ] Launch: live editor/create/scan, restart, actual redirect monitoring and headroom.
 
 Execution evidence and exact commands belong in [deployment operations](../deployment/deployment.md).
 Unchecked items remain open regardless of build success.
+
+Local evidence on September 19: 121 DryDock backend tests; 25 runner/SSH-adapter tests;
+213 ForeverPin backend tests and four frontend tests. Clean images started on Docker Desktop `linux/arm64`.
+A real guest-created URL code persisted across replacement, rendered SVG and returned its expected redirect.
+The target runner applied digest-pinned images, recovered from an intentionally unhealthy release,
+and finished a detached submission after the caller exited. A database dump restored into a new local database.
+Real SSH, hosted CI, `linux/amd64`, TLS/OAuth/Stripe and encrypted off-provider backup remain unverified.
+
+The pilot exposed a URL routing defect: URL content has no static payload encoder, but redirect resolution used
+that encoder as its destination. The redirect service now reads validated HTTP(S) URL content directly.
+Its HTTP tests use actual URL rules instead of the text-content workaround.
 
 ## Launch decisions for the wiring session
 

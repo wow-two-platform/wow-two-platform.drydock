@@ -8,9 +8,9 @@ import mkcert from 'vite-plugin-mkcert';
 // cookie is kept and the OAuth redirect has no cert interstitial) and proxies "/api" to the backend's
 // HTTPS profile. changeOrigin:false keeps Host=localhost:5174 so the OAuth redirect_uri + the session
 // cookie stay on the dev origin (5174). secure:false accepts the .NET dev cert.
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   base: '/',
-  plugins: [react(), tailwindcss(), mkcert()],
+  plugins: [react(), tailwindcss(), ...(command === 'serve' ? [mkcert()] : [])],
   build: {
     outDir: 'dist',
     emptyOutDir: true,
@@ -25,4 +25,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));

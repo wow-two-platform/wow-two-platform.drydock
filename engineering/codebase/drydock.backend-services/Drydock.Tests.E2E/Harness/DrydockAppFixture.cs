@@ -36,6 +36,7 @@ public sealed class DrydockAppFixture : IAsyncLifetime
 
     /// <summary>The shared GHCR stub — add tags to its <see cref="StubContainerRegistryClient.ExistingTags"/> to mark images published.</summary>
     public StubContainerRegistryClient Registry { get; } = new();
+    public StubDeploymentGateway Deployments { get; } = new();
 
     /// <summary>A fresh anonymous client (no admin header) — protected endpoints return 401.</summary>
     public HttpClient CreateAnonymousClient() => Host.CreateClient();
@@ -58,6 +59,7 @@ public sealed class DrydockAppFixture : IAsyncLifetime
         // registration time) to point the SDK persistence bundle + bespoke migrator at the container DB. The in-memory
         // config below (the app's own ConnectionStrings:Drydock key) is the belt-and-suspenders for any later config read.
         Environment.SetEnvironmentVariable("DB_CONNECTION", _postgres.ConnectionString);
+        Environment.SetEnvironmentVariable("Identity__AllowedGitHubLogins__0", "test-admin");
 
         _host = new WebApiTestHost<Program>
         {
@@ -70,6 +72,8 @@ public sealed class DrydockAppFixture : IAsyncLifetime
             ConfigureServicesHook = services =>
             {
                 services.UseTestAdminAuth();
+                services.RemoveAll<Drydock.Application.Abstractions.IDeploymentGateway>();
+                services.AddSingleton<Drydock.Application.Abstractions.IDeploymentGateway>(Deployments);
 
                 // Replace the real (network + OAuth-token) GitHub client with the shared stub.
                 services.RemoveAll<IGitHubClient>();
@@ -95,6 +99,7 @@ public sealed class DrydockAppFixture : IAsyncLifetime
 
         // Don't leak the container connection string into other test processes.
         Environment.SetEnvironmentVariable("DB_CONNECTION", null);
+        Environment.SetEnvironmentVariable("Identity__AllowedGitHubLogins__0", null);
     }
 
     /// <summary>Truncates every data table between tests via Respawn (the migration history is preserved), and resets the stubs.</summary>

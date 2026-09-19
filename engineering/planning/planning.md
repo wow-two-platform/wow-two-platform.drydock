@@ -1,5 +1,9 @@
 # Drydock — Engineering Planning
 
+Current deployment work: [ForeverPin pilot and infrastructure governance](deployment-pilot.md).
+The June tables below are historical; current PostgreSQL, authentication and deployment execution
+are described in [architecture](../architecture/architecture.md).
+
 *Last updated: 2026-06-12*
 
 > Eng-side roadmap + component tracker. Product milestones / phasing live in `../../product/planning/planning.md`; this is the build view.
