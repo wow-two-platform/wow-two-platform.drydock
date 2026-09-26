@@ -6,6 +6,7 @@ import tarfile
 import tempfile
 import unittest
 from unittest.mock import patch
+from urllib.error import HTTPError
 from urllib.request import Request
 import artifacts
 import transport
@@ -103,6 +104,28 @@ class ArtifactTests(unittest.TestCase):
         with patch.object(artifacts, 'fetch', side_effect=self.fetch):
             with self.assertRaisesRegex(ValueError, 'approved repository'):
                 artifacts.prepare(self.root, 'foreverpin-gh-123', transport.import_bundle)
+
+    def test_imported_bundles_deploy_only_in_rehearsal(self):
+        archive = self.root / 'release.tar.gz'
+        archive.write_bytes(self.archive)
+        transport.import_bundle(self.root, archive, 'foreverpin-local')
+        offline = artifacts.CommandFailed('GitHub request failed (network)')
+        with patch.object(artifacts, 'fetch', side_effect=offline):
+            with patch.dict('os.environ', {'WHEELHOUSE_REHEARSAL': '1'}):
+                listed = artifacts.available(self.root)
+                self.assertEqual([('foreverpin-local', 'LocalImport')], [(item['id'], item['provider']) for item in listed])
+                self.assertEqual(self.root / 'bundles/foreverpin-local',
+                                 artifacts.prepare(self.root, 'foreverpin-local', transport.import_bundle))
+            with patch.dict('os.environ', {'WHEELHOUSE_REHEARSAL': '0'}):
+                with self.assertRaises(artifacts.CommandFailed):
+                    artifacts.available(self.root)
+
+    def test_github_errors_report_only_the_status(self):
+        error = HTTPError('https://api.github.com/repos', 403, 'rate limit exceeded', {}, io.BytesIO(b'PRIVATE'))
+        with patch.object(artifacts, 'build_opener') as opener:
+            opener.return_value.open.side_effect = error
+            with self.assertRaisesRegex(artifacts.CommandFailed, r'^GitHub request failed \(HTTP 403\)$'):
+                artifacts.fetch('https://api.github.com/repos/owner/repo/releases')
 
     def test_api_token_cannot_follow_a_cdn_redirect(self):
         request = Request('https://api.github.com/asset', headers={'Authorization': 'Bearer PRIVATE'})

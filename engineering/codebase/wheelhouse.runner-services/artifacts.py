@@ -1,5 +1,6 @@
 """Read-only discovery of completed release assets from code-owned public repositories."""
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from enum import Enum
 import hashlib
 import json
@@ -7,13 +8,16 @@ import os
 from pathlib import Path
 import re
 import tempfile
+from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlparse
 from urllib.request import Request, HTTPRedirectHandler, build_opener
-from runner import require, validate_bundle, write_json
+from fleet import rehearsal
+from runner import SLUG, CommandFailed, require, validate_bundle, write_json
 
 
 class ArtifactProvider(str, Enum):
     GITHUB_RELEASES = "GitHubReleases"
+    LOCAL_IMPORT = "LocalImport"
 
 
 @dataclass(frozen=True)
@@ -49,19 +53,30 @@ def fetch(url, limit=MAX_ARCHIVE):
         require(token and "\n" not in token, "Invalid catalog credential")
         headers["Authorization"] = "Bearer " + token
     request = Request(url, headers=headers)
-    with build_opener(ApiRedirect()).open(request, timeout=15) as response:
-        require(response.url.startswith("https://"), "Insecure release response")
-        data = response.read(limit + 1)
+    try:
+        with build_opener(ApiRedirect()).open(request, timeout=15) as response:
+            require(response.url.startswith("https://"), "Insecure release response")
+            data = response.read(limit + 1)
+    except HTTPError as error:
+        # Rate limits surface as 403/429. Only the status is reported, never the body or headers.
+        raise CommandFailed("GitHub request failed (HTTP " + str(error.code) + ")") from None
+    except (URLError, TimeoutError):
+        raise CommandFailed("GitHub request failed (network)") from None
     require(len(data) <= limit, "Release response exceeded its size limit")
     return data
 
 
-def available():
+def available(root=None):
     result = []
     for source in SOURCES:
         require(source.provider is ArtifactProvider.GITHUB_RELEASES, "Unsupported artifact provider")
         # A bounded recent catalog; old deployed bundles remain in the target recovery journal.
-        releases = json.loads(fetch("https://api.github.com/repos/" + source.repository + "/releases?per_page=100"))
+        try:
+            releases = json.loads(fetch("https://api.github.com/repos/" + source.repository + "/releases?per_page=100"))
+        except CommandFailed:
+            if rehearsal():
+                continue  # An offline rehearsal still lists its imported bundles.
+            raise
         for release in releases:
             tag = release.get("tag_name", "")
             if release.get("draft") or not release.get("published_at") or not VERSION.fullmatch(tag):
@@ -78,10 +93,32 @@ def available():
                            "release": tag, "repository": source.repository, "provider": source.provider.value,
                            "publishedAt": release["published_at"], "prerelease": bool(release.get("prerelease")),
                            "assetDigest": asset["digest"], "assetName": source.asset_name})
+    if rehearsal() and root is not None:
+        result += imported(root)
+    return result
+
+
+def imported(root):
+    """Operator-imported bundles. Listed only in rehearsal mode because they carry no published source."""
+    result = []
+    bundles = Path(root) / "bundles"
+    for manifest_path in sorted(bundles.glob("*/release.json")) if bundles.is_dir() else ():
+        bundle = manifest_path.parent
+        if (bundle / "source.json").exists() or not SLUG.fullmatch(bundle.name):
+            continue
+        try:
+            manifest = validate_bundle(bundle)
+        except ValueError:
+            continue
+        published = datetime.fromtimestamp(manifest_path.stat().st_mtime, timezone.utc).isoformat()
+        result.append({"id": bundle.name, "product": manifest["product"], "release": manifest["release"],
+                       "provider": ArtifactProvider.LOCAL_IMPORT.value, "publishedAt": published, "prerelease": True})
     return result
 
 
 def prepare(root, identifier, importer):
+    if rehearsal() and any(item["id"] == identifier for item in imported(root)):
+        return Path(root) / "bundles" / identifier
     artifact = next((item for item in available() if item["id"] == identifier), None)
     require(artifact is not None, "Release artifact is no longer available")
     source = next(item for item in SOURCES if item.product == artifact["product"])

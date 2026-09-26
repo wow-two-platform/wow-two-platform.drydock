@@ -1,8 +1,12 @@
+import base64
+import contextlib
 import copy
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
+import subprocess
 import tempfile
 import tarfile
 import unittest
@@ -34,6 +38,50 @@ class FakeDocker:
 
     def verify(self, bundle, manifest):
         self.events.append("verify:" + manifest["release"])
+
+    def unhealthy(self, bundle):
+        return ["api (unhealthy)"]
+
+
+class CheckDocker:
+    architecture = "linux/amd64"
+
+    def __init__(self, target, environment):
+        pass
+
+    def execute(self, arguments, step, timeout=600):
+        if arguments[:2] == ["docker", "info"]:
+            return self.architecture + "\n"
+        if arguments[:3] == ["docker", "compose", "version"]:
+            return "2.29.0\n"
+        return "platform\n"
+
+
+class VitalsDocker:
+    fail = False
+
+    def __init__(self, target, environment):
+        pass
+
+    def execute(self, arguments, step, timeout=600):
+        if self.fail:
+            raise runner.CommandFailed("docker ps failed (exit 1); inspect target containers privately")
+        if arguments[:2] == ["docker", "ps"]:
+            return "aaa111\nbbb222\n"
+        if arguments[:2] == ["docker", "inspect"]:
+            return json.dumps([
+                {"Id": "aaa111", "Name": "/pilot-test-api-1", "RestartCount": 3,
+                 "Config": {"Env": ["Database__Connection=DO_NOT_LOG"],
+                            "Labels": {"com.docker.compose.service": "api", "secret": "DO_NOT_LOG"}},
+                 "State": {"Status": "running", "Running": True, "ExitCode": 0,
+                           "StartedAt": "2026-09-26T08:00:00Z", "Health": {"Status": "healthy", "Log": ["DO_NOT_LOG"]}}},
+                {"Id": "bbb222", "Name": "/pilot-test-worker-1", "RestartCount": 0,
+                 "Config": {"Labels": {"com.docker.compose.service": "worker"}},
+                 "State": {"Status": "exited", "Running": False, "ExitCode": 137, "StartedAt": "2026-09-26T07:00:00Z"}}])
+        if arguments[:2] == ["docker", "stats"]:
+            self.stats_ids = arguments[6:]
+            return json.dumps({"ID": "aaa111", "CPUPerc": "12.50%", "MemUsage": "256MiB / 1GiB"}) + "\n"
+        raise AssertionError(arguments)
 
 
 class RunnerTests(unittest.TestCase):
@@ -227,6 +275,141 @@ class RunnerTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Invalid archive"):
             transport.import_bundle(self.root / "inventory", archive, "pilot-v1")
 
+    def write_settings(self, value):
+        Path(self.target["settings"]["api"]).write_text(json.dumps(value))
+
+    def test_restrictive_allowed_hosts_without_localhost_rejected_before_docker(self):
+        self.write_settings({"Database": {"Connection": "DO_NOT_LOG"}, "AllowedHosts": "manage.example.test"})
+        with self.assertRaisesRegex(runner.Rejected, "AllowedHosts must include localhost for health probes: api"):
+            self.apply()
+        self.assertEqual([], FakeDocker.events)
+
+    def test_allowed_hosts_accepts_localhost_or_wildcard(self):
+        for hosts in ("manage.example.test; LOCALHOST", "*", ""):
+            self.write_settings({"Database": {"Connection": "DO_NOT_LOG"}, "AllowedHosts": hosts})
+            self.assertEqual("succeeded", self.apply()["status"])
+
+    def test_trusted_proxies_must_be_an_array(self):
+        self.write_settings({"Database": {"Connection": "DO_NOT_LOG"}, "Deployment": {"TrustedProxies": "172.18.0.2"}})
+        with self.assertRaisesRegex(runner.Rejected, "Deployment:TrustedProxies must be a JSON array: api"):
+            self.apply()
+        self.write_settings({"Database": {"Connection": "DO_NOT_LOG"}, "Deployment": {"TrustedProxies": ["172.18.0.2"]}})
+        self.assertEqual("succeeded", self.apply()["status"])
+
+    def test_cli_rejection_records_the_missing_key_but_no_values(self):
+        self.manifest["requiredConfiguration"]["api"] = ["Database:Connection", "Billing:SecretKey"]
+        self.save()
+        target = self.root / "target.json"
+        runner.write_json(target, self.target)
+        job = "00000000-0000-0000-0000-000000000003"
+        argv = ["runner.py", "apply", "--target", str(target), "--bundle", str(self.bundle), "--job", job]
+        with patch("sys.argv", argv), contextlib.redirect_stderr(io.StringIO()) as stderr:
+            self.assertEqual(1, runner.main())
+        record = runner.read_json(self.root / "state/pilot-test/jobs" / (job + ".json"))
+        self.assertEqual(("rejected", "Rejected"), (record["status"], record["failure"]))
+        self.assertEqual("Missing required setting: api:Billing:SecretKey", record["reason"])
+        self.assertEqual(record["reason"], json.loads(stderr.getvalue())["reason"])
+        self.assertNotIn("DO_NOT_LOG", json.dumps(record) + stderr.getvalue())
+
+    def test_failed_wait_reports_the_step_and_unhealthy_services(self):
+        with patch.object(FakeDocker, "up", side_effect=runner.CommandFailed("compose up failed (exit 1)")):
+            result = self.apply()
+        self.assertEqual("failed", result["status"])
+        self.assertEqual("compose up failed (exit 1); not healthy: api (unhealthy)", result["reason"])
+
+    def test_unsafe_failure_messages_never_become_reasons(self):
+        FakeDocker.fail = "pull"
+        result = self.apply()
+        self.assertEqual("failed", result["status"])
+        self.assertNotIn("reason", result)
+
+    def test_docker_failure_names_the_step_without_output(self):
+        failed = subprocess.CompletedProcess([], 1, stdout="", stderr="password=DO_NOT_LOG")
+        with patch.object(runner.subprocess, "run", return_value=failed):
+            with self.assertRaisesRegex(runner.CommandFailed, r"^compose up failed \(exit 1\)") as raised:
+                runner.Docker(self.target, {}).up(self.bundle)
+        self.assertNotIn("DO_NOT_LOG", str(raised.exception))
+
+    def test_state_reports_ready_running_and_reconciliation(self):
+        base = self.root / "state/pilot-test"
+        self.assertEqual("ready", runner.state(self.target)["condition"])
+        job = "00000000-0000-0000-0000-000000000004"
+        runner.write_json(base / "active.json", {"id": job, "status": "running", "release": "v1"})
+        with runner.deployment_lock(base):
+            self.assertEqual("running", runner.state(self.target)["condition"])
+        interrupted = runner.state(self.target)
+        self.assertEqual("needs_reconciliation", interrupted["condition"])
+        self.assertEqual(job, interrupted["active"]["id"])
+
+    def test_state_does_not_lock_a_failure_that_changed_nothing(self):
+        FakeDocker.fail = "pull"
+        self.apply()
+        self.assertEqual("ready", runner.state(self.target)["condition"])
+        with self.assertRaisesRegex(runner.Rejected, "nothing to reconcile"):
+            runner.acknowledge(self.target, runner.state(self.target)["active"]["id"])
+
+    def test_check_names_problems_without_changing_the_target(self):
+        self.manifest["requiredConfiguration"]["api"] = ["Database:Connection", "Billing:SecretKey"]
+        with patch.object(CheckDocker, "architecture", "linux/arm64"):
+            result = runner.check(self.target, self.manifest, docker_factory=CheckDocker)
+        failed = {item["name"]: item["detail"] for item in result["checks"] if not item["ok"]}
+        self.assertFalse(result["ok"])
+        self.assertEqual("Target is linux/arm64; release needs linux/amd64", failed["Docker"])
+        self.assertEqual("Missing required setting: api:Billing:SecretKey", failed["Settings: api"])
+        self.assertFalse((self.root / "state/pilot-test").exists())
+        self.assertNotIn("DO_NOT_LOG", json.dumps(result))
+
+    def test_check_passes_a_ready_target(self):
+        result = runner.check(self.target, self.manifest, docker_factory=CheckDocker)
+        self.assertTrue(result["ok"], result["checks"])
+        self.assertEqual("ready", result["state"]["condition"])
+
+    def test_cli_state_accepts_an_inline_target(self):
+        encoded = base64.b64encode(json.dumps(self.target).encode()).decode()
+        with patch("sys.argv", ["runner.py", "state", "--target-json", encoded]), \
+                contextlib.redirect_stdout(io.StringIO()) as stdout:
+            self.assertEqual(0, runner.main())
+        self.assertEqual("ready", json.loads(stdout.getvalue())["condition"])
+
+    def test_unhealthy_reads_both_compose_ps_formats(self):
+        rows = [{"Service": "api", "State": "running", "Health": "unhealthy"},
+                {"Service": "web", "State": "running", "Health": "healthy"},
+                {"Service": "worker", "State": "exited", "Health": ""}]
+        for output in (json.dumps(rows), "\n".join(map(json.dumps, rows))):
+            with patch.object(runner.Docker, "compose", return_value=output):
+                self.assertEqual(["api (unhealthy)", "worker (exited)"],
+                                 runner.Docker(self.target, {}).unhealthy(self.bundle))
+
+
+    def test_vitals_read_containers_and_host_without_secrets(self):
+        VitalsDocker.fail = False
+        result = runner.vitals(self.target, docker_factory=VitalsDocker)
+        api, worker = result["containers"]
+        self.assertEqual(("api", "running", "healthy", 3, 12.5, 256 * 1024 ** 2, 1024 ** 3, None),
+                         (api["service"], api["state"], api["health"], api["restarts"], api["cpuPercent"],
+                          api["memoryBytes"], api["memoryLimitBytes"], api["exitCode"]))
+        self.assertEqual(("worker", "exited", 137, None), (worker["service"], worker["state"], worker["exitCode"],
+                                                           worker["cpuPercent"]))
+        self.assertEqual(("pilot-test", "ready", None, []),
+                         (result["project"], result["condition"], result["release"], result["problems"]))
+        self.assertGreaterEqual(len(result["host"]["disks"]), 1)
+        self.assertNotIn("DO_NOT_LOG", json.dumps(result))
+        self.assertFalse((self.root / "state/pilot-test").exists())
+
+    def test_vitals_report_a_docker_failure_as_a_problem(self):
+        VitalsDocker.fail = True
+        try:
+            result = runner.vitals(self.target, docker_factory=VitalsDocker)
+        finally:
+            VitalsDocker.fail = False
+        self.assertIsNone(result["containers"])
+        self.assertEqual(["docker ps failed (exit 1); inspect target containers privately"], result["problems"])
+        self.assertIsNotNone(result["host"])
+
+    def test_docker_sizes_and_percentages_parse(self):
+        self.assertEqual((1536, 2 * 1000 ** 3, None), (runner.size_bytes("1.5KiB"), runner.size_bytes(" 2GB "),
+                                                        runner.size_bytes("12 parsecs")))
+        self.assertEqual((0.25, None), (runner.percent("0.25%"), runner.percent("--")))
 
 if __name__ == "__main__":
     unittest.main()

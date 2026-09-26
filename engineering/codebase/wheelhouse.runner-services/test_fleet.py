@@ -37,6 +37,48 @@ class FleetTests(unittest.TestCase):
             self.assertEqual('staging', config['target']['environment'])
             self.assertEqual('platform', config['target']['variables']['PLATFORM_NETWORK'])
 
+    def test_rehearsal_target_exists_only_behind_its_switch(self):
+        with patch.dict('os.environ', {}, clear=False):
+            import os
+            os.environ.pop('WHEELHOUSE_REHEARSAL', None)
+            self.assertNotIn('foreverpin-rehearsal', [target.id for target in fleet.active_targets()])
+            with self.assertRaisesRegex(ValueError, 'not defined in code'):
+                fleet.resolve_target(Path('/data/deployments'), 'foreverpin-rehearsal')
+        with patch.dict('os.environ', {'WHEELHOUSE_REHEARSAL': '1'}):
+            config = fleet.resolve_target(Path('/data/deployments'), 'foreverpin-rehearsal')
+            self.assertEqual(('Local', 2222, 'rehearsal'),
+                             (config['provider'], config['ssh']['port'], config['target']['environment']))
+
+    def test_console_inside_the_rig_reaches_services_by_name_with_host_settings_paths(self):
+        import importlib
+        try:
+            with patch.dict('os.environ', {'WHEELHOUSE_REHEARSAL': 'network', 'REHEARSAL_STATE': '/host/state'}):
+                importlib.reload(fleet)
+                config = fleet.resolve_target(Path('/data/deployments'), 'foreverpin-rehearsal')
+                self.assertEqual(('target', 22), (config['ssh']['host'], config['ssh']['port']))
+                self.assertEqual('http://vault:8080', fleet.vaults()[0]['url'])
+                self.assertEqual('/host/state/secrets/management.json', config['target']['settings']['management'])
+        finally:
+            importlib.reload(fleet)  # later tests expect the host view
+
+    def test_vaults_come_only_from_code_and_keep_urls_server_side(self):
+        server = fleet.Server('pilot', 'Pilot', fleet.VpsProvider.HETZNER, 'vps.example.net', 'hel1')
+        vault = fleet.Vault('pilot-vault', 'Pilot vault', 'pilot', 'http://secrets-vault:8080')
+        with patch.object(fleet, 'SERVERS', (server,)), patch.object(fleet, 'VAULTS', (vault,)):
+            self.assertEqual([{'id': 'pilot-vault', 'name': 'Pilot vault', 'serverId': 'pilot',
+                               'url': 'http://secrets-vault:8080'}], fleet.vaults())
+        for url in ('http://vault:8080/path', 'file:///etc/passwd', 'http://vault:8080?x=1'):
+            broken = fleet.Vault('pilot-vault', 'Pilot vault', 'pilot', url)
+            with patch.object(fleet, 'SERVERS', (server,)), patch.object(fleet, 'VAULTS', (broken,)):
+                with self.assertRaisesRegex(ValueError, 'Unsupported vault'):
+                    fleet.vaults()
+
+    def test_vault_needs_a_host_defined_in_code(self):
+        orphan = fleet.Vault('pilot-vault', 'Pilot vault', 'missing', 'http://secrets-vault:8080')
+        with patch.object(fleet, 'SERVERS', ()), patch.object(fleet, 'VAULTS', (orphan,)):
+            with self.assertRaisesRegex(ValueError, 'not defined in code'):
+                fleet.vaults()
+
     def test_duplicate_server_ids_are_rejected(self):
         server = fleet.Server('pilot', 'Pilot', fleet.VpsProvider.HETZNER, 'vps.example.net', 'hel1')
         with patch.object(fleet, 'SERVERS', (server, server)):

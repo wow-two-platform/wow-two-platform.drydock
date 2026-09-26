@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """SSH adapter used by Wheelhouse and the operator CLI. Inventory and bundles are trusted local files."""
 import argparse
+import base64
+from concurrent.futures import ThreadPoolExecutor
+import datetime
 import json
 from pathlib import Path
 import re
@@ -12,7 +15,16 @@ import tempfile
 import uuid
 import fleet
 import artifacts
-from runner import SLUG, require, read_json, write_json, validate_bundle, validate_target
+from runner import (PROXIES, SLUG, CommandFailed, Rejected, now, reason, rejection, require, read_json,
+                    write_json, validate_bundle, validate_target)
+
+RUNNER = Path(__file__).with_name("runner.py")
+
+SSH_FAILURES = (("Host key verification failed", "SSH host key verification failed"),
+                ("Permission denied", "SSH authentication failed"),
+                ("Could not resolve hostname", "SSH host name did not resolve"),
+                ("Connection timed out", "SSH connection timed out"),
+                ("Connection refused", "SSH connection refused"))
 
 
 def child(root, folder, identifier, suffix=""):
@@ -37,22 +49,53 @@ class Ssh:
                 "-o", "IdentitiesOnly=yes", "-o", "ConnectTimeout=10",
                 "-o", "UserKnownHostsFile=" + self.config["knownHostsFile"], "-i", self.config["keyFile"]]
 
-    def run(self, command):
-        result = subprocess.run(["ssh", *self.options(), "-p", str(self.config.get("port", 22)),
-                                 self.destination, command], capture_output=True, text=True, timeout=30)
-        require(result.returncode == 0, "SSH operation failed; inspect the target privately")
-        return result.stdout
+    def run(self, command, stdin=None, timeout=30):
+        return self.execute(["ssh", *self.options(), "-p", str(self.config.get("port", 22)),
+                             self.destination, command], "SSH operation", stdin, timeout)
 
     def copy(self, files, destination):
-        result = subprocess.run(["scp", *self.options(), "-P", str(self.config.get("port", 22)),
-                                 *map(str, files), self.destination + ":" + destination + "/"],
-                                capture_output=True, text=True, timeout=30)
-        require(result.returncode == 0, "SSH transfer failed")
+        self.execute(["scp", *self.options(), "-P", str(self.config.get("port", 22)),
+                      *map(str, files), self.destination + ":" + destination + "/"], "SSH transfer")
+
+    @staticmethod
+    def execute(arguments, step, stdin=None, timeout=30):
+        try:
+            result = subprocess.run(arguments, input=stdin, capture_output=True, text=True, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            raise CommandFailed(step + " timed out") from None
+        if result.returncode:
+            raise ssh_failure(step, result)
+        return result.stdout
+
+
+def encode(value):
+    return base64.b64encode(json.dumps(value).encode()).decode()
+
+
+def run_remote(ssh, action, target, *arguments, release=None, timeout=30):
+    # Streams this runner over stdin, so read-only calls leave no files on the target.
+    command = ["python3", "-", action, "--target-json", encode(target), *arguments]
+    if release is not None:
+        command += ["--release-json", encode(release)]
+    return json.loads(ssh.run(shlex.join(command), RUNNER.read_text(), timeout))
+
+
+def ssh_failure(step, result):
+    # Relay the target runner's own safe reason, or name a known client failure; never echo raw output.
+    lines = result.stderr.strip().splitlines()
+    try:
+        remote = json.loads(lines[-1]) if lines else None
+    except ValueError:
+        remote = None
+    if isinstance(remote, dict) and isinstance(remote.get("reason"), str):
+        return (Rejected if remote.get("failure") == "Rejected" else CommandFailed)(remote["reason"][:300])
+    known = next((message for marker, message in SSH_FAILURES if marker in result.stderr), step + " failed")
+    return CommandFailed(known + " (exit " + str(result.returncode) + "); inspect the target privately")
 
 
 def targets(root):
     result = []
-    for binding in fleet.TARGETS:
+    for binding in fleet.active_targets():
         config = fleet.resolve_target(root, binding.id)
         validate_target(config["target"])
         result.append({"id": binding.id, "product": config["target"]["product"],
@@ -62,7 +105,7 @@ def targets(root):
 
 
 def releases(root):
-    return artifacts.available()
+    return artifacts.available(root)
 
 
 def import_bundle(root, archive, bundle_id):
@@ -87,6 +130,29 @@ def import_bundle(root, archive, bundle_id):
     return {"id": bundle_id, "product": manifest["product"], "release": manifest["release"]}
 
 
+def template(root, bundle_id, service=None):
+    bundle = child(root, "bundles", bundle_id)
+    if not bundle.exists():
+        bundle = artifacts.prepare(root, bundle_id, import_bundle)
+    result = {}
+    for name, fields in validate_bundle(bundle)["requiredConfiguration"].items():
+        # Nest each Section:Key path the way the service's JSON configuration binds it.
+        settings = {}
+        for field in fields:
+            *sections, key = field.split(":")
+            node = settings
+            for section in sections:
+                node = node.setdefault(section, {})
+                require(isinstance(node, dict), "Conflicting configuration keys")
+            require(not isinstance(node.get(key), dict), "Conflicting configuration keys")
+            node[key] = [] if field == PROXIES else ""
+        result[name] = settings
+    if service is None:
+        return result
+    require(service in result, "Unknown release service")
+    return result[service]
+
+
 def submit(root, target_id, bundle_id, actor):
     config = fleet.resolve_target(root, target_id)
     bundle = artifacts.prepare(root, bundle_id, import_bundle)
@@ -104,8 +170,9 @@ def submit(root, target_id, bundle_id, actor):
         write_json(target_path, config["target"])
         ssh.copy([runner_path, bundle / "release.json", bundle / "compose.json", target_path], remote)
     # Record the submission before launching; remote state remains recoverable if the response is lost.
-    record = {"id": request_id, "targetId": target_id, "bundleId": bundle_id, "remote": remote,
-              "actor": actor, "status": "submitting", "ssh": config["ssh"], "serverId": config["serverId"]}
+    record = {"id": request_id, "targetId": target_id, "bundleId": bundle_id, "release": manifest["release"],
+              "remote": remote, "actor": actor, "status": "submitting", "submittedAt": now(),
+              "ssh": config["ssh"], "serverId": config["serverId"]}
     write_json(root / "jobs" / (request_id + ".json"), record)
     command = shlex.join(["python3", remote + "/runner.py", "launch", "--bundle", remote,
                           "--target", remote + "/target.json", "--actor", actor])
@@ -134,15 +201,200 @@ def status(root, job_id):
     return result
 
 
+def jobs(root, limit=50):
+    # Submission records plus the last observed target outcome; SSH details and remote paths stay local.
+    result = []
+    for path in (root / "jobs").glob("*.json") if (root / "jobs").is_dir() else ():
+        try:
+            record = read_json(path)
+            require(str(uuid.UUID(record["id"])) == record["id"] == path.stem, "Invalid job record")
+        except (ValueError, KeyError, OSError):
+            continue
+        observed_path = root / "observed" / path.name
+        observed = read_json(observed_path) if observed_path.is_file() else {}
+        submitted = record.get("submittedAt") or datetime.datetime.fromtimestamp(
+            path.stat().st_mtime, datetime.timezone.utc).isoformat()
+        item = {"id": record["id"], "targetId": record.get("targetId"), "bundleId": record.get("bundleId"),
+                "release": record.get("release") or observed.get("release") or record.get("bundleId"),
+                "actor": record.get("actor"), "submittedAt": submitted,
+                "status": observed.get("status") or record.get("status")}
+        for key in ("reason", "failure", "startedAt", "completedAt", "mutationStarted", "sourceCommit"):
+            if key in observed:
+                item[key] = observed[key]
+        result.append(item)
+    return sorted(result, key=lambda item: item["submittedAt"], reverse=True)[:limit]
+
+
+def target_state(root, target_id):
+    config = fleet.resolve_target(root, target_id)
+    validate_target(config["target"])
+    result = run_remote(Ssh(config["ssh"]), "state", config["target"])
+    result["targetId"] = target_id
+    return result
+
+
+def check(root, target_id, bundle_id=None):
+    config = fleet.resolve_target(root, target_id)
+    manifest = validate_bundle(artifacts.prepare(root, bundle_id, import_bundle)) if bundle_id else None
+    validate_target(config["target"], manifest)
+    try:
+        ssh = Ssh(config["ssh"])
+    except Rejected as error:
+        return {"targetId": target_id, "ok": False, "checks": [{"name": "SSH identity", "ok": False, "detail": str(error)}]}
+    checks = [{"name": "SSH identity", "ok": True, "detail": "pinned key and known host present"}]
+    try:
+        result = run_remote(ssh, "check", config["target"], release=manifest, timeout=90)
+    except Rejected as error:
+        checks.append({"name": "Target runner", "ok": False, "detail": str(error)})
+        return {"targetId": target_id, "ok": False, "checks": checks}
+    except CommandFailed as error:
+        checks.append({"name": "SSH connection", "ok": False, "detail": str(error)})
+        return {"targetId": target_id, "ok": False, "checks": checks}
+    result["checks"] = checks + [{"name": "SSH connection", "ok": True,
+                                  "detail": config["ssh"]["user"] + "@" + config["ssh"]["host"]}] + result["checks"]
+    result["targetId"] = target_id
+    return result
+
+
+def reconcile(root, target_id, job_id, actor):
+    require(str(uuid.UUID(job_id)) == job_id, "Invalid deployment id")
+    require(isinstance(actor, str) and 0 < len(actor) <= 160 and "\n" not in actor, "Invalid actor")
+    config = fleet.resolve_target(root, target_id)
+    validate_target(config["target"])
+    result = summary_of(run_remote(Ssh(config["ssh"]), "acknowledge", config["target"], "--job", job_id))
+    result.update(targetId=target_id, reconciledBy=actor, reconciledAt=now())
+    # The acknowledgement is an operator decision; keep who made it beside the submission history.
+    write_json(root / "reconciled" / (job_id + ".json"), result)
+    for path in (root / "jobs").glob("*.json") if (root / "jobs").is_dir() else ():
+        record = read_json(path)
+        if record.get("remoteJobId") == job_id:
+            observed_path = root / "observed" / path.name
+            observed = read_json(observed_path) if observed_path.is_file() else {}
+            write_json(observed_path, {**observed, "status": result["status"], "reconciledBy": actor})
+    return result
+
+
+def vitals(root, target_id=None):
+    """Reads every target's (or one target's) host and containers in parallel; a failing target reports why."""
+    bindings = [binding for binding in fleet.active_targets() if target_id in (None, binding.id)]
+    require(target_id is None or bindings, "Target is not defined in code")
+
+    def collect(binding):
+        try:
+            config = fleet.resolve_target(root, binding.id)
+            validate_target(config["target"])
+            result = run_remote(Ssh(config["ssh"]), "vitals", config["target"], timeout=60)
+            return {**result, "targetId": binding.id, "serverId": binding.server_id, "ok": True}
+        except (Rejected, CommandFailed) as error:
+            return {"targetId": binding.id, "serverId": binding.server_id, "ok": False, "reason": reason(error)}
+        except ValueError:
+            return {"targetId": binding.id, "serverId": binding.server_id, "ok": False,
+                    "reason": "Target vitals were unreadable"}
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        collected = list(pool.map(collect, bindings))
+    return {"collectedAt": now(), "targets": collected}
+
+
+FAILED = {"failed", "rolled_back", "rollback_failed", "interrupted"}
+
+
+def instant(value):
+    try:
+        moment = datetime.datetime.fromisoformat(value)
+    except (TypeError, ValueError):
+        return None
+    return moment if moment.tzinfo else moment.replace(tzinfo=datetime.timezone.utc)
+
+
+def median(values):
+    ordered = sorted(values)
+    if not ordered:
+        return None
+    middle = len(ordered) // 2
+    return ordered[middle] if len(ordered) % 2 else (ordered[middle - 1] + ordered[middle]) / 2
+
+
+def outcome_of(status):
+    return "succeeded" if status == "succeeded" else "failed" if status in FAILED else \
+        "refused" if status == "rejected" else "pending"
+
+
+def measure(window, daily=None):
+    """Outcome counts, success rate and median rollout and recovery times of jobs in submission order, with each
+    target's tally; `daily` gathers finished outcomes by UTC day when given."""
+    counts = {"succeeded": 0, "failed": 0, "refused": 0, "pending": 0}
+    rollouts, recoveries, per_target = [], [], {}
+    for job in window:
+        status = job.get("status")
+        outcome = outcome_of(status)
+        counts[outcome] += 1
+        day = (daily or {}).get(instant(job["submittedAt"]).astimezone(datetime.timezone.utc).date().isoformat())
+        if day is not None and outcome != "pending":
+            day[outcome] += 1
+        began, ended = instant(job.get("startedAt")) or instant(job["submittedAt"]), instant(job.get("completedAt"))
+        if outcome in ("succeeded", "failed") and ended and ended >= began:
+            rollouts.append((ended - began).total_seconds())
+        key = job.get("targetId") or "unknown"
+        target = per_target.setdefault(key, {"targetId": key, "deploys": 0, "succeeded": 0, "failed": 0,
+                                             "failingSince": None})
+        target["deploys"] += 1
+        target.update(lastStatus=status, lastRelease=job.get("release"), lastDeployAt=job["submittedAt"])
+        if outcome == "succeeded":
+            target["succeeded"] += 1
+            since = instant(target["failingSince"])
+            if since and ended and ended >= since:
+                recoveries.append((ended - since).total_seconds())
+            target["failingSince"] = None
+        elif outcome == "failed":
+            target["failed"] += 1
+            target["failingSince"] = target["failingSince"] or job.get("completedAt") or job["submittedAt"]
+    finished = counts["succeeded"] + counts["failed"]
+    return {"deploys": len(window), **counts,
+            "successRate": counts["succeeded"] / finished if finished else None,
+            "medianRolloutSeconds": median(rollouts), "medianRecoverySeconds": median(recoveries)}, per_target
+
+
+def stats(root, days=30, moment=None):
+    """Deployment metrics over the last `days` UTC calendar days from local submission records, beside the same
+    measures for the `days` before them; no SSH."""
+    require(type(days) is int and 1 <= days <= 90, "Window must be 1-90 days")
+    today = (moment or datetime.datetime.now(datetime.timezone.utc)).astimezone(datetime.timezone.utc).date()
+    first = today - datetime.timedelta(days=days - 1)
+    before = first - datetime.timedelta(days=days)
+    daily = {(first + datetime.timedelta(days=offset)).isoformat(): {"succeeded": 0, "failed": 0, "refused": 0}
+             for offset in range(days)}
+
+    def submitted_on(job):
+        return instant(job["submittedAt"]).astimezone(datetime.timezone.utc).date()
+
+    records = sorted((job for job in jobs(root, limit=None) if instant(job["submittedAt"])),
+                     key=lambda job: instant(job["submittedAt"]))
+    current, per_target = measure([job for job in records if submitted_on(job) >= first], daily)
+    earlier = [job for job in records if before <= submitted_on(job) < first]
+    return {"windowDays": days, "since": first.isoformat(), **current,
+            # The window before, measured the same way, so each figure can show its trend; null without records.
+            "previous": {"since": before.isoformat(), **measure(earlier)[0]} if earlier else None,
+            "daily": [{"date": date, **values} for date, values in daily.items()],
+            "targets": sorted(per_target.values(), key=lambda item: item["targetId"])}
+
+
+def summary_of(record):
+    return {key: record[key] for key in ("id", "release", "status", "completedAt", "reason") if key in record}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["import", "servers", "targets", "releases", "submit", "status"])
+    parser.add_argument("action", choices=["import", "servers", "targets", "vaults", "releases", "template", "submit",
+                                           "status", "jobs", "state", "check", "reconcile", "vitals", "stats"])
     parser.add_argument("--root", required=True)
     parser.add_argument("--target")
     parser.add_argument("--bundle")
+    parser.add_argument("--service")
     parser.add_argument("--actor", default="operator")
     parser.add_argument("--job")
     parser.add_argument("--archive")
+    parser.add_argument("--days", type=int, default=30)
     args = parser.parse_args()
     root = Path(args.root).resolve()
     try:
@@ -152,16 +404,33 @@ def main():
             result = fleet.servers()
         elif args.action == "targets":
             result = targets(root)
+        elif args.action == "vaults":
+            result = fleet.vaults()
         elif args.action == "releases":
             result = releases(root)
+        elif args.action == "template":
+            print(json.dumps(template(root, args.bundle, args.service), indent=2))
+            return 0
         elif args.action == "submit":
             result = submit(root, args.target, args.bundle, args.actor)
+        elif args.action == "jobs":
+            result = jobs(root)
+        elif args.action == "state":
+            result = target_state(root, args.target)
+        elif args.action == "check":
+            result = check(root, args.target, args.bundle)
+        elif args.action == "reconcile":
+            result = reconcile(root, args.target, args.job, args.actor)
+        elif args.action == "vitals":
+            result = vitals(root, args.target)
+        elif args.action == "stats":
+            result = stats(root, args.days)
         else:
             result = status(root, args.job)
         print(json.dumps(result))
         return 0
     except Exception as error:
-        print(json.dumps({"status": "rejected", "failure": type(error).__name__}), file=sys.stderr)
+        print(json.dumps(rejection(error)), file=sys.stderr)
         return 1
 
 
