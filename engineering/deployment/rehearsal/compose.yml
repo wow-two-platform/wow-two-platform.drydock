@@ -1,0 +1,140 @@
+# Local rehearsal rig: an SSH target driving the host Docker daemon, a registry, a product database,
+# an optional vault, and the Wheelhouse console itself (`rehearse.py console`).
+# Settings live at the same absolute path inside the target and on the host, so bind sources resolve.
+name: wheelhouse-rehearsal
+services:
+  target:
+    build: .
+    ports:
+      - "127.0.0.1:2222:22"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${REHEARSAL_STATE:?Set REHEARSAL_STATE}/keys:/rehearsal-keys
+      - ${REHEARSAL_STATE}/secrets:${REHEARSAL_STATE}/secrets:ro
+      - deployments:/srv/wheelhouse
+    restart: unless-stopped
+  registry:
+    image: registry:2
+    ports:
+      - "127.0.0.1:15000:5000"
+    restart: unless-stopped
+  database:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: foreverpin
+      POSTGRES_USER: foreverpin
+      POSTGRES_PASSWORD_FILE: /run/rehearsal/database-password
+    volumes:
+      - ${REHEARSAL_STATE}/secrets/database-password:/run/rehearsal/database-password:ro
+      - database:/var/lib/postgresql/data
+    networks:
+      default: {}
+      platform:
+        aliases: [rehearsal-database]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U foreverpin -d foreverpin"]
+      interval: 2s
+      retries: 30
+    restart: unless-stopped
+  # A real secrets vault for the console; needs a locally built secrets-vault:local image.
+  vault:
+    image: secrets-vault:local
+    profiles: [vault]
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      VAULT_MASTER_KEY_FILE: /run/secrets/master_key
+      VAULT_ADMIN_PASSWORD_HASH_FILE: /run/secrets/admin_password_hash
+      VAULT_ADMIN_JWT_KEY_FILE: /run/secrets/jwt_key
+      DB_CONNECTION_FILE: /run/secrets/db_connection
+    volumes:
+      - ${REHEARSAL_STATE}/vault/master_key:/run/secrets/master_key:ro
+      - ${REHEARSAL_STATE}/vault/admin_password_hash:/run/secrets/admin_password_hash:ro
+      - ${REHEARSAL_STATE}/vault/jwt_key:/run/secrets/jwt_key:ro
+      - ${REHEARSAL_STATE}/vault/db_connection:/run/secrets/db_connection:ro
+    ports:
+      - "127.0.0.1:18201:8080"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    depends_on:
+      vault-db:
+        condition: service_healthy
+    restart: unless-stopped
+  vault-db:
+    image: postgres:16-alpine
+    profiles: [vault]
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_admin_password
+    volumes:
+      - ${REHEARSAL_STATE}/vault/db_admin_password:/run/secrets/db_admin_password:ro
+      - ${REHEARSAL_STATE}/vault/db_init.sql:/docker-entrypoint-initdb.d/10-vault.sql:ro
+      - vault-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d secrets_vault"]
+      interval: 2s
+      retries: 30
+    restart: unless-stopped
+  # Wheelhouse itself, built as it ships, driving this rig over SSH the way it will drive a VPS.
+  console:
+    image: wheelhouse:local
+    build:
+      context: ../../codebase
+      dockerfile: ../deployment/Dockerfile
+    profiles: [console]
+    environment:
+      Deployment__Rehearsal: network
+      Deployment__RehearsalState: ${REHEARSAL_STATE}
+    volumes:
+      - ${REHEARSAL_STATE}/inventory:/data/deployments
+      - ${REHEARSAL_STATE}/console/appsettings.Local.json:/app/appsettings.Local.json:ro
+      - console-keys:/data/keys
+    ports:
+      - "127.0.0.1:18210:8080"
+    depends_on:
+      console-db:
+        condition: service_healthy
+    restart: unless-stopped
+    mem_limit: 512m
+  console-db:
+    image: postgres:16-alpine
+    profiles: [console]
+    environment:
+      POSTGRES_DB: wheelhouse
+      POSTGRES_USER: wheelhouse
+      POSTGRES_PASSWORD_FILE: /run/console/database-password
+    volumes:
+      - ${REHEARSAL_STATE}/console/database-password:/run/console/database-password:ro
+      - console-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wheelhouse -d wheelhouse"]
+      interval: 2s
+      retries: 30
+    restart: unless-stopped
+  # The database for Wheelhouse run from an IDE (appsettings.Development.json); loopback-only dev credentials.
+  dev-db:
+    image: postgres:16-alpine
+    profiles: [dev]
+    environment:
+      POSTGRES_DB: wheelhouse
+      POSTGRES_USER: wheelhouse
+      POSTGRES_PASSWORD: wheelhouse
+    ports:
+      - "127.0.0.1:15432:5432"
+    volumes:
+      - dev-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wheelhouse -d wheelhouse"]
+      interval: 2s
+      retries: 30
+    restart: unless-stopped
+networks:
+  platform:
+    name: wheelhouse-rehearsal
+volumes:
+  deployments:
+  database:
+  vault-db:
+  console-db:
+  console-keys:
+  dev-db:

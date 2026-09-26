@@ -1,6 +1,6 @@
 # Deployment operations
 
-*Last updated: 2026-09-19*
+*Last updated: 2026-09-26*
 
 ## Ownership and current boundary
 
@@ -42,9 +42,11 @@ Mount a protected persistent directory at `/data/deployments` containing:
 ```text
 ssh/<server-id>/identity
 ssh/<server-id>/known_hosts
+vaults/<vault-id>/password
 bundles/<artifact-id>/{release,compose,source}.json
 jobs/
 observed/
+reconciled/
 ```
 
 The checked-in fleet starts empty. During wiring, add verified `Server` and `Target` values in `fleet.py`.
@@ -84,32 +86,133 @@ Alternatively, use mode `644` inside a mode `700` directory owned by the deploym
 the directory protects host access, while the read-only file bind is readable by the container UID.
 Never use group/world-writable settings. Cookie key volumes must remain writable by UID `1654`.
 
+Generate each service's settings file from its release contract, then fill every value:
+
+```sh
+python3 engineering/codebase/wheelhouse.runner-services/transport.py template \
+  --root /path/to/inventory --bundle <artifact-id> --service management > management.json
+```
+
+The runner rejects a deployment before changing any container when a listed key is blank,
+when `AllowedHosts` omits `localhost`, or when `Deployment:TrustedProxies` is not a JSON array.
+Health checks and smoke probes call `http://localhost:8080`, so use `"<public host>;localhost"`.
+A plain-string proxy value binds to no proxy; use `["<ingress IP>"]`.
+
 ## Operator and API commands
 
 From the repository root, using the same inventory as the dashboard:
 
 ```sh
-python3 engineering/codebase/wheelhouse.runner-services/transport.py targets --root /path/to/inventory
-python3 engineering/codebase/wheelhouse.runner-services/transport.py releases --root /path/to/inventory
-python3 engineering/codebase/wheelhouse.runner-services/transport.py submit \
-  --root /path/to/inventory --target foreverpin-staging --bundle <artifact-id-from-releases> --actor operator
-python3 engineering/codebase/wheelhouse.runner-services/transport.py status \
-  --root /path/to/inventory --job <returned-id>
+R=engineering/codebase/wheelhouse.runner-services/transport.py
+python3 $R targets  --root /path/to/inventory
+python3 $R releases --root /path/to/inventory
+python3 $R check    --root /path/to/inventory --target foreverpin-staging --bundle <artifact-id>
+python3 $R submit   --root /path/to/inventory --target foreverpin-staging --bundle <artifact-id> --actor operator
+python3 $R status   --root /path/to/inventory --job <returned-id>
+python3 $R jobs     --root /path/to/inventory
+python3 $R state    --root /path/to/inventory --target foreverpin-staging
+python3 $R reconcile --root /path/to/inventory --target foreverpin-staging --job <active-id> --actor operator
+python3 $R vitals   --root /path/to/inventory [--target foreverpin-staging]
+python3 $R stats    --root /path/to/inventory --days 30
 ```
 
-- `GET /api/deployments/targets`: configured target bindings.
-- `GET /api/servers`: hosts defined in code; registration and deletion return `405`.
-- `GET /api/deployments/releases`: published artifacts from approved release sources.
-- `POST /api/deployments`: JSON `{"target":"foreverpin-staging","release":"foreverpin-v1"}`,
-  authenticated admin plus `X-Wheelhouse-Action: deploy`.
-- `GET /api/deployments/{id}`: refresh the target-owned outcome.
-- HTTP `202` means queued, not deployed.
+`check`, `state` and `vitals` stream the runner over SSH stdin and leave no files on the target.
+`check` probes SSH, the deployment root, Docker architecture, Compose, disk, the shared network,
+every settings file and the target's lock state; each failure names the rule or key it broke.
+
+| API | Purpose |
+|---|---|
+| `GET /api/deployments` | Recent submissions with their last observed outcome and reason |
+| `GET /api/deployments/targets` | Configured target bindings |
+| `GET /api/deployments/targets/{id}/state` | Verified release and `ready` / `running` / `needs_reconciliation` |
+| `GET /api/deployments/targets/{id}/check?release=` | Read-only readiness, optionally against one release |
+| `POST /api/deployments/targets/{id}/reconcile` | `{"job":"<active-id>"}` with `X-Wheelhouse-Action: reconcile` |
+| `GET /api/servers` | Hosts defined in code; registration and deletion return `405` |
+| `GET /api/deployments/releases` | Published artifacts from approved release sources |
+| `POST /api/deployments` | `{"target":"…","release":"…"}` with `X-Wheelhouse-Action: deploy`; `202` means queued |
+| `GET /api/deployments/{id}` | The target-owned outcome |
+| `GET /api/deployments/vitals` | Every target's host load, memory, disks, uptime and containers, read in parallel |
+| `GET /api/deployments/stats?days=30` | Outcomes, success rate, median rollout and recovery, deploys per UTC day (1–90 days) |
+| `GET /api/vaults/{vault}/hygiene` | Secrets and product tokens due for rotation; metadata only |
+
 - A lost SSH response is an unknown outcome; inspect target state before retrying.
 - Cookie-authenticated cross-origin writes cannot supply the custom header without an allowed CORS preflight.
+- Restarting the dashboard does not terminate a launched target worker.
+- Reconciling records who acknowledged the rollout under `<inventory>/reconciled/`.
 
-The dashboard polls active deployments. Restarting the dashboard does not terminate a launched target worker.
-The initial dashboard displays the current submission; durable history is retained in the inventory and target job directories.
-It does not yet provide a fleet-wide history browser. Artifact discovery reads GitHub releases without interacting with CI.
+The API reads its runner settings from the `Deployment` section: `TransportPath`, `Root`, `Python` and `GitHubTokenFile`.
+
+`vitals` reads `/proc`, filesystem capacity and `docker ps`/`inspect`/`stats` for the target's Compose project;
+it never returns container environment, labels or logs. `stats` reads only the local submission records.
+The overview flags: unreadable or locked targets, missing or unhealthy containers, 3+ restarts, disks over 75%
+(red over 90%), memory over 90%, load over 150% of CPUs, an unrecovered failed rollout, sealed vaults,
+active secrets older than 90 days, and tokens expired, expiring within 14 days or older than 180 days.
+
+## Secrets vaults
+
+`fleet.py` declares each vault's id, host and private management URL; the browser never sees or chooses the URL.
+Wheelhouse signs in with the administrator password at `<inventory>/vaults/<vault-id>/password`, a protected mount,
+and keeps the one-hour session in memory. The console writes values and never reads them back.
+A minted product token is returned once, with `Cache-Control: no-store`, and only its metadata remains afterwards.
+Wheelhouse logs the operator, vault and change for every write; values and tokens never reach logs.
+
+Reach a vault on Wheelhouse's own private network, or through an SSH tunnel when Wheelhouse runs on a workstation.
+Vault-side audit records show Wheelhouse's administrator identity; Wheelhouse's log names the human operator.
+
+## Local rehearsal
+
+`engineering/deployment/rehearsal/` runs a disposable SSH target, a registry, a product database and,
+when a `secrets-vault:local` image exists, a vault. `WHEELHOUSE_REHEARSAL=1` exposes the rehearsal target, vault and
+imported bundles; a deployed control plane never sets it.
+
+```sh
+cd engineering/deployment/rehearsal
+python3 rehearse.py run                                  # rig, bundle, settings, check, deploy
+python3 rehearse.py bundle --release rehearsal-broken --broken   # a release that fails after replacement
+python3 rehearse.py deploy --release rehearsal-broken
+python3 rehearse.py state
+python3 rehearse.py down --volumes
+```
+
+The rig generates its own SSH and vault keys under `rehearsal/state/` (ignored by Git) and pins the host key it generated.
+It needs local `foreverpin-{management,redirect}:local` images and the ForeverPin release generator in the workspace.
+Point a local API at the rehearsal inventory with `WHEELHOUSE_REHEARSAL=1`, `Deployment__Root` and `Deployment__TransportPath`.
+
+### From an IDE
+
+`python3 rehearse.py dev` starts the rig plus a loopback database (`127.0.0.1:15432`) that
+`appsettings.Development.json` points at, with `Deployment:Rehearsal` = `host` and the runner paths resolved from the
+project folder. Run `Wheelhouse.Api` with the `https` launch profile and open `https://localhost:8210`; the header's
+`Local rig` badge marks an instance that deploys to the rehearsal target, not real hosts. Sign-in uses the API
+project's user-secrets (`Identity:GitHub`, callback `https://localhost:8210/api/identity/callback`).
+The build compiles the SPA with the Node pinned in `wheelhouse.frontend-services/.nvmrc` when nvm has it, so a Rider
+launched from the Dock builds even when its PATH holds an older system Node.
+
+`Deployment:Rehearsal` is the only switch: the API sets `WHEELHOUSE_REHEARSAL` for the runner from it and drops any
+inherited value, so a deployed control plane cannot be pointed at the rig by environment alone.
+
+### Local console — the whole system before a VPS
+
+`python3 rehearse.py console` adds Wheelhouse itself to the rig: the production image (`wheelhouse:local`), its own
+PostgreSQL, and the rehearsal inventory mounted at `/data/deployments`. It runs as `Production` at
+`http://localhost:18210` and drives the target over SSH (`target:22`) and the vault (`http://vault:8080`) by service
+name, the way it will drive a VPS; `Deployment:Rehearsal` = `network` selects that view and `Deployment:RehearsalState`
+carries the host path for settings files. A transport run by hand inside the console needs
+`WHEELHOUSE_REHEARSAL=network REHEARSAL_STATE=<host state path>`, because only the API sets them for its runner.
+
+One-time sign-in setup, on the GitHub account that will operate Wheelhouse:
+
+1. GitHub → Settings → Developer settings → OAuth Apps → New OAuth App.
+2. Homepage `http://localhost:18210`; callback `http://localhost:18210/api/identity/callback`.
+3. Put the client id and a new client secret in `rehearsal/state/console/appsettings.Local.json` (`Identity:GitHub`).
+4. Check `Identity:AllowedGitHubLogins` names that account, then run `python3 rehearse.py console` again.
+
+Use a Chromium-based browser: it accepts the `Secure` session cookie on `http://localhost`.
+A separate OAuth app with the production callback serves the VPS; the local one stays local.
+
+With `rehearse.py bundle` and `settings` run, the console lists `rehearsal-1` and `rehearsal-broken` for
+`foreverpin-rehearsal`. The `v0.3` Verification iteration is the test plan. `rehearse.py down` stops everything;
+`--volumes` also drops the console's database, the vault's data and the target's state.
 
 ## Target state and recovery
 
@@ -142,6 +245,8 @@ A retry after reconciliation establishes a new known-good release.
 
 Raw Docker/SSH output is not returned to the dashboard because it may contain runtime secrets.
 Audit records keep actor, release, source SHA, timestamps, outcome and failure category.
+A `reason` names the refused rule, missing setting key, failed step or unhealthy service, never a value.
+The API returns it as ProblemDetails `detail`: `409` for a refused precondition, `503` for a failed step.
 Inspect detailed container logs privately on the target. Runtime Docker logs rotate in the release bundle.
 
 ## VPS wiring checklist
@@ -174,10 +279,11 @@ The separate ForeverPin product track still owns incomplete content modes and va
 
 ## Verification
 
-See the checked acceptance items in the [pilot plan](../planning/deployment-pilot.md).
-Local container evidence is scoped to Docker Desktop `linux/arm64`; a hosted `linux/amd64` workflow run and real SSH/OAuth/TLS remain separate gates.
-
 ```sh
-python3 -m unittest discover -s engineering/codebase/wheelhouse.runner-services -v
-dotnet test engineering/codebase/wheelhouse.backend-services/Wheelhouse.BackendServices.slnx -p:BuildSpa=false -m:1
+python3 -m unittest discover -s engineering/codebase/wheelhouse.runner-services
+dotnet test engineering/codebase/wheelhouse.backend-services/Wheelhouse.BackendServices.slnx -p:SkipSpaBuild=true -m:1
+(cd engineering/codebase/wheelhouse.frontend-services && npm run typecheck && npm run build)
 ```
+
+The rehearsal rig exercises real SSH, Compose, health gates and recovery; hosted `linux/amd64`, TLS, OAuth and
+off-provider backups remain separate gates in the [pilot plan](../planning/deployment-pilot.md).
