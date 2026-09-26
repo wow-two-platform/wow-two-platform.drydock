@@ -22,6 +22,10 @@ public sealed class StubDeploymentGateway : IDeploymentGateway
             "servers" => new object[] { new { id = "pilot-host", name = "Pilot", provider = "Hetzner", host = "vps.example.net", region = "hel1", sshUser = "deploy" } },
             "jobs" => new object[] { new { id = Guid.Empty, targetId = "pilot", release = "v1", status = "failed", reason = "compose up failed (exit 1)" } },
             "state" => new { targetId = id, condition = "needs_reconciliation", active = new { id = Guid.Empty, status = "failed" } },
+            "topology" => new { targetId = id, availability = "available", release = "v1", collectedAt = "2026-09-26T12:00:00+00:00",
+                services = new[] { new { name = "api", image = (string?)null, networks = new[] { "default" }, volumes = Array.Empty<string>(), ports = new[] { "8080/tcp" } } },
+                networks = new[] { new { name = "default", external = false } }, volumes = Array.Empty<object>(),
+                dependencies = Array.Empty<object>(), warnings = Array.Empty<string>() },
             "stats" => new { windowDays = int.Parse(id!), deploys = 1, succeeded = 0, failed = 1, refused = 0, pending = 0 },
             "vitals" => new { collectedAt = "2026-09-26T12:00:00+00:00", targets = new[] { new { targetId = "pilot", serverId = "pilot-host", ok = true } } },
             _ => new object[] { new { id = "pilot", product = "foreverpin", environment = "staging" } }

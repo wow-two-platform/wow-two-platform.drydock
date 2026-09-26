@@ -34,6 +34,11 @@ public sealed class DeploymentsController(ISender sender, IErrorHttpStatusCodeMa
     public async Task<IActionResult> State([RegularExpression(Slug)] string target, CancellationToken ct) =>
         Render(await sender.SendAsync(new DeploymentReadQuery("state", target), ct));
 
+    /// <summary>Reads allowlisted service relationships from the target's current release snapshot.</summary>
+    [HttpGet("targets/{target}/topology")]
+    public async Task<IActionResult> Topology([RegularExpression(Slug)] string target, CancellationToken ct) =>
+        Render(await sender.SendAsync(new DeploymentReadQuery("topology", target), ct));
+
     /// <summary>Checks a target's readiness without changing it, optionally against one release.</summary>
     [HttpGet("targets/{target}/check")]
     public async Task<IActionResult> Check(

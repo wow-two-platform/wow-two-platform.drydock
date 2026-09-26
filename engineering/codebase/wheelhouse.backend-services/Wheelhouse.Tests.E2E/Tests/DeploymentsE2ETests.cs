@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Wheelhouse.Tests.E2E.Harness;
 
 namespace Wheelhouse.Tests.E2E.Tests;
@@ -13,6 +14,7 @@ public sealed class DeploymentsE2ETests(WheelhouseAppFixture fixture) : Wheelhou
     [InlineData("/api/deployments/targets")]
     [InlineData("/api/deployments/releases")]
     [InlineData("/api/deployments/targets/pilot/state")]
+    [InlineData("/api/deployments/targets/pilot/topology")]
     [InlineData("/api/deployments/targets/pilot/check")]
     [InlineData("/api/deployments/stats")]
     [InlineData("/api/deployments/vitals")]
@@ -46,6 +48,19 @@ public sealed class DeploymentsE2ETests(WheelhouseAppFixture fixture) : Wheelhou
     {
         Assert.Equal(HttpStatusCode.OK, (await AdminClient.GetAsync("/api/deployments/vitals")).StatusCode);
         Assert.Equal(("vitals", (string?)null), Fixture.Deployments.LastRead);
+    }
+
+    [Fact]
+    public async Task Topology_ShouldReturn200WithEnvelope_WhenTargetIsSelected()
+    {
+        var response = await AdminClient.GetAsync("/api/deployments/targets/pilot/topology");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(("topology", "pilot"), Fixture.Deployments.LastRead);
+        var document = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var topology = document.GetProperty("data");
+        Assert.Equal("pilot", topology.GetProperty("targetId").GetString());
+        Assert.Equal("available", topology.GetProperty("availability").GetString());
+        Assert.Equal("api", topology.GetProperty("services")[0].GetProperty("name").GetString());
     }
 
     [Fact]
@@ -87,6 +102,9 @@ public sealed class DeploymentsE2ETests(WheelhouseAppFixture fixture) : Wheelhou
     [Theory]
     [InlineData("/api/deployments/targets/pilot/check?release=v1;id")]
     [InlineData("/api/deployments/targets/Pilot/state")]
+    [InlineData("/api/deployments/targets/Pilot/topology")]
+    [InlineData("/api/deployments/targets/pilot;id/topology")]
+    [InlineData("/api/deployments/targets/pilot%2F..%2Foutside/topology")]
     [InlineData("/api/deployments/targets/pilot%2F..%2Foutside/state")]
     public async Task TargetRoutes_RejectAnythingButCatalogIds(string path)
     {
