@@ -9,8 +9,13 @@ export function useRefresh(refetch: () => Promise<unknown>, { minDuration = 400 
   const pending = useRef(0);
   const mounted = useRef(true);
 
-  useEffect(() => () => {
-    mounted.current = false;
+  // Set on every mount: StrictMode mounts, unmounts and mounts again, and a flag cleared by the first cleanup
+  // would otherwise leave `refreshing` stuck on true.
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
   }, []);
 
   const refresh = useCallback(async () => {

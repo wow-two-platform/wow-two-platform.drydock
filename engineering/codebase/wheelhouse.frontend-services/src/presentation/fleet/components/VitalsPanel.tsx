@@ -1,4 +1,5 @@
 import { RefreshCw } from 'lucide-react';
+import { cn } from '@wow-two-beta/ui/foundation/utils';
 import { Button } from '@wow-two-beta/ui/presentation/actions';
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Text } from '@wow-two-beta/ui/presentation/display';
 import { Alert, MeterBar, StatusIndicator } from '@wow-two-beta/ui/presentation/feedback';
@@ -89,16 +90,19 @@ function HostSummary(props: { name: string; address: string | undefined; host: H
   const memory = host ? FleetExtensions.memoryPercent(host) : null;
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <span className="font-medium">
-          <Skeleton.Slot loading={!!props.placeholder}>{props.name}</Skeleton.Slot>
+      <div className="flex h-6 items-center justify-between gap-2">
+        <span className="flex min-w-0 items-baseline gap-2 font-medium">
+          <Skeleton.Slot loading={!!props.placeholder} className={cn('truncate', props.placeholder && 'w-44')}>
+            {props.name}
+          </Skeleton.Slot>
           {props.address && (
-            <Skeleton.Slot loading={!!props.placeholder} className="ml-2 font-mono text-xs text-muted-foreground">
+            <Skeleton.Slot loading={!!props.placeholder}
+              className={cn('font-mono text-xs text-muted-foreground', props.placeholder && 'w-20')}>
               {props.address}
             </Skeleton.Slot>
           )}
         </span>
-        <Skeleton.Slot className="text-xs text-muted-foreground">
+        <Skeleton.Slot className="w-28 shrink-0 text-right text-xs text-muted-foreground">
           {host?.uptimeSeconds != null ? `up ${Measures.duration(host.uptimeSeconds)}` : 'uptime unknown'}
         </Skeleton.Slot>
       </div>
@@ -126,20 +130,22 @@ function HostSummary(props: { name: string; address: string | undefined; host: H
 function Gauge(props: { label: string; qualifier?: string; placeholder?: boolean; value: number | null; detail: string }) {
   const name = props.qualifier ? `${props.label} ${props.qualifier}` : props.label;
   return (
-    <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-card p-3">
-      <div className="flex items-baseline justify-between gap-2 text-sm">
-        <span className="min-w-0 truncate">
-          {props.label}
-          {props.qualifier && <Skeleton.Slot loading={!!props.placeholder} className="ml-1">{props.qualifier}</Skeleton.Slot>}
+    <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3">
+      <div className="flex h-5 items-center justify-between gap-2 text-sm">
+        <span className="flex min-w-0 items-center">
+          <span className="shrink-0">{props.label}</span>
+          {props.qualifier && (
+            <Skeleton.Slot loading={!!props.placeholder} className="ml-1 truncate">{props.qualifier}</Skeleton.Slot>
+          )}
         </span>
-        <Skeleton.Slot className="font-medium tabular-nums">
+        <Skeleton.Slot className="w-12 shrink-0 text-right font-medium tabular-nums">
           {props.value == null ? '—' : `${Math.round(props.value)}%`}
         </Skeleton.Slot>
       </div>
-      <Skeleton.Slot block>
+      <Skeleton.Slot block className="h-1.5">
         <MeterBar value={props.value ?? 0} thresholds={USAGE_THRESHOLDS} size="sm" label={name} />
       </Skeleton.Slot>
-      <Skeleton.Slot className="text-xs text-muted-foreground">{props.detail}</Skeleton.Slot>
+      <Skeleton.Slot block className="h-4 truncate text-xs leading-4 text-muted-foreground">{props.detail}</Skeleton.Slot>
     </div>
   );
 }

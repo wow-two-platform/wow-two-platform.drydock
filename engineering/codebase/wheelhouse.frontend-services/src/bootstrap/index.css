@@ -68,17 +68,17 @@
 .dark {
   --color-background: #0b1a2c;
   --color-foreground: #e6edf5;
-  --color-card: #11243a;
+  --color-card: #13294a;
   --color-card-foreground: #e6edf5;
-  --color-popover: #132a43;
+  --color-popover: #173055;
   --color-popover-foreground: #e6edf5;
   --color-inverse: #e6edf5;
   --color-inverse-foreground: #0b1a2c;
-  --color-muted: #172e48;
+  --color-muted: #1a3354;
   --color-muted-foreground: #9fb0c3;
   --color-subtle-foreground: #8193a8;
-  --color-border: #1f3753;
-  --color-border-strong: #2b4766;
+  --color-border: #243f63;
+  --color-border-strong: #31507a;
   --color-input: #35557a;
   --color-ring: #5cb8d6;
 
@@ -119,6 +119,21 @@ body,
 #root {
   height: 100%;
 }
+
+/* A panel opening or closing never resizes the page by adding or removing the scrollbar. */
+html {
+  scrollbar-gutter: stable;
+}
+
+/* UI SDK 0.0.108 mounts an entering overlay in its closed state, so menus and dialogs played their exit keyframes
+   on the way in: a show-hide-show twitch. Until the SDK's Presence fix is re-pinned, exits start hidden: overlays
+   open cleanly and close without a fade. Remove with the re-pin (backlog). */
+@keyframes fade-out { from { opacity: 0; } to { opacity: 0; } }
+@keyframes pop-out { from { opacity: 0; } to { opacity: 0; } }
+@keyframes slide-out-top { from { opacity: 0; } to { opacity: 0; } }
+@keyframes slide-out-bottom { from { opacity: 0; } to { opacity: 0; } }
+@keyframes slide-out-left { from { opacity: 0; } to { opacity: 0; } }
+@keyframes slide-out-right { from { opacity: 0; } to { opacity: 0; } }
 
 body {
   margin: 0;

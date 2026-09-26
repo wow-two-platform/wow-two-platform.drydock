@@ -68,6 +68,7 @@ Deferred work; top of each group = next. Version docs hold only the active versi
 | UI SDK `query` entry imports optional persistence peers | issue | Consumers must install both persister packages; move persistence to a subpath |
 | UI SDK `useAppQuery` has no polling interval | feature | Wheelhouse polls inside two hooks meanwhile |
 | UI SDK `useAppQuery` exposes no background-fetching flag | feature | Added in the SDK working tree (`fetching`, `useRefresh`); needs a release and re-pin |
+| Drop the exit-keyframe override in `bootstrap/index.css` | check | Masks the SDK Presence enter twitch at 0.0.108; the SDK fix is in its working tree, awaiting release and re-pin |
 | Swap the skeleton and `useRefresh` shims for the SDK's | check | `presentation/common/skeleton` + `application/common/useRefresh` copy the unreleased SDK parts; delete after the re-pin |
 | UI SDK `AppShell` has no user-collapsible rail or full-height sidebar | feature | Wheelhouse overrides the sidebar's classes and drawer padding |
 | Move the Wheelhouse palette into the UI SDK theme registry | check | Lives in the app's `index.css` today, beside `theme-smart-qr` |

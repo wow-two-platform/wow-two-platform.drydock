@@ -45,16 +45,17 @@ export function KpiTile(props: KpiTileProps) {
         </span>
         <span className="text-sm font-medium text-muted-foreground">{props.label}</span>
       </div>
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <Skeleton.Slot className="text-3xl font-semibold tracking-tight tabular-nums">{props.value}</Skeleton.Slot>
+      {/* Fixed line heights: a trend or helper arriving never changes the tile's size. */}
+      <div className="flex h-9 items-baseline gap-3">
+        <Skeleton.Slot className="shrink-0 text-3xl leading-9 font-semibold tracking-tight tabular-nums">{props.value}</Skeleton.Slot>
         {props.trend && (
-          <Skeleton.Slot>
+          <Skeleton.Slot className="min-w-0 truncate">
             <TrendIndicator value={props.trend.value} format={props.trend.format} isInverse={props.trend.isInverse ?? false}
               label={props.trend.label} />
           </Skeleton.Slot>
         )}
       </div>
-      {props.helper && <Skeleton.Slot className="text-xs text-muted-foreground">{props.helper}</Skeleton.Slot>}
+      <Skeleton.Slot block className="h-4 truncate text-xs leading-4 text-muted-foreground">{props.helper ?? ''}</Skeleton.Slot>
     </div>
   );
 }

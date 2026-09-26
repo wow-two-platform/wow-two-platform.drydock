@@ -102,6 +102,8 @@ export function RegisterProductForm({ product, create, update, onSaved, onCancel
           </form.Field>
           <form.Field name="repo">
             {(f) => (
+              // Full width when registering; beside Status when editing.
+              <div className={isEdit ? undefined : 'sm:col-span-2'}>
               <Field label="Repo (owner/repo or URL)">
                 <div className="flex items-stretch gap-2">
                   <form.Field name="provider">
@@ -109,7 +111,7 @@ export function RegisterProductForm({ product, create, update, onSaved, onCancel
                       // The Select root is full-width; a fixed box keeps the repo input its room.
                       <div className="w-32 shrink-0">
                       <Select value={prov.value} onValueChange={(opt) => prov.setValue(opt?.value ?? 'github')}>
-                        <Select.Trigger className="h-9 shrink-0" aria-label="Repository provider">
+                        <Select.Trigger className="w-full" aria-label="Repository provider">
                           <Select.Value />
                         </Select.Trigger>
                         <Select.Content>
@@ -131,6 +133,7 @@ export function RegisterProductForm({ product, create, update, onSaved, onCancel
                   </div>
                 </div>
               </Field>
+              </div>
             )}
           </form.Field>
           {isEdit && (
@@ -138,7 +141,7 @@ export function RegisterProductForm({ product, create, update, onSaved, onCancel
               {(f) => (
                 <Field label="Status">
                   <Select<ProductStatus> value={f.value} onValueChange={(opt) => f.setValue(opt?.value ?? f.value)}>
-                    <Select.Trigger className="h-9">
+                    <Select.Trigger className="w-full">
                       <Select.Value />
                     </Select.Trigger>
                     <Select.Content>
