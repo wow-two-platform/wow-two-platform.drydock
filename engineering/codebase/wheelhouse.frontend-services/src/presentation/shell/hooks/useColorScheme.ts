@@ -1,45 +1,45 @@
-import { useEffect, useState } from 'react';
-import { useMediaQuery } from '@wow-two-beta/ui/foundation/hooks';
+import { computed, onScopeDispose, ref, watch } from 'vue';
 
-/** The operator's colour scheme; `system` follows the operating system. */
-export const ColorScheme = {
-  System: 'system',
-  Light: 'light',
-  Dark: 'dark',
-} as const;
+/** Names the operator's persisted theme preference. */
+export const ColorScheme = { System: 'system', Light: 'light', Dark: 'dark' } as const;
 export type ColorScheme = (typeof ColorScheme)[keyof typeof ColorScheme];
 
-// Shared with public/theme.js, which applies the scheme before the first paint.
-const STORAGE_KEY = 'wheelhouse.theme';
-
-function read(): ColorScheme {
-  try {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    return stored === ColorScheme.Light || stored === ColorScheme.Dark ? stored : ColorScheme.System;
-  } catch {
-    return ColorScheme.System;
+/** Applies the saved scheme while tracking operating-system changes. */
+export function useColorScheme() {
+  const media = window.matchMedia('(prefers-color-scheme: dark)');
+  const scheme = ref<ColorScheme>(read());
+  const prefersDark = ref(media.matches);
+  const isDark = computed(() => scheme.value === 'dark' || (scheme.value === 'system' && prefersDark.value));
+  const onChange = (event: MediaQueryListEvent) => {
+    prefersDark.value = event.matches;
+  };
+  media.addEventListener('change', onChange);
+  onScopeDispose(() => media.removeEventListener('change', onChange));
+  watch(
+    isDark,
+    (dark) => {
+      document.documentElement.classList.toggle('dark', dark);
+      document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+    },
+    { immediate: true },
+  );
+  function setScheme(value: ColorScheme): void {
+    scheme.value = value;
+    try {
+      localStorage.setItem('wheelhouse.theme', value);
+    } catch {
+      /* This visit still receives the selected theme. */
+    }
   }
+  return { scheme, isDark, setScheme };
 }
 
-/** The colour scheme, remembered per browser, applied as the `dark` class the UI SDK themes on. */
-export function useColorScheme() {
-  const [scheme, setScheme] = useState(read);
-  const prefersDark = useMediaQuery('(prefers-color-scheme: dark)');
-  const isDark = scheme === ColorScheme.Dark || (scheme === ColorScheme.System && prefersDark);
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', isDark);
-    document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
-  }, [isDark]);
-
-  // ---- Remember the choice; storage can be unavailable in private windows ----
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, scheme);
-    } catch {
-      /* the scheme still applies for this visit */
-    }
-  }, [scheme]);
-
-  return { scheme, setScheme, isDark } as const;
+/** Reads the value shared with the pre-paint theme script. @internal */
+function read(): ColorScheme {
+  try {
+    const stored = localStorage.getItem('wheelhouse.theme');
+    return stored === 'light' || stored === 'dark' ? stored : 'system';
+  } catch {
+    return 'system';
+  }
 }

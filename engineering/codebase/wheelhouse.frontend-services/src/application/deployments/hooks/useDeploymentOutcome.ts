@@ -1,41 +1,70 @@
-import { useEffect } from 'react';
-import { useAppQuery, useQueryCache } from '@wow-two-beta/ui/query';
-import { DeploymentExtensions } from '@/domain/deployments';
-import { deploymentsApi } from '@/integration/deployments';
-import { FleetKeys } from '@/application/fleet';
-import { DeploymentKeys } from '../DeploymentKeys';
+import {
+  computed,
+  onScopeDispose,
+  toValue,
+  watch,
+  type MaybeRefOrGetter,
+} from "vue";
 
-const POLL_MS = 3000;
+import { FleetKeys } from "@/application/fleet";
+import { TopologyKeys } from "@/application/topology";
+import { useAppQuery, useInvalidate } from "@/bootstrap/query";
+import { DeploymentExtensions } from "@/domain/deployments";
+import { deploymentsApi } from "@/integration/deployments";
 
-/** Follows one deployment until its target records a final outcome, then refreshes that target. */
-export function useDeploymentOutcome(id: string | null) {
-  const cache = useQueryCache();
+import { DeploymentKeys } from "../DeploymentKeys";
+
+const PollMilliseconds = 3000;
+
+/** Follows a reactive submission ID until its target records a final outcome. */
+export function useDeploymentOutcome(id: MaybeRefOrGetter<string | null>) {
+  const invalidate = useInvalidate();
   const outcome = useAppQuery({
-    key: DeploymentKeys.outcome(id ?? ''),
-    queryFn: ({ signal }) => deploymentsApi.getOutcome(id ?? '', signal),
-    enabled: id !== null,
+    key: () => DeploymentKeys.outcome(toValue(id) ?? ""),
+    queryFn: ({ signal }) =>
+      deploymentsApi.getOutcome(toValue(id) ?? "", signal),
+    enabled: () => Boolean(toValue(id)),
     meta: { suppressGlobalError: true },
   });
-  const pending = outcome.data !== undefined && DeploymentExtensions.isPending(outcome.data.status);
-  const status = outcome.data?.status;
-  const target = outcome.data?.targetId ?? null;
-  const { refetch } = outcome;
+  const pending = computed(
+    () =>
+      outcome.data.value !== undefined &&
+      DeploymentExtensions.isPending(outcome.data.value.status),
+  );
+  let timer: ReturnType<typeof setInterval> | undefined;
 
-  // useAppQuery exposes no refetch interval, so polling stays inside this one hook.
-  useEffect(() => {
-    if (!pending) return;
-    const timer = window.setInterval(() => void refetch(), POLL_MS);
-    return () => window.clearInterval(timer);
-  }, [pending, refetch]);
+  watch(
+    pending,
+    (active) => {
+      if (timer !== undefined) clearInterval(timer);
+      timer = active
+        ? setInterval(() => void outcome.refetch(), PollMilliseconds)
+        : undefined;
+    },
+    { immediate: true },
+  );
 
-  // ---- A final outcome changes the target's state and the history ----
-  useEffect(() => {
-    if (!status || DeploymentExtensions.isPending(status)) return;
-    void cache.invalidate(DeploymentKeys.history);
-    void cache.invalidate(DeploymentKeys.statsAll);
-    void cache.invalidate(FleetKeys.vitals);
-    if (target) void cache.invalidate(DeploymentKeys.state(target));
-  }, [status, target, cache]);
+  watch(
+    () =>
+      [
+        outcome.data.value?.id,
+        outcome.data.value?.status,
+        outcome.data.value?.targetId,
+      ] as const,
+    ([job, status, target]) => {
+      if (!job || !status || DeploymentExtensions.isPending(status)) return;
+      void invalidate(DeploymentKeys.history);
+      void invalidate(DeploymentKeys.statsAll);
+      void invalidate(FleetKeys.vitals);
+      if (target) {
+        void invalidate(DeploymentKeys.state(target));
+        void invalidate(TopologyKeys.target(target));
+      }
+    },
+  );
 
+  onScopeDispose(() => {
+    if (timer !== undefined) clearInterval(timer);
+  });
   return { ...outcome, pending };
 }

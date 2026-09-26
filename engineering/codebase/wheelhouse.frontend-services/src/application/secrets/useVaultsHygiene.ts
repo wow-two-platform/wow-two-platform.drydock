@@ -1,21 +1,35 @@
-import { useAppQueries } from '@wow-two-beta/ui/query';
-import { VaultStatus, type VaultHygiene, type VaultSummary } from '@/domain/secrets';
-import { secretsApi } from '@/integration/secrets';
-import { SecretKeys } from './SecretKeys';
+import { computed, toValue, type MaybeRefOrGetter } from "vue";
+import { useAppQueries } from "@/bootstrap/query";
+import {
+  VaultStatus,
+  type VaultHygiene,
+  type VaultSummary,
+} from "@/domain/secrets";
+import { secretsApi } from "@/integration/secrets";
+import { SecretKeys } from "./SecretKeys";
 
-/** Rotation hygiene for every unsealed vault; shares its cache with {@link useVaultHygiene}. */
-export function useVaultsHygiene(vaults: readonly VaultSummary[]) {
-  const ready = vaults.filter((vault) => vault.status === VaultStatus.Unsealed);
+/** Shares metadata hygiene queries across the current set of unsealed vaults. */
+export function useVaultsHygiene(
+  vaults: MaybeRefOrGetter<readonly VaultSummary[]>,
+) {
+  const ready = computed(() =>
+    toValue(vaults).filter((vault) => vault.status === VaultStatus.Unsealed),
+  );
   const hygiene = useAppQueries({
-    queries: ready.map((vault) => ({
-      key: SecretKeys.hygiene(vault.id),
-      queryFn: ({ signal }: { signal: AbortSignal }) => secretsApi.getHygiene(vault.id, signal),
-    })),
+    queries: () =>
+      ready.value.map((vault) => ({
+        key: SecretKeys.hygiene(vault.id),
+        queryFn: ({ signal }: { signal: AbortSignal }) =>
+          secretsApi.getHygiene(vault.id, signal),
+      })),
   });
-  const byVault = new Map<string, VaultHygiene>();
-  ready.forEach((vault, index) => {
-    const data = hygiene.data[index];
-    if (data) byVault.set(vault.id, data);
+  const byVault = computed(() => {
+    const result = new Map<string, VaultHygiene>();
+    ready.value.forEach((vault, index) => {
+      const data = hygiene.data.value[index];
+      if (data) result.set(vault.id, data);
+    });
+    return result;
   });
   return { loading: hygiene.loading, errors: hygiene.errors, byVault };
 }

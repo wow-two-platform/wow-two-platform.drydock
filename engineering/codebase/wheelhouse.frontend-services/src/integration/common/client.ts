@@ -1,60 +1,87 @@
-// Same-origin HTTP transport for the Wheelhouse management API. The SPA is served by the .NET host,
-// and the dev server proxies "/api" to it, so every URL stays relative.
-import { ApiError, type ProblemDetails } from '@wow-two-beta/ui/foundation/http';
+import {
+  createApiClient,
+  createRequestScope,
+  ApiFailureFactory,
+  type ApiFailure,
+} from "@wow-two-beta/ui-vue/foundation/http";
+import {
+  ResultExtensions,
+  type Result,
+} from "@wow-two-beta/ui-vue/foundation/results";
+import type { ZodType } from "zod";
 
-// The SDK transport error; the forms engine maps its ProblemDetails field errors onto form fields.
-export { ApiError };
+const sessionScope = createRequestScope();
+const client = createApiClient({
+  credentials: "same-origin",
+  scope: sessionScope,
+});
 
-/** Success envelope around every resource body; failures arrive as un-enveloped ProblemDetails. */
-interface ApiResponse<T> {
-  data: T;
+/** Options for same-origin management requests; action headers guard operator writes. */
+export interface RequestOptions {
+  readonly method?: string;
+  readonly body?: unknown;
+  readonly signal?: AbortSignal | undefined;
+  readonly action?: string;
 }
 
-/** Init for {@link request}; `signal` accepts `undefined` under `exactOptionalPropertyTypes`. */
-export type RequestOptions = Omit<RequestInit, 'signal'> & {
-  signal?: AbortSignal | null | undefined;
-  /** An explicit action header; the API requires it on state-changing operator actions. */
-  action?: string | undefined;
-};
-
-/** Builds an {@link ApiError}, preferring the server's ProblemDetails detail over the status text. */
-async function toApiError(res: Response): Promise<ApiError> {
-  let problem: ProblemDetails | null = null;
-  try {
-    const text = await res.text();
-    const parsed: unknown = text ? JSON.parse(text) : null;
-    if (parsed && typeof parsed === 'object') problem = parsed as ProblemDetails;
-  } catch {
-    // A non-JSON body falls back to the status text.
-  }
-  return new ApiError(res.status, problem, problem?.detail ?? problem?.title ?? (res.statusText || `Request failed (${res.status})`));
+/** Invalidates pending private reads and writes across a sign-out boundary. */
+export function clearHttpSession(): void {
+  sessionScope.invalidate();
 }
 
-/** Performs a request and returns the parsed JSON body, or throws an {@link ApiError}. */
-export async function request<T>(input: string, options?: RequestOptions): Promise<T> {
-  const { signal, action, ...rest } = options ?? {};
-  let res: Response;
-  try {
-    res = await fetch(input, {
-      ...rest,
-      signal: signal ?? null,
-      headers: {
-        Accept: 'application/json',
-        ...(rest.body ? { 'Content-Type': 'application/json' } : {}),
-        ...(action ? { 'X-Wheelhouse-Action': action } : {}),
-        ...rest.headers,
-      },
-    });
-  } catch (cause) {
-    throw new ApiError(0, null, cause instanceof Error ? cause.message : 'Network request failed');
-  }
-  if (!res.ok) throw await toApiError(res);
-  if (res.status === 204 || res.headers.get('Content-Length') === '0') return undefined as T;
-  const text = await res.text();
-  return text ? (JSON.parse(text) as T) : (undefined as T);
+/** Decodes the endpoint's consumed shape without exposing response diagnostics as display text. */
+function decoder<T>(
+  schema: ZodType,
+): (value: unknown) => Result<T, ApiFailure> {
+  return (value) => {
+    const parsed = schema.safeParse(value);
+    return parsed.success
+      ? ResultExtensions.ok(parsed.data as T)
+      : ResultExtensions.fail(ApiFailureFactory.create("protocol"));
+  };
 }
 
-/** Performs a request whose success body is enveloped and returns its `data`. */
-export async function requestData<T>(input: string, options?: RequestOptions): Promise<T> {
-  return (await request<ApiResponse<T>>(input, options)).data;
+/** Reads an un-enveloped JSON endpoint through the SDK transport. */
+export function request<T>(
+  path: string,
+  schema: ZodType,
+  options: RequestOptions = {},
+) {
+  return client.request<T>(path, {
+    ...options,
+    signal: options.signal ?? null,
+    unwrap: false,
+    decode: decoder<T>(schema),
+    ...(options.action
+      ? { headers: { "X-Wheelhouse-Action": options.action } }
+      : {}),
+  });
+}
+
+/** Reads a management endpoint's required data envelope and validates its consumed payload. */
+export function requestData<T>(
+  path: string,
+  schema: ZodType,
+  options: RequestOptions = {},
+) {
+  return client.request<T>(path, {
+    ...options,
+    signal: options.signal ?? null,
+    decode: decoder<T>(schema),
+    ...(options.action
+      ? { headers: { "X-Wheelhouse-Action": options.action } }
+      : {}),
+  });
+}
+
+/** Accepts an explicitly empty successful response for logout and resource deletion. */
+export function requestEmpty(path: string, options: RequestOptions = {}) {
+  return client.request(path, {
+    ...options,
+    signal: options.signal ?? null,
+    response: "empty",
+    ...(options.action
+      ? { headers: { "X-Wheelhouse-Action": options.action } }
+      : {}),
+  });
 }

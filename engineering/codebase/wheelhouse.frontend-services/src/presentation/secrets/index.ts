@@ -1,1 +1,1 @@
-export { SecretsPage } from './pages/SecretsPage';
+export { default as SecretsPage } from "./pages/SecretsPage.vue";

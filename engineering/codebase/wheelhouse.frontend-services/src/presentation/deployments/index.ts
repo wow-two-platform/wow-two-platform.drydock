@@ -1,7 +1,22 @@
-export { DeploymentsPage } from './pages/DeploymentsPage';
-export { DeploymentStatsPanel } from './components/DeploymentStatsPanel';
-export { HistoryTable, HistoryTableSkeleton } from './components/HistoryTable';
-export { TargetsPanel } from './components/TargetsPanel';
-export { ConditionBadge, JobStatusBadge, JobStatusIndicator } from './components/JobStatusBadge';
-export { DeployModal, type DeployModalProps, type DeploySelection } from './components/DeployModal';
-export { useDeployModal } from './hooks/useDeployModal';
+export { default as DeploymentsPage } from "./pages/DeploymentsPage.vue";
+export { default as DeploymentStatsPanel } from "./components/DeploymentStatsPanel.vue";
+export {
+  default as HistoryTable,
+  type HistoryTableProps,
+} from "./components/HistoryTable.vue";
+export { default as HistoryTableSkeleton } from "./components/HistoryTableSkeleton.vue";
+export { default as TargetsPanel } from "./components/TargetsPanel.vue";
+export { default as ConditionBadge } from "./components/ConditionBadge.vue";
+export { default as JobStatusBadge } from "./components/JobStatusBadge.vue";
+export { default as JobStatusIndicator } from "./components/JobStatusIndicator.vue";
+export {
+  default as DeployModal,
+  type DeployModalProps,
+  type DeploySelection,
+} from "./components/DeployModal.vue";
+export {
+  default as ReconcileModal,
+  type ReconcileModalProps,
+} from "./components/ReconcileModal.vue";
+export { default as CheckResultList } from "./components/CheckResultList.vue";
+export { useDeployModal } from "./hooks/useDeployModal";

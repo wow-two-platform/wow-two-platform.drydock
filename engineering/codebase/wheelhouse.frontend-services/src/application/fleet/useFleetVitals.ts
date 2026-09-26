@@ -1,27 +1,36 @@
-import { useEffect } from 'react';
-import { useAppQuery } from '@wow-two-beta/ui/query';
-import { fleetApi } from '@/integration/fleet';
-import { FleetKeys } from './FleetKeys';
+import { onMounted, onScopeDispose } from "vue";
+import { queryClient, useAppQuery } from "@/bootstrap/query";
+import { fleetApi } from "@/integration/fleet";
+import { FleetKeys } from "./FleetKeys";
 
 const REFRESH_MS = 60_000;
+const readers = new Set<() => unknown>();
+let timer: ReturnType<typeof setInterval> | undefined;
 
-/** Every target's host and container vitals, re-read each minute while the page is visible. */
+/** Shares one visible-page snapshot poll across all mounted fleet panels. */
 export function useFleetVitals() {
   const vitals = useAppQuery({
     key: FleetKeys.vitals,
     queryFn: ({ signal }) => fleetApi.getVitals(signal),
     meta: { suppressGlobalError: true },
   });
-  const { refetch } = vitals;
-
-  // useAppQuery exposes no refetch interval, so the periodic read stays inside this hook. Several panels share
-  // the query; joining an in-flight read keeps it to one SSH pass per interval.
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible') void refetch({ cancelRefetch: false });
+  onMounted(() => {
+    readers.add(vitals.refetch);
+    timer ??= setInterval(() => {
+      // Keep a slow SSH snapshot alive: bare refetch cancels an existing read.
+      if (
+        document.visibilityState === "visible" &&
+        queryClient.isFetching({ queryKey: FleetKeys.vitals }) === 0
+      )
+        void readers.values().next().value?.();
     }, REFRESH_MS);
-    return () => window.clearInterval(timer);
-  }, [refetch]);
-
+  });
+  onScopeDispose(() => {
+    readers.delete(vitals.refetch);
+    if (readers.size === 0 && timer !== undefined) {
+      clearInterval(timer);
+      timer = undefined;
+    }
+  });
   return vitals;
 }

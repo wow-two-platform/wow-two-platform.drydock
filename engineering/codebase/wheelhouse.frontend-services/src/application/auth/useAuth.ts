@@ -1,56 +1,76 @@
-import { useCallback, useEffect, useState } from 'react';
-import type { CurrentUser } from '@/domain/auth';
-import { authApi } from '@/integration/auth';
-import { ApiError } from '@/integration/common';
+import { onMounted, onScopeDispose, ref, type Ref } from "vue";
+import {
+  ApiFailureFactory,
+  type ApiFailure,
+} from "@wow-two-beta/ui-vue/foundation/http";
+import type { Result } from "@wow-two-beta/ui-vue/foundation/results";
+import { clearQuerySession } from "@/bootstrap/query";
+import type { CurrentUser } from "@/domain/auth";
+import { authApi } from "@/integration/auth";
+import { clearHttpSession } from "@/integration/common";
 
-/** The session a signed-in operator carries through the dashboard. */
+/** The session held by the private console's root. */
 export interface AuthSession {
-  user: CurrentUser | null;
-  loading: boolean;
-  signIn: () => void;
-  signOut: () => Promise<void>;
+  readonly user: Ref<CurrentUser | null>;
+  readonly loading: Ref<boolean>;
+  readonly error: Ref<ApiFailure | null>;
+  readonly signIn: () => void;
+  readonly signOut: () => Promise<void>;
 }
 
-// StrictMode mounts twice in development; one shared request avoids a duplicate session check.
-let sessionRequest: Promise<CurrentUser | null> | undefined;
+let sessionRequest: Promise<Result<CurrentUser, ApiFailure>> | undefined;
 
-function checkSession(): Promise<CurrentUser | null> {
-  sessionRequest ??= authApi.getCurrentUser().catch((error: unknown) => {
-    if (!(error instanceof ApiError) || error.status !== 401) console.error('Session check failed:', error);
-    return null;
-  });
-  return sessionRequest;
-}
-
-/** Resolves the GitHub session and exposes sign-in and sign-out. */
+/** Resolves one shared session read and invalidates private data when the operator leaves. */
 export function useAuth(): AuthSession {
-  const [user, setUser] = useState<CurrentUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const user = ref<CurrentUser | null>(null);
+  const loading = ref(true);
+  const error = ref<ApiFailure | null>(null);
+  let active = true;
 
-  useEffect(() => {
-    let active = true;
-    void checkSession().then((resolved) => {
-      if (!active) return;
-      setUser(resolved);
-      setLoading(false);
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const signIn = useCallback(() => {
-    window.location.href = authApi.signInUrl();
-  }, []);
-
-  const signOut = useCallback(async () => {
+  onMounted(async () => {
     try {
-      await authApi.signOut();
+      sessionRequest ??= authApi.getCurrentUser();
+      const result = await sessionRequest;
+      if (!active) return;
+      if (result.ok) user.value = result.value;
+      else if (result.failure.status !== 401) error.value = result.failure;
+    } catch {
+      if (active) error.value = ApiFailureFactory.create("transport");
+    } finally {
+      if (active) loading.value = false;
+    }
+  });
+  onScopeDispose(() => {
+    active = false;
+  });
+
+  function signIn(): void {
+    window.location.assign(authApi.signInUrl());
+  }
+
+  async function signOut(): Promise<void> {
+    try {
+      const result = await authApi.signOut();
+      if (!result.ok) {
+        error.value = {
+          ...result.failure,
+          message:
+            "Sign-out could not be confirmed. Your server session may still be active.",
+        };
+      }
+    } catch {
+      error.value = {
+        ...ApiFailureFactory.create("transport"),
+        message:
+          "Sign-out could not be confirmed. Your server session may still be active.",
+      };
     } finally {
       sessionRequest = undefined;
-      setUser(null);
+      user.value = null;
+      clearHttpSession();
+      clearQuerySession();
     }
-  }, []);
+  }
 
-  return { user, loading, signIn, signOut };
+  return { user, loading, error, signIn, signOut };
 }

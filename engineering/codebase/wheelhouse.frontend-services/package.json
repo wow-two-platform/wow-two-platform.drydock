@@ -6,34 +6,35 @@
   },
   "version": "0.1.0",
   "type": "module",
-  "description": "React dashboard for Wheelhouse \u2014 the product ops & deploy control plane. Served from the .NET host.",
+  "description": "Vue workspace for Wheelhouse, the product operations and deployment control plane.",
   "scripts": {
     "dev": "vite",
-    "typecheck": "tsc -p tsconfig.app.json --noEmit",
-    "build": "tsc -p tsconfig.app.json --noEmit && vite build",
+    "typecheck": "vue-tsc -p tsconfig.app.json --noEmit && node scripts/check-sfc.mjs",
+    "build": "npm run typecheck && vite build",
     "preview": "vite preview",
-    "deploy": "npm run build && node ./scripts/deploy.mjs"
+    "deploy": "npm run build && node ./scripts/deploy.mjs",
+    "test": "node --test tests/workspace/*.test.mjs",
+    "format": "prettier --write \"src/**/*.{ts,vue,css}\" scripts/check-sfc.mjs *.json vite.config.ts index.html"
   },
   "dependencies": {
-    "@tanstack/query-sync-storage-persister": "^5.103.2",
-    "@tanstack/react-form": "^1.33.1",
-    "@tanstack/react-query": "^5.103.2",
-    "@tanstack/react-query-persist-client": "^5.103.2",
-    "@wow-two-beta/ui": "0.0.108",
-    "lucide-react": "^0.460.0",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "react-router-dom": "^7.18.4",
+    "@tanstack/vue-query": "^5.103.2",
+    "@wow-two-beta/ui-vue": "0.0.7",
+    "lucide-vue-next": "^0.460.0",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.0",
-    "@types/react": "^19.1.0",
-    "@types/react-dom": "^19.1.0",
-    "@vitejs/plugin-react": "^4.3.4",
     "tailwindcss": "^4.1.0",
     "typescript": "^5.7.2",
     "vite": "^6.0.0",
-    "vite-plugin-mkcert": "^2.1.0"
+    "vite-plugin-mkcert": "^2.1.0",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "@vue/compiler-sfc": "^3.5.13",
+    "@types/node": "^24.0.0",
+    "vue-tsc": "^2.2.0",
+    "prettier": "^3.6.0",
+    "esbuild": "^0.25.12"
   }
 }

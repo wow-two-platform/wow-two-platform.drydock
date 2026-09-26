@@ -2,116 +2,216 @@
 
 /* Beta UI design tokens (@theme) shipped by the library — gives us bg-primary,
    text-foreground, bg-card, border-border, etc. */
-@import '@wow-two-beta/ui/styles.css';
+@import '@wow-two-beta/ui-vue/styles.css';
 
 /* Tailwind v4 ignores node_modules by default — point it at the beta UI's compiled
    output so the utility classes its components emit actually get generated. */
-@source '../../node_modules/@wow-two-beta/ui/dist';
+@source '../../node_modules/@wow-two-beta/ui-vue/dist';
 
-/* Wheelhouse sidebar tokens: a deep-navy wheelhouse beside a sand-coloured deck. */
+/* Navigation follows the workspace palette; glass is limited to structural surfaces. */
 @theme {
-  --color-sidebar: #0e2742;
-  --color-sidebar-deep: #081a2e;
-  --color-sidebar-foreground: #e8eef5;
-  --color-sidebar-muted: #93a7bd;
-  --color-sidebar-hover: rgb(255 255 255 / 0.06);
-  --color-sidebar-active: rgb(255 255 255 / 0.1);
-  --color-sidebar-border: rgb(255 255 255 / 0.08);
-  --color-sidebar-accent: #f4a259;
+  --color-sidebar: var(--color-card);
+  --color-sidebar-deep: var(--color-background);
+  --color-sidebar-foreground: var(--color-foreground);
+  --color-sidebar-muted: var(--color-muted-foreground);
+  --color-sidebar-hover: var(--color-muted);
+  --color-sidebar-active: var(--color-primary-soft);
+  --color-sidebar-border: var(--color-border);
+  --color-sidebar-accent: var(--color-primary);
+  --color-navigation: #fffffff2;
+
+  --color-chart-1: #2e735f;
+  --color-chart-2: #8c693b;
+  --color-chart-3: #5967a0;
+  --color-chart-4: #aa5965;
 }
 
 /* Wheelhouse palette over the library's semantic tokens; unlayered, so it wins over @theme.
-   Navy text on a warm deck, sea-teal actions, amber highlights, rust for danger. */
+   Warm chalk, forest actions, and solid operational surfaces. Text is at least 4.58:1 on
+   background/card/muted; input boundaries are at least 3.27:1 on those same surfaces. */
 :root {
-  --color-background: #f5f3ee;
-  --color-foreground: #13233a;
+  --color-background: #f4f4ef;
+  --color-foreground: #202d27;
   --color-card: #ffffff;
-  --color-card-foreground: #13233a;
+  --color-card-foreground: #202d27;
   --color-popover: #ffffff;
-  --color-popover-foreground: #13233a;
-  --color-muted: #efebe3;
-  --color-muted-foreground: #5d6b7c;
-  --color-subtle-foreground: #8a95a3;
-  --color-border: #e6e1d6;
-  --color-border-strong: #d4ccbd;
-  --color-input: #ddd6c8;
-  --color-ring: #1f6f8b;
+  --color-popover-foreground: #202d27;
+  --color-inverse: #202d27;
+  --color-inverse-foreground: #f4f4ef;
+  --color-muted: #eaece5;
+  --color-muted-foreground: #56665d;
+  --color-subtle-foreground: #5e6d64;
+  --color-border: #dde2d8;
+  --color-border-strong: #b8c2b6;
+  --color-input: #758579;
+  --color-ring: #285c4b;
 
-  --color-primary: #1f6f8b;
+  --color-primary: #285c4b;
   --color-primary-foreground: #ffffff;
-  --color-primary-soft: #e2eff3;
-  --color-primary-soft-foreground: #17566c;
-  --color-accent: #f4a259;
-  --color-accent-foreground: #3b2305;
-  --color-accent-soft: #fdebd7;
-  --color-accent-soft-foreground: #8a4b0f;
+  --color-primary-soft: #e2eee6;
+  --color-primary-soft-foreground: #285c4b;
+  --color-accent: #806235;
+  --color-accent-foreground: #ffffff;
+  --color-accent-soft: #f1eade;
+  --color-accent-soft-foreground: #755521;
 
-  --color-success: #2a9d8f;
+  --color-success: #26704c;
   --color-success-foreground: #ffffff;
-  --color-success-soft: #e3f4f1;
-  --color-success-soft-foreground: #1c6e64;
-  --color-warning: #e9a23b;
-  --color-warning-foreground: #3b2305;
-  --color-warning-soft: #fdf1dd;
-  --color-warning-soft-foreground: #8a5a0f;
-  --color-destructive: #d1495b;
+  --color-success-soft: #e3f0e5;
+  --color-success-soft-foreground: #25633d;
+  --color-warning: #966014;
+  --color-warning-foreground: #ffffff;
+  --color-warning-soft: #faf0d9;
+  --color-warning-soft-foreground: #7d5511;
+  --color-destructive: #b44745;
   --color-destructive-foreground: #ffffff;
-  --color-destructive-soft: #fbe7ea;
-  --color-destructive-soft-foreground: #9e2b3b;
-  --color-info: #1f7a8c;
+  --color-destructive-soft: #f9e8e5;
+  --color-destructive-soft-foreground: #a13d39;
+  --color-info: #306a83;
   --color-info-foreground: #ffffff;
-  --color-info-soft: #e2f1f4;
-  --color-info-soft-foreground: #155a68;
+  --color-info-soft: #e4eef4;
+  --color-info-soft-foreground: #2d6179;
+
+  /* Material roles stay separate from opaque card, input, and popover colors. */
+  --wh-ambient-forest: #80aa9210;
+  --wh-ambient-gold: #d6b6750f;
+  --wh-glass-color: #ffffffdb;
+  --wh-glass-subtle-color: #ffffff8c;
+  --wh-glass-edge: #24433224;
+  --wh-glass-highlight: #ffffffd9;
+  --wh-glass-sheen: #ffffff66;
+  --wh-glass-shadow: 0 10px 30px #203b2910, inset 0 1px 0 var(--wh-glass-highlight);
+  --wh-map-forest: #8fb9a21a;
+  --wh-map-gold: #dec59314;
 }
 
-/* Night watch: the same roles on a deep-navy deck. Fills are light with navy text, so text and fills both keep AA. */
+/* Pine-charcoal surfaces and muted mint actions preserve the same hierarchy at night.
+   Text is at least 5.54:1 on background/card/muted; input boundaries are at least 3.63:1. */
 .dark {
-  --color-background: #0b1a2c;
-  --color-foreground: #e6edf5;
-  --color-card: #13294a;
-  --color-card-foreground: #e6edf5;
-  --color-popover: #173055;
-  --color-popover-foreground: #e6edf5;
-  --color-inverse: #e6edf5;
-  --color-inverse-foreground: #0b1a2c;
-  --color-muted: #1a3354;
-  --color-muted-foreground: #9fb0c3;
-  --color-subtle-foreground: #8193a8;
-  --color-border: #243f63;
-  --color-border-strong: #31507a;
-  --color-input: #35557a;
-  --color-ring: #5cb8d6;
+  --color-background: #121917;
+  --color-foreground: #edf1eb;
+  --color-card: #1b2420;
+  --color-card-foreground: #edf1eb;
+  --color-popover: #1b2420;
+  --color-popover-foreground: #edf1eb;
+  --color-inverse: #edf1eb;
+  --color-inverse-foreground: #121917;
+  --color-muted: #29352e;
+  --color-muted-foreground: #b2beb4;
+  --color-subtle-foreground: #a1aea3;
+  --color-border: #344138;
+  --color-border-strong: #536659;
+  --color-input: #7b8d7f;
+  --color-ring: #a6d4bd;
 
-  --color-primary: #4fb0cf;
-  --color-primary-foreground: #041722;
-  --color-primary-soft: #123a4d;
-  --color-primary-soft-foreground: #bfe3ef;
-  --color-accent: #f4a259;
-  --color-accent-foreground: #3b2305;
-  --color-accent-soft: #45300f;
-  --color-accent-soft-foreground: #fbd3a8;
+  --color-primary: #a6d4bd;
+  --color-primary-foreground: #14352a;
+  --color-primary-soft: #283e33;
+  --color-primary-soft-foreground: #b6dcc5;
+  --color-accent: #d9bd8c;
+  --color-accent-foreground: #36280e;
+  --color-accent-soft: #3d3424;
+  --color-accent-soft-foreground: #e4c99c;
 
-  --color-success: #3bb8a8;
-  --color-success-foreground: #04201c;
-  --color-success-soft: #0e3b36;
-  --color-success-soft-foreground: #a7e6dc;
-  --color-warning: #f0b252;
-  --color-warning-foreground: #3b2305;
-  --color-warning-soft: #47340f;
-  --color-warning-soft-foreground: #fbe0b0;
-  --color-destructive: #e46f82;
-  --color-destructive-foreground: #1f0509;
-  --color-destructive-soft: #4a1a22;
-  --color-destructive-soft-foreground: #f8c2cb;
-  --color-info: #48b0c7;
-  --color-info-foreground: #04161f;
-  --color-info-soft: #10394a;
-  --color-info-soft-foreground: #b5e3ec;
+  --color-success: #a1d7b3;
+  --color-success-foreground: #11281a;
+  --color-success-soft: #243c2b;
+  --color-success-soft-foreground: #b4dcbf;
+  --color-warning: #eac582;
+  --color-warning-foreground: #382709;
+  --color-warning-soft: #3e3320;
+  --color-warning-soft-foreground: #edcf99;
+  --color-destructive: #efa69c;
+  --color-destructive-foreground: #3c1715;
+  --color-destructive-soft: #442c29;
+  --color-destructive-soft-foreground: #efb5aa;
+  --color-info: #9dcce1;
+  --color-info-foreground: #102731;
+  --color-info-soft: #293b44;
+  --color-info-soft-foreground: #b6d6e7;
 
-  /* The wheelhouse sinks below the deck at night instead of matching it. */
-  --color-sidebar: #071321;
-  --color-sidebar-deep: #040c16;
-  --color-sidebar-border: rgb(255 255 255 / 0.06);
+  --color-navigation: #1b2420f2;
+  --color-chart-1: #98d1b5;
+  --color-chart-2: #d9b583;
+  --color-chart-3: #b7bee9;
+  --color-chart-4: #e5abb5;
+
+  --wh-ambient-forest: #3d7b6229;
+  --wh-ambient-gold: #aa854d1a;
+  --wh-glass-color: #1b2420e6;
+  --wh-glass-subtle-color: #1b2420b8;
+  --wh-glass-edge: #c1dfcb26;
+  --wh-glass-highlight: #d5ead91a;
+  --wh-glass-sheen: #d5ead908;
+  --wh-glass-shadow: 0 12px 32px #00000024, inset 0 1px 0 var(--wh-glass-highlight);
+  --wh-map-forest: #579d791a;
+  --wh-map-gold: #c5a4640f;
+}
+
+/* Ambient color has no animation and never replaces the theme's opaque base. */
+@utility wh-ambient {
+  background-color: var(--color-background);
+  background-image:
+    radial-gradient(ellipse 70rem 42rem at 0% 0%, var(--wh-ambient-forest), transparent 72%),
+    radial-gradient(ellipse 58rem 42rem at 100% 10%, var(--wh-ambient-gold), transparent 74%);
+
+  @media (prefers-reduced-transparency: reduce) {
+    background-image: none;
+  }
+}
+
+/* One backdrop layer per outer surface. Solid is the baseline for unsupported browsers.
+   SDK Card consumers pass bg-(--wh-glass-fill) / shadow-(--wh-glass-shadow) so its
+   mergeable background/shadow utilities cannot override this material's fallback. */
+@utility wh-glass {
+  --wh-glass-fill: var(--color-card);
+  background-color: var(--wh-glass-fill);
+  border-color: var(--wh-glass-edge);
+  box-shadow: var(--wh-glass-shadow);
+
+  @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+    --wh-glass-fill: var(--wh-glass-color);
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    --wh-glass-fill: var(--color-card);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* Sticky navigation can pass over any content, so it uses a denser translucent fill. */
+@utility wh-glass-navigation {
+  --wh-glass-color: var(--color-navigation);
+}
+
+/* A nested header or rail borrows the outer material without another blur pass. */
+@utility wh-glass-subtle {
+  background-color: var(--color-card);
+  background-image: linear-gradient(135deg, var(--wh-glass-sheen), transparent 60%);
+
+  @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+    background-color: var(--wh-glass-subtle-color);
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    background-color: var(--color-card);
+    background-image: none;
+  }
+}
+
+/* Static, low-contrast map atmosphere; service cards remain opaque and readable. */
+@utility wh-map-surface {
+  background-color: var(--color-card);
+  background-image:
+    radial-gradient(ellipse at 12% 12%, var(--wh-map-forest), transparent 65%),
+    radial-gradient(ellipse at 94% 92%, var(--wh-map-gold), transparent 65%);
+
+  @media (prefers-reduced-transparency: reduce) {
+    background-image: none;
+  }
 }
 
 html,
@@ -124,16 +224,6 @@ body,
 html {
   scrollbar-gutter: stable;
 }
-
-/* UI SDK 0.0.108 mounts an entering overlay in its closed state, so menus and dialogs played their exit keyframes
-   on the way in: a show-hide-show twitch. Until the SDK's Presence fix is re-pinned, exits start hidden: overlays
-   open cleanly and close without a fade. Remove with the re-pin (backlog). */
-@keyframes fade-out { from { opacity: 0; } to { opacity: 0; } }
-@keyframes pop-out { from { opacity: 0; } to { opacity: 0; } }
-@keyframes slide-out-top { from { opacity: 0; } to { opacity: 0; } }
-@keyframes slide-out-bottom { from { opacity: 0; } to { opacity: 0; } }
-@keyframes slide-out-left { from { opacity: 0; } to { opacity: 0; } }
-@keyframes slide-out-right { from { opacity: 0; } to { opacity: 0; } }
 
 body {
   margin: 0;

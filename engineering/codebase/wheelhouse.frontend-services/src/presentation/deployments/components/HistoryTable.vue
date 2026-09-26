@@ -1,0 +1,107 @@
+<script lang="ts">
+import type { DeploymentJob } from "@/domain/deployments";
+
+/** Defines recent submissions and optional inspector or redeploy actions. */
+export interface HistoryTableProps {
+  /** The observed submissions, in their supplied order. */
+  readonly jobs: readonly DeploymentJob[];
+  /** Opens deployment confirmation for an eligible successful submission. */
+  readonly onRedeploy?: (job: DeploymentJob) => void;
+  /** Opens the selected submission's inspector. */
+  readonly onSelect?: (job: DeploymentJob) => void;
+}
+</script>
+
+<script setup lang="ts">
+import { RotateCcw } from "lucide-vue-next";
+
+import { Button } from "@wow-two-beta/ui-vue/presentation/actions";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeaderCell,
+  TableRow,
+} from "@wow-two-beta/ui-vue/presentation/display";
+
+import { Measures } from "@/domain/common";
+import { JobStatus } from "@/domain/deployments";
+
+import JobStatusIndicator from "./JobStatusIndicator.vue";
+
+/** Renders observed deployment history with optional explicit actions. */
+defineOptions({ name: "HistoryTable" });
+const props = defineProps<HistoryTableProps>();
+</script>
+
+<template>
+  <Table
+    density="compact"
+    is-hoverable
+    container-class-name="max-h-[28rem] overflow-auto"
+  >
+    <TableHead class="sticky top-0 z-10 bg-card">
+      <TableRow>
+        <TableHeaderCell>Submitted</TableHeaderCell
+        ><TableHeaderCell>Target · release</TableHeaderCell>
+        <TableHeaderCell>Status</TableHeaderCell
+        ><TableHeaderCell>Actor</TableHeaderCell>
+        <TableHeaderCell v-if="props.onRedeploy"
+          ><span class="sr-only">Actions</span></TableHeaderCell
+        >
+      </TableRow>
+    </TableHead>
+    <TableBody>
+      <TableRow v-for="job in props.jobs" :key="job.id">
+        <TableCell
+          class="whitespace-nowrap text-xs text-muted-foreground"
+          :title="
+            job.submittedAt ? new Date(job.submittedAt).toLocaleString() : ''
+          "
+        >
+          {{ Measures.moment(job.submittedAt) }}
+        </TableCell>
+        <TableCell class="font-mono text-xs">
+          <button
+            v-if="props.onSelect"
+            type="button"
+            class="text-left hover:text-primary focus-visible:outline-primary"
+            :aria-label="`Inspect deployment ${job.id}`"
+            @click="props.onSelect(job)"
+          >
+            <span class="block">{{ job.targetId ?? "—" }}</span>
+            <span class="mt-1 block text-muted-foreground">{{
+              job.release ?? job.bundleId ?? "—"
+            }}</span>
+          </button>
+          <template v-else>
+            <span class="block">{{ job.targetId ?? "—" }}</span>
+            <span class="mt-1 block text-muted-foreground">{{
+              job.release ?? job.bundleId ?? "—"
+            }}</span>
+          </template>
+        </TableCell>
+        <TableCell
+          ><JobStatusIndicator :status="job.status" :reason="job.reason"
+        /></TableCell>
+        <TableCell class="text-xs">{{ job.actor ?? "—" }}</TableCell>
+        <TableCell v-if="props.onRedeploy" class="text-right">
+          <Button
+            v-if="
+              job.status === JobStatus.Succeeded && job.targetId && job.bundleId
+            "
+            variant="ghost"
+            tone="neutral"
+            size="sm"
+            :aria-label="`Redeploy ${job.release ?? job.bundleId}`"
+            title="Redeploy this release"
+            @click="props.onRedeploy(job)"
+          >
+            <template #leading><RotateCcw :size="14" /></template>
+          </Button>
+        </TableCell>
+      </TableRow>
+    </TableBody>
+  </Table>
+</template>

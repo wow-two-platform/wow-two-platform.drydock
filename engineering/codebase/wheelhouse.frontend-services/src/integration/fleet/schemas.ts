@@ -1,0 +1,55 @@
+import { z } from "zod";
+import { TargetCondition } from "@/domain/deployments";
+import { VpsProvider } from "@/domain/fleet";
+
+export const ServerSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  provider: z.enum(VpsProvider),
+  host: z.string(),
+  region: z.string(),
+  sshUser: z.string(),
+});
+const nullableNumber = z.number().finite().nullable();
+const HostSchema = z.object({
+  cpus: nullableNumber,
+  load: z.tuple([z.number(), z.number(), z.number()]).nullable(),
+  memoryTotalBytes: nullableNumber,
+  memoryAvailableBytes: nullableNumber,
+  uptimeSeconds: nullableNumber,
+  disks: z.array(
+    z.object({
+      path: z.string(),
+      totalBytes: z.number(),
+      freeBytes: z.number(),
+    }),
+  ),
+});
+const ContainerSchema = z.object({
+  service: z.string(),
+  state: z.string().nullable(),
+  health: z.string().nullable(),
+  restarts: z.number(),
+  startedAt: z.string().nullable(),
+  exitCode: nullableNumber,
+  cpuPercent: nullableNumber,
+  memoryBytes: nullableNumber,
+  memoryLimitBytes: nullableNumber,
+});
+export const FleetVitalsSchema = z.object({
+  collectedAt: z.string(),
+  targets: z.array(
+    z.object({
+      targetId: z.string(),
+      serverId: z.string(),
+      ok: z.boolean(),
+      reason: z.string().nullable().optional(),
+      project: z.string().optional(),
+      host: HostSchema.nullable().optional(),
+      containers: ContainerSchema.array().nullable().optional(),
+      problems: z.string().array().optional(),
+      condition: z.enum(TargetCondition).optional(),
+      release: z.string().nullable().optional(),
+    }),
+  ),
+});

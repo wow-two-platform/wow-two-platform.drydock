@@ -1,0 +1,217 @@
+<script setup lang="ts">
+import { computed, ref } from 'vue';
+import { RouterLink } from 'vue-router';
+import { RefreshCw, Server as ServerIcon } from 'lucide-vue-next';
+import { Button } from '@wow-two-beta/ui-vue/presentation/actions';
+import {
+  Badge,
+  Table,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableCell,
+  TableHeaderCell,
+} from '@wow-two-beta/ui-vue/presentation/display';
+import {
+  SelectPicker,
+  SelectPickerTrigger,
+  SelectPickerValue,
+  SelectPickerContent,
+  SelectPickerItem,
+} from '@wow-two-beta/ui-vue/presentation/forms';
+import { useServers, useFleetVitals } from '@/application/fleet';
+import { useDeploymentTargets } from '@/application/deployments';
+import { useProducts } from '@/application/products';
+import { buildWorkspaceInventory } from '@/application/workspace/WorkspaceInventory';
+import { useRefresh } from '@/application/common';
+import { FleetExtensions, VpsProvider } from '@/domain/fleet';
+import { Measures } from '@/domain/common';
+import Panel from '@/presentation/common/components/Panel.vue';
+import LoadState from '@/presentation/common/components/LoadState.vue';
+import PageActions from '@/presentation/common/components/PageActions.vue';
+import ResourceMeter from '../components/ResourceMeter.vue';
+
+/** Presents code-owned fleet inventory and current, timestamped resource readings. */
+defineOptions({ name: 'FleetPage' });
+const servers = useServers();
+const vitals = useFleetVitals();
+const targets = useDeploymentTargets();
+const products = useProducts();
+const workspaceLinks = computed(() => {
+  const links = new Map<string, { path: string; query: { product: string; target: string; inspect: string } }>();
+  if (products.loading.value || products.error.value || targets.loading.value || targets.error.value) return links;
+  for (const product of buildWorkspaceInventory(products.products.value, targets.data.value ?? []).products) {
+    for (const target of product.targets) {
+      links.set(target.id, { path: '/', query: { product: product.key, target: target.id, inspect: 'target' } });
+    }
+  }
+  return links;
+});
+const refresh = useRefresh(() => Promise.all([servers.refetch(), vitals.refetch(), targets.refetch(), products.reload()]));
+const provider = ref<string | null>(null);
+const visible = computed(() =>
+  (servers.data.value ?? []).filter((server) => !provider.value || server.provider === provider.value),
+);
+const groups = computed(() => FleetExtensions.byServer(vitals.data.value?.targets ?? []));
+</script>
+<template>
+  <div class="space-y-6">
+    <PageActions
+      ><Button variant="outline" :aria-busy="refresh.refreshing.value" @click="refresh.refresh"
+        ><template #leading><RefreshCw :size="16" :class="refresh.refreshing.value ? 'animate-spin' : ''" /></template
+        >Refresh readings</Button
+      ></PageActions
+    >
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <p class="text-sm text-muted-foreground">
+        {{
+          vitals.data.value
+            ? `Read ${Measures.moment(vitals.data.value.collectedAt)} · updates every minute`
+            : 'Current resource readings from your configured hosts.'
+        }}
+      </p>
+      <div class="w-48">
+        <SelectPicker v-model="provider" is-clearable clear-label="All providers"
+          ><SelectPickerTrigger aria-label="Provider"
+            ><SelectPickerValue placeholder="All providers" /></SelectPickerTrigger
+          ><SelectPickerContent
+            ><SelectPickerItem
+              v-for="value in Object.values(VpsProvider)"
+              :key="value"
+              :item-key="value"
+              :label="value" /></SelectPickerContent
+        ></SelectPicker>
+      </div>
+    </div>
+    <p
+      v-if="vitals.error.value"
+      role="alert"
+      class="rounded-xl bg-destructive-soft p-4 text-sm text-destructive-soft-foreground"
+    >
+      {{ vitals.error.value.message }} Last available readings remain visible.
+    </p>
+    <LoadState
+      :loading="servers.loading.value"
+      :error="servers.error.value"
+      :has-data="Boolean(servers.data.value)"
+      :empty="!visible.length"
+      empty-title="No configured hosts"
+      empty-description="No host matches this provider. Hosts are defined in reviewed fleet configuration."
+      @retry="servers.refetch"
+    >
+      <div class="grid items-start gap-5 2xl:grid-cols-2">
+        <Panel
+          v-for="server in visible"
+          :key="server.id"
+          :title="server.name"
+          :description="`${server.host} · ${server.region} · SSH ${server.sshUser}`"
+        >
+          <template #actions
+            ><Badge>{{ server.provider }}</Badge></template
+          >
+          <div v-if="FleetExtensions.hostOf(groups.get(server.id) ?? [])" class="mb-5 grid gap-3 sm:grid-cols-2">
+            <ResourceMeter
+              label="CPU load"
+              :value="FleetExtensions.loadPercent(FleetExtensions.hostOf(groups.get(server.id) ?? [])!)"
+              :refreshing="refresh.refreshing.value"
+            />
+            <ResourceMeter
+              label="Memory"
+              :value="FleetExtensions.memoryPercent(FleetExtensions.hostOf(groups.get(server.id) ?? [])!)"
+              :refreshing="refresh.refreshing.value"
+            />
+            <ResourceMeter
+              v-for="disk in FleetExtensions.hostOf(groups.get(server.id) ?? [])?.disks"
+              :key="disk.path"
+              :label="`Disk · ${disk.path}`"
+              :value="FleetExtensions.diskPercent(disk)"
+              :detail="`${Measures.bytes(disk.freeBytes)} free of ${Measures.bytes(disk.totalBytes)}`"
+              :refreshing="refresh.refreshing.value"
+            />
+          </div>
+          <p v-else class="mb-5 text-sm text-muted-foreground">
+            {{ vitals.loading.value ? 'Reading host vitals…' : 'Host vitals are unavailable.' }}
+          </p>
+          <section
+            v-for="target in groups.get(server.id) ?? []"
+            :key="target.targetId"
+            class="mt-4 border-t border-border pt-4"
+          >
+            <div class="mb-3 flex flex-wrap items-center gap-2">
+              <ServerIcon :size="15" />
+              <h3 class="text-sm font-medium">{{ target.targetId }}</h3>
+              <span class="ml-auto text-xs text-muted-foreground">{{ target.release ?? 'Release unknown' }}</span>
+            </div>
+            <p v-if="!target.ok" role="alert" class="text-sm text-destructive">
+              {{ target.reason ?? 'This target could not be read.' }}
+            </p>
+            <template v-else>
+              <p v-for="problem in target.problems" :key="problem" class="mb-2 text-sm text-warning">{{ problem }}</p>
+              <div
+                v-for="container in target.containers ?? []"
+                :key="container.service"
+                class="mb-2 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/40 p-3 text-sm"
+              >
+                <div>
+                  <p class="font-medium">{{ container.service }}</p>
+                  <p class="mt-1 text-xs text-muted-foreground">
+                    {{ FleetExtensions.containerLabel(container) }} · {{ container.restarts }} restarts · started
+                    {{ Measures.moment(container.startedAt) }}
+                  </p>
+                </div>
+                <div class="text-right text-xs tabular-nums">
+                  <p>
+                    {{ container.cpuPercent == null ? 'CPU unavailable' : `${container.cpuPercent.toFixed(1)}% CPU` }}
+                  </p>
+                  <p class="mt-1 text-muted-foreground">
+                    {{ Measures.bytes(container.memoryBytes) }} / {{ Measures.bytes(container.memoryLimitBytes) }}
+                  </p>
+                </div>
+              </div>
+              <p v-if="target.containers == null" class="text-sm text-muted-foreground">
+                Container readings are unavailable.
+              </p>
+              <p v-else-if="!target.containers.length" class="text-sm text-muted-foreground">No containers observed.</p>
+            </template>
+          </section>
+        </Panel>
+      </div>
+    </LoadState>
+    <Panel title="Environment bindings" description="Each environment connects one product to one configured host.">
+      <LoadState
+        :loading="targets.loading.value"
+        :error="targets.error.value"
+        :has-data="Boolean(targets.data.value)"
+        :empty="!targets.data.value?.length"
+        empty-title="No deployment targets"
+        @retry="targets.refetch"
+      >
+        <div class="overflow-x-auto">
+          <Table density="compact"
+            ><TableHead
+              ><TableRow
+                ><TableHeaderCell>Environment</TableHeaderCell><TableHeaderCell>Product</TableHeaderCell
+                ><TableHeaderCell>Host</TableHeaderCell><TableHeaderCell>Provider</TableHeaderCell></TableRow
+              ></TableHead
+            ><TableBody
+              ><TableRow v-for="target in targets.data.value" :key="target.id"
+                ><TableCell
+                  ><RouterLink
+                    v-if="workspaceLinks.has(target.id)"
+                    :to="workspaceLinks.get(target.id)!"
+                    class="font-medium text-primary hover:underline"
+                    >{{ target.environment }}</RouterLink
+                  >
+                  <span v-else class="font-medium">{{ target.environment }}</span>
+                  <p class="text-xs text-muted-foreground">{{ target.id }}</p></TableCell
+                ><TableCell>{{ target.product }}</TableCell
+                ><TableCell>{{ target.host }}</TableCell
+                ><TableCell>{{ target.provider }}</TableCell></TableRow
+              ></TableBody
+            ></Table
+          >
+        </div>
+      </LoadState>
+    </Panel>
+  </div>
+</template>

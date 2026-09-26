@@ -1,18 +1,22 @@
-import { useCallback, useState } from 'react';
-import type { DeploySelection } from '../components/DeployModal';
+import { ref, shallowRef } from "vue";
 
-/**
- * Opens the deploy modal, optionally preselected. Each opening is a new `session`; key the modal by it, so it
- * starts fresh while a closing one keeps its exit animation.
- */
+import type { DeploySelection } from "../components/DeployModal.vue";
+
+/** Manages one deployment dialog; key it by session to reset each opening. */
 export function useDeployModal() {
-  const [state, setState] = useState({ open: false, session: 0, selection: null as DeploySelection | null });
+  const open = ref(false);
+  const session = ref(0);
+  const selection = shallowRef<DeploySelection | null>(null);
 
-  const open = useCallback((selection: DeploySelection | null = null) => {
-    setState((current) => ({ open: true, session: current.session + 1, selection }));
-  }, []);
+  function openDeploy(value: DeploySelection | null = null): void {
+    selection.value = value;
+    session.value += 1;
+    open.value = true;
+  }
 
-  const onOpenChange = useCallback((open: boolean) => setState((current) => ({ ...current, open })), []);
+  function onOpenChange(value: boolean): void {
+    open.value = value;
+  }
 
-  return { ...state, openDeploy: open, onOpenChange } as const;
+  return { open, session, selection, openDeploy, onOpenChange };
 }

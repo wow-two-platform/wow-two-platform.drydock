@@ -1,64 +1,182 @@
-import { useCallback, useState } from 'react';
-import type { QueryKey } from '@tanstack/react-query';
-import { toApiError, useQueryCache } from '@wow-two-beta/ui/query';
-import type { ApiError } from '@/integration/common';
-import { secretsApi } from '@/integration/secrets';
-import { SecretKeys } from './SecretKeys';
+import {
+  onScopeDispose,
+  ref,
+  shallowRef,
+  toValue,
+  watch,
+  type MaybeRefOrGetter,
+} from "vue";
+import {
+  ApiFailureFactory,
+  type ApiFailure,
+} from "@wow-two-beta/ui-vue/foundation/http";
+import type { Result } from "@wow-two-beta/ui-vue/foundation/results";
+import { useQueryCache } from "@/bootstrap/query";
+import { secretsApi } from "@/integration/secrets";
+import { SecretKeys } from "./SecretKeys";
 
-// Vault writes skip the mutation cache on purpose: secret values and minted tokens must not linger in it.
+/** @internal Executes vault writes without retaining plaintext in a mutation cache. */
 function useVaultChange() {
   const cache = useQueryCache();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<ApiError | null>(null);
+  const loading = ref(false);
+  const error = shallowRef<ApiFailure | null>(null);
+  let controller: AbortController | null = null;
+  let generation = 0;
 
-  const run = useCallback(async <T,>(operation: () => Promise<T>, invalidates: readonly QueryKey[]): Promise<T | null> => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await operation();
-      await Promise.all(invalidates.map((key) => cache.invalidate(key)));
-      return result;
-    } catch (cause) {
-      setError(toApiError(cause));
-      return null;
-    } finally {
-      setLoading(false);
+  /** Aborts transport and prevents a closed editor from receiving a late result. */
+  function reset(): void {
+    generation += 1;
+    controller?.abort();
+    controller = null;
+    loading.value = false;
+    error.value = null;
+  }
+
+  /** Runs one scoped write and invalidates metadata after confirmed success. */
+  async function run<T>(
+    operation: (signal: AbortSignal) => Promise<Result<T, ApiFailure>>,
+    invalidates: readonly (readonly unknown[])[],
+    signal?: AbortSignal,
+  ): Promise<Result<T, ApiFailure>> {
+    if (loading.value || signal?.aborted) {
+      return { ok: false, failure: ApiFailureFactory.create("cancelled") };
     }
-  }, [cache]);
+    const revision = generation;
+    const request = new AbortController();
+    controller = request;
+    const abort = () => request.abort();
+    signal?.addEventListener("abort", abort, { once: true });
+    loading.value = true;
+    error.value = null;
+    try {
+      const result = await operation(request.signal);
+      if (revision !== generation || request.signal.aborted) {
+        return { ok: false, failure: ApiFailureFactory.create("cancelled") };
+      }
+      if (result.ok) {
+        // Refresh failures must not turn a committed write into a retryable write failure.
+        void Promise.allSettled(
+          invalidates.map((key) => cache.invalidate(key)),
+        );
+      } else {
+        error.value = result.failure;
+      }
+      return result;
+    } catch {
+      const failure = ApiFailureFactory.create(
+        request.signal.aborted ? "cancelled" : "transport",
+      );
+      if (revision === generation) error.value = failure;
+      return { ok: false, failure };
+    } finally {
+      signal?.removeEventListener("abort", abort);
+      if (revision === generation) {
+        controller = null;
+        loading.value = false;
+      }
+    }
+  }
 
-  return { run, loading, error, reset: useCallback(() => setError(null), []) };
+  onScopeDispose(reset);
+  return { run, loading, error, reset };
 }
 
-/** Creates namespaces in one vault. */
-export function useNamespaceCreate(vault: string) {
+/** Creates namespaces in the selected vault. */
+export function useNamespaceCreate(vault: MaybeRefOrGetter<string>) {
   const change = useVaultChange();
+  watch(() => toValue(vault), change.reset);
   return {
     ...change,
-    create: (slug: string, name: string) =>
-      change.run(() => secretsApi.createNamespace(vault, slug, name), [SecretKeys.namespaces(vault)]),
+    create: (slug: string, name: string, signal?: AbortSignal) => {
+      const current = toValue(vault);
+      return change.run(
+        (requestSignal) =>
+          secretsApi.createNamespace(current, slug, name, requestSignal),
+        [SecretKeys.namespaces(current), SecretKeys.hygiene(current)],
+        signal,
+      );
+    },
   };
 }
 
-/** Writes, disables and re-enables secrets in one namespace. */
-export function useSecretChanges(vault: string, ns: string) {
+/** Writes secrets and changes serving state without caching plaintext. */
+export function useSecretChanges(
+  vault: MaybeRefOrGetter<string>,
+  ns: MaybeRefOrGetter<string>,
+) {
   const change = useVaultChange();
+  watch([() => toValue(vault), () => toValue(ns)], change.reset);
   return {
     ...change,
-    set: (key: string, value: string, description?: string) =>
-      change.run(() => secretsApi.setSecret(vault, ns, key, value, description), [SecretKeys.secrets(vault, ns), SecretKeys.hygiene(vault)]),
-    setDisabled: (key: string, disabled: boolean) =>
-      change.run(() => secretsApi.setSecretState(vault, ns, key, disabled), [SecretKeys.secrets(vault, ns), SecretKeys.hygiene(vault)]),
+    set: (
+      key: string,
+      value: string,
+      description?: string,
+      signal?: AbortSignal,
+    ) => {
+      const current = toValue(vault);
+      const namespace = toValue(ns);
+      return change.run(
+        (requestSignal) =>
+          secretsApi.setSecret(
+            current,
+            namespace,
+            key,
+            value,
+            description,
+            requestSignal,
+          ),
+        [SecretKeys.secrets(current, namespace), SecretKeys.hygiene(current)],
+        signal,
+      );
+    },
+    setDisabled: (key: string, disabled: boolean, signal?: AbortSignal) => {
+      const current = toValue(vault);
+      const namespace = toValue(ns);
+      return change.run(
+        (requestSignal) =>
+          secretsApi.setSecretState(
+            current,
+            namespace,
+            key,
+            disabled,
+            requestSignal,
+          ),
+        [SecretKeys.secrets(current, namespace), SecretKeys.hygiene(current)],
+        signal,
+      );
+    },
   };
 }
 
-/** Mints and revokes product tokens in one namespace. */
-export function useTokenChanges(vault: string, ns: string) {
+/** Mints and revokes tokens without caching their one-time plaintext. */
+export function useTokenChanges(
+  vault: MaybeRefOrGetter<string>,
+  ns: MaybeRefOrGetter<string>,
+) {
   const change = useVaultChange();
+  watch([() => toValue(vault), () => toValue(ns)], change.reset);
   return {
     ...change,
-    mint: (name: string) =>
-      change.run(() => secretsApi.mintToken(vault, ns, name), [SecretKeys.tokens(vault, ns), SecretKeys.hygiene(vault)]),
-    revoke: (id: string) =>
-      change.run(() => secretsApi.revokeToken(vault, ns, id), [SecretKeys.tokens(vault, ns), SecretKeys.hygiene(vault)]),
+    mint: (name: string, signal?: AbortSignal) => {
+      const current = toValue(vault);
+      const namespace = toValue(ns);
+      return change.run(
+        (requestSignal) =>
+          secretsApi.mintToken(current, namespace, name, requestSignal),
+        [SecretKeys.tokens(current, namespace), SecretKeys.hygiene(current)],
+        signal,
+      );
+    },
+    revoke: (id: string, signal?: AbortSignal) => {
+      const current = toValue(vault);
+      const namespace = toValue(ns);
+      return change.run(
+        (requestSignal) =>
+          secretsApi.revokeToken(current, namespace, id, requestSignal),
+        [SecretKeys.tokens(current, namespace), SecretKeys.hygiene(current)],
+        signal,
+      );
+    },
   };
 }

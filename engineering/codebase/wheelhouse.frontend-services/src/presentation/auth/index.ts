@@ -1,1 +1,1 @@
-export { SignInScreen, type SignInScreenProps } from './SignInScreen';
+export { default as SignInScreen } from "./SignInScreen.vue";

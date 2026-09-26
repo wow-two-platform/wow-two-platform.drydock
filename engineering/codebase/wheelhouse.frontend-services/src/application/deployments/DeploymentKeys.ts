@@ -1,11 +1,11 @@
 /** Query keys for deployment reads; writes invalidate through these. */
 export const DeploymentKeys = {
-  all: ['deployments'] as const,
-  history: ['deployments', 'history'] as const,
-  targets: ['deployments', 'targets'] as const,
-  releases: ['deployments', 'releases'] as const,
-  stats: (days: number) => ['deployments', 'stats', days] as const,
-  statsAll: ['deployments', 'stats'] as const,
-  state: (target: string) => ['deployments', 'state', target] as const,
-  outcome: (id: string) => ['deployments', 'outcome', id] as const,
+  all: ["deployments"] as const,
+  history: ["deployments", "history"] as const,
+  targets: ["deployments", "targets"] as const,
+  releases: ["deployments", "releases"] as const,
+  stats: (days: number) => ["deployments", "stats", days] as const,
+  statsAll: ["deployments", "stats"] as const,
+  state: (target: string) => ["deployments", "state", target] as const,
+  outcome: (id: string) => ["deployments", "outcome", id] as const,
 };

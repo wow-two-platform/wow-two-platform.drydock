@@ -1,45 +1,57 @@
-import { useAppQuery } from '@wow-two-beta/ui/query';
-import { secretsApi } from '@/integration/secrets';
-import { SecretKeys } from './SecretKeys';
+import { toValue, type MaybeRefOrGetter } from "vue";
+import { useAppQuery } from "@/bootstrap/query";
+import { secretsApi } from "@/integration/secrets";
+import { SecretKeys } from "./SecretKeys";
 
-/** The configured vaults with their sealed state. */
+/** Loads the configured vaults and their sealed state. */
 export function useVaults() {
-  return useAppQuery({ key: SecretKeys.vaults, queryFn: ({ signal }) => secretsApi.listVaults(signal) });
+  return useAppQuery({
+    key: SecretKeys.vaults,
+    queryFn: ({ signal }) => secretsApi.listVaults(signal),
+  });
 }
 
-/** Which of a vault's secrets and product tokens are due for rotation. */
-export function useVaultHygiene(vault: string) {
+/** Loads rotation hygiene for the selected unsealed vault. */
+export function useVaultHygiene(vault: MaybeRefOrGetter<string>) {
   return useAppQuery({
-    key: SecretKeys.hygiene(vault),
-    queryFn: ({ signal }) => secretsApi.getHygiene(vault, signal),
-    enabled: vault !== '',
+    key: () => SecretKeys.hygiene(toValue(vault)),
+    queryFn: ({ signal }) => secretsApi.getHygiene(toValue(vault), signal),
+    enabled: () => toValue(vault) !== "",
     meta: { suppressGlobalError: true },
   });
 }
 
-/** One vault's namespaces. */
-export function useVaultNamespaces(vault: string) {
+/** Loads namespaces under the current vault selection. */
+export function useVaultNamespaces(vault: MaybeRefOrGetter<string>) {
   return useAppQuery({
-    key: SecretKeys.namespaces(vault),
-    queryFn: ({ signal }) => secretsApi.listNamespaces(vault, signal),
-    enabled: vault !== '',
+    key: () => SecretKeys.namespaces(toValue(vault)),
+    queryFn: ({ signal }) => secretsApi.listNamespaces(toValue(vault), signal),
+    enabled: () => toValue(vault) !== "",
   });
 }
 
-/** One namespace's secret metadata. */
-export function useVaultSecrets(vault: string, ns: string) {
+/** Loads secret metadata only; plaintext is never readable from this query. */
+export function useVaultSecrets(
+  vault: MaybeRefOrGetter<string>,
+  ns: MaybeRefOrGetter<string>,
+) {
   return useAppQuery({
-    key: SecretKeys.secrets(vault, ns),
-    queryFn: ({ signal }) => secretsApi.listSecrets(vault, ns, signal),
-    enabled: vault !== '' && ns !== '',
+    key: () => SecretKeys.secrets(toValue(vault), toValue(ns)),
+    queryFn: ({ signal }) =>
+      secretsApi.listSecrets(toValue(vault), toValue(ns), signal),
+    enabled: () => toValue(vault) !== "" && toValue(ns) !== "",
   });
 }
 
-/** One namespace's product tokens. */
-export function useVaultTokens(vault: string, ns: string) {
+/** Loads token metadata only; minted plaintext is never cached here. */
+export function useVaultTokens(
+  vault: MaybeRefOrGetter<string>,
+  ns: MaybeRefOrGetter<string>,
+) {
   return useAppQuery({
-    key: SecretKeys.tokens(vault, ns),
-    queryFn: ({ signal }) => secretsApi.listTokens(vault, ns, signal),
-    enabled: vault !== '' && ns !== '',
+    key: () => SecretKeys.tokens(toValue(vault), toValue(ns)),
+    queryFn: ({ signal }) =>
+      secretsApi.listTokens(toValue(vault), toValue(ns), signal),
+    enabled: () => toValue(vault) !== "" && toValue(ns) !== "",
   });
 }

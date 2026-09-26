@@ -1,7 +1,15 @@
-import type { SystemStatus } from '@/domain/auth';
-import { request } from '@/integration/common';
+import { z } from "zod";
+import type { SystemStatus } from "@/domain/auth";
+import { request } from "@/integration/common";
 
-/** The service liveness endpoint; its body is not enveloped. */
+const SystemStatusSchema = z.object({
+  service: z.string(),
+  status: z.string(),
+  localRig: z.boolean().optional(),
+});
+
+/** The un-enveloped service liveness endpoint. */
 export const systemApi = {
-  getStatus: (signal?: AbortSignal) => request<SystemStatus>('/api/system/status', { signal }),
+  getStatus: (signal?: AbortSignal) =>
+    request<SystemStatus>("/api/system/status", SystemStatusSchema, { signal }),
 };
