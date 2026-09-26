@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { KeyRound } from 'lucide-react';
-import { Badge, EmptyState, Tabs, Text } from '@wow-two-beta/ui/presentation/display';
+import { Badge, EmptyState, Tabs } from '@wow-two-beta/ui/presentation/display';
 import { Select } from '@wow-two-beta/ui/presentation/forms';
 import { useVaultHygiene, useVaults } from '@/application/secrets';
 import { VaultStatus } from '@/domain/secrets';
@@ -62,20 +62,26 @@ export function SecretsPage() {
           <EmptyState size="sm" icon={<KeyRound size={24} />} title={`This vault is ${selected.status}`}
             description="Unseal it or restore connectivity from Wheelhouse before administering it." />
         ) : vault && (
-          <div className="grid gap-6 xl:grid-cols-[14rem_1fr]">
-            <NamespaceList vault={vault} selected={ns} onSelect={setNs} />
-            {ns ? (
-              <Tabs defaultValue="secrets" className="min-w-0">
-                <Tabs.List>
-                  <Tabs.Tab value="secrets">Secrets</Tabs.Tab>
-                  <Tabs.Tab value="tokens">Tokens</Tabs.Tab>
-                </Tabs.List>
-                <Tabs.Panel value="secrets" className="pt-4"><SecretsTable vault={vault} ns={ns} overdue={overdueSecrets} /></Tabs.Panel>
-                <Tabs.Panel value="tokens" className="pt-4"><TokensTable vault={vault} ns={ns} flags={tokenFlags} /></Tabs.Panel>
-              </Tabs>
-            ) : (
-              <Text size="sm" color="muted" className="self-center">Select a namespace to manage its secrets and tokens.</Text>
-            )}
+          // The namespace rail runs edge to edge inside the card, divided from the namespace it opens.
+          <div className="-m-5 grid min-h-96 lg:grid-cols-[16rem_minmax(0,1fr)]">
+            <aside className="border-b border-border bg-muted/40 p-4 lg:rounded-bl-xl lg:border-r lg:border-b-0">
+              <NamespaceList vault={vault} selected={ns} onSelect={setNs} />
+            </aside>
+            <section className="min-w-0 p-5">
+              {ns ? (
+                <Tabs key={ns} defaultValue="secrets" className="min-w-0">
+                  <Tabs.List>
+                    <Tabs.Tab value="secrets">Secrets</Tabs.Tab>
+                    <Tabs.Tab value="tokens">Tokens</Tabs.Tab>
+                  </Tabs.List>
+                  <Tabs.Panel value="secrets" className="pt-4"><SecretsTable vault={vault} ns={ns} overdue={overdueSecrets} /></Tabs.Panel>
+                  <Tabs.Panel value="tokens" className="pt-4"><TokensTable vault={vault} ns={ns} flags={tokenFlags} /></Tabs.Panel>
+                </Tabs>
+              ) : (
+                <EmptyState size="sm" icon={<KeyRound size={24} />} title="Select a namespace"
+                  description="Its write-only secrets and product tokens open here." />
+              )}
+            </section>
           </div>
         )}
       </Panel>
