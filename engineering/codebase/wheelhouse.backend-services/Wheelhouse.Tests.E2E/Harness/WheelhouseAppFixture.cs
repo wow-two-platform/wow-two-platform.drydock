@@ -38,6 +38,9 @@ public sealed class WheelhouseAppFixture : IAsyncLifetime
     public StubContainerRegistryClient Registry { get; } = new();
     public StubDeploymentGateway Deployments { get; } = new();
 
+    /// <summary>The shared vault stub — records the last change so tests can assert what Wheelhouse forwarded.</summary>
+    public StubVaultGateway Vaults { get; } = new();
+
     /// <summary>A fresh anonymous client (no admin header) — protected endpoints return 401.</summary>
     public HttpClient CreateAnonymousClient() => Host.CreateClient();
 
@@ -74,6 +77,8 @@ public sealed class WheelhouseAppFixture : IAsyncLifetime
                 services.UseTestAdminAuth();
                 services.RemoveAll<Wheelhouse.Application.Abstractions.IDeploymentGateway>();
                 services.AddSingleton<Wheelhouse.Application.Abstractions.IDeploymentGateway>(Deployments);
+                services.RemoveAll<Wheelhouse.Application.Abstractions.IVaultGateway>();
+                services.AddSingleton<Wheelhouse.Application.Abstractions.IVaultGateway>(Vaults);
 
                 // Replace the real (network + OAuth-token) GitHub client with the shared stub.
                 services.RemoveAll<IGitHubClient>();

@@ -61,9 +61,16 @@ public static class HostConfigurationExtensions
     public static WebApplicationBuilder AddInfrastructureLayer(this WebApplicationBuilder builder)
     {
         builder.Services.AddTimeProviders();
-        builder.Services.AddSingleton(builder.Configuration.GetSection("DeploymentRunner")
-            .Get<Wheelhouse.Infrastructure.Settings.DeploymentSettings>() ?? new());
+        builder.Services.AddSingleton(DeploymentSettingsFor(builder));
+        builder.Services.AddSingleton<Wheelhouse.Infrastructure.Deployments.Parsers.RunnerFailureParser>();
         builder.Services.AddScoped<IDeploymentGateway, Wheelhouse.Infrastructure.Deployments.DeploymentGateway>();
+
+        // Vault administration: code-owned endpoints only, no redirects or cookies, bounded calls.
+        builder.Services.AddHttpClient(Wheelhouse.Infrastructure.Vaults.VaultGateway.ClientName,
+                client => client.Timeout = TimeSpan.FromSeconds(10))
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false, UseCookies = false });
+        builder.Services.AddSingleton<Wheelhouse.Infrastructure.Vaults.VaultSessionCache>();
+        builder.Services.AddScoped<IVaultGateway, Wheelhouse.Infrastructure.Vaults.VaultGateway>();
 
         // The integration clients read the signed-in admin's OAuth token off the current request.
         builder.Services.AddHttpContextAccessTokenProvider();
@@ -91,5 +98,27 @@ public static class HostConfigurationExtensions
             .AddJsonStringEnums();
 
         return builder;
+    }
+
+    // Relative runner paths resolve against the content root, so a local run points at the repository checkout.
+    private static Wheelhouse.Infrastructure.Settings.DeploymentSettings DeploymentSettingsFor(WebApplicationBuilder builder)
+    {
+        var settings = builder.Configuration.GetSection("Deployment")
+            .Get<Wheelhouse.Infrastructure.Settings.DeploymentSettings>() ?? new();
+        if (settings.Rehearsal is not (Wheelhouse.Infrastructure.Settings.DeploymentSettings.RigOff
+                or Wheelhouse.Infrastructure.Settings.DeploymentSettings.RigHost
+                or Wheelhouse.Infrastructure.Settings.DeploymentSettings.RigNetwork))
+            throw new InvalidOperationException("Deployment:Rehearsal must be empty, 'host' or 'network'.");
+
+        string Resolve(string path) => path.Length == 0 || Path.IsPathRooted(path)
+            ? path
+            : Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, path));
+        return settings with
+        {
+            TransportPath = Resolve(settings.TransportPath),
+            Root = Resolve(settings.Root),
+            GitHubTokenFile = Resolve(settings.GitHubTokenFile),
+            RehearsalState = Resolve(settings.RehearsalState)
+        };
     }
 }

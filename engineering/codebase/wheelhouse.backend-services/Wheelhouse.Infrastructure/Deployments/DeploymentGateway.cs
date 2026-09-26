@@ -1,6 +1,8 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Text.Json;
 using Wheelhouse.Application.Abstractions;
+using Wheelhouse.Infrastructure.Deployments.Parsers;
 using Wheelhouse.Infrastructure.Settings;
 using WoW.Two.Sdk.Backend.Beta.Foundation.Errors;
 using WoW.Two.Sdk.Backend.Beta.Mediator.Result;
@@ -8,20 +10,31 @@ using WoW.Two.Sdk.Backend.Beta.Mediator.Result;
 namespace Wheelhouse.Infrastructure.Deployments;
 
 /// <summary>Runs the same bounded SSH adapter used by operator recovery.</summary>
-public sealed class DeploymentGateway(DeploymentSettings settings) : IDeploymentGateway
+public sealed class DeploymentGateway(DeploymentSettings settings, RunnerFailureParser failures) : IDeploymentGateway
 {
     /// <inheritdoc />
     public Task<AppResult<JsonElement>> ReadAsync(string resource, string? id, CancellationToken ct) =>
         resource switch
         {
-            "servers" or "targets" or "releases" => RunAsync([resource], ct),
+            "servers" or "targets" or "vaults" or "releases" or "jobs" => RunAsync([resource], ct),
             "status" when Guid.TryParse(id, out _) => RunAsync(["status", "--job", id], ct),
+            "state" when id is not null => RunAsync(["state", "--target", id], ct),
+            "vitals" => RunAsync(id is null ? ["vitals"] : ["vitals", "--target", id], ct),
+            "stats" when int.TryParse(id, out var days) => RunAsync(["stats", "--days", days.ToString(CultureInfo.InvariantCulture)], ct),
             _ => Task.FromResult(AppResult<JsonElement>.Fail(AppErrors.NotFound("Unknown deployment resource.")))
         };
 
     /// <inheritdoc />
+    public Task<AppResult<JsonElement>> CheckAsync(string target, string? release, CancellationToken ct) =>
+        RunAsync(release is null ? ["check", "--target", target] : ["check", "--target", target, "--bundle", release], ct);
+
+    /// <inheritdoc />
     public Task<AppResult<JsonElement>> StartAsync(string target, string release, string actor, CancellationToken ct) =>
         RunAsync(["submit", "--target", target, "--bundle", release, "--actor", actor], ct);
+
+    /// <inheritdoc />
+    public Task<AppResult<JsonElement>> ReconcileAsync(string target, string job, string actor, CancellationToken ct) =>
+        RunAsync(["reconcile", "--target", target, "--job", job, "--actor", actor], ct);
 
     private async Task<AppResult<JsonElement>> RunAsync(string[] arguments, CancellationToken ct)
     {
@@ -41,6 +54,13 @@ public sealed class DeploymentGateway(DeploymentSettings settings) : IDeployment
             }
         };
         process.StartInfo.Environment["WHEELHOUSE_GITHUB_TOKEN_FILE"] = settings.GitHubTokenFile;
+        // Only configuration exposes the local rig; a stray environment variable cannot.
+        process.StartInfo.Environment.Remove("WHEELHOUSE_REHEARSAL");
+        process.StartInfo.Environment.Remove("REHEARSAL_STATE");
+        if (settings.IsLocalRig)
+            process.StartInfo.Environment["WHEELHOUSE_REHEARSAL"] = settings.Rehearsal == DeploymentSettings.RigNetwork ? "network" : "1";
+        if (settings.RehearsalState.Length > 0)
+            process.StartInfo.Environment["REHEARSAL_STATE"] = settings.RehearsalState;
         process.StartInfo.ArgumentList.Add(settings.TransportPath);
         foreach (var argument in arguments)
             process.StartInfo.ArgumentList.Add(argument);
@@ -52,9 +72,10 @@ public sealed class DeploymentGateway(DeploymentSettings settings) : IDeployment
             var output = process.StandardOutput.ReadToEndAsync(timeout.Token);
             var error = process.StandardError.ReadToEndAsync(timeout.Token);
             await process.WaitForExitAsync(timeout.Token);
-            await error;
+            var standardError = await error;
             if (process.ExitCode != 0)
-                return AppResult<JsonElement>.Fail(AppErrors.Unexpected("Deployment operation failed. Inspect the target privately."));
+                return AppResult<JsonElement>.Fail(failures.Parse(standardError)
+                    ?? AppErrors.Unexpected("Deployment operation failed. Inspect the target privately."));
             using var document = JsonDocument.Parse(await output);
             return AppResult<JsonElement>.Ok(document.RootElement.Clone());
         }

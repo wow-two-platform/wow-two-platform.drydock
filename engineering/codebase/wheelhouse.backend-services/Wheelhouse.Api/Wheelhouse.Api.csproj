@@ -22,11 +22,22 @@
   <PropertyGroup>
     <!-- wheelhouse.frontend-services is a sibling of wheelhouse.backend-services under engineering/codebase/. -->
     <SpaRoot>$(MSBuildProjectDirectory)\..\..\wheelhouse.frontend-services\</SpaRoot>
+    <!-- The SPA builds with the Node pinned in .nvmrc when nvm has it, so an IDE launched from the Dock,
+         whose PATH holds an older system Node, still builds. -->
+    <SpaNodeVersion Condition="Exists('$(SpaRoot).nvmrc')">$([System.IO.File]::ReadAllText('$(SpaRoot).nvmrc').Trim())</SpaNodeVersion>
+    <SpaNodeBin Condition="'$(SpaNodeVersion)' != '' and Exists('$(HOME)/.nvm/versions/node/v$(SpaNodeVersion)/bin')">$(HOME)/.nvm/versions/node/v$(SpaNodeVersion)/bin</SpaNodeBin>
+    <SpaPath Condition="'$(SpaNodeBin)' != ''">$(SpaNodeBin):$(PATH)</SpaPath>
+    <SpaPath Condition="'$(SpaNodeBin)' == ''">$(PATH)</SpaPath>
+    <SpaEnabled Condition="'$(BuildSpa)' != 'false' and '$(SkipSpaBuild)' != 'true' and '$(DesignTimeBuild)' != 'true' and '$(NoBuild)' != 'true'">true</SpaEnabled>
   </PropertyGroup>
-  <Target Name="BuildSpa" BeforeTargets="PrepareForBuild;ResolveProjectStaticWebAssets"
-          Condition="'$(BuildSpa)' != 'false' and '$(SkipSpaBuild)' != 'true' and '$(DesignTimeBuild)' != 'true' and '$(NoBuild)' != 'true'">
-    <Exec Command="npm ci" WorkingDirectory="$(SpaRoot)" />
-    <Exec Command="npm run deploy" WorkingDirectory="$(SpaRoot)" />
+  <!-- Reinstalls packages only when the lockfile changed since the last install. -->
+  <Target Name="RestoreSpa" Condition="'$(SpaEnabled)' == 'true'"
+          Inputs="$(SpaRoot)package-lock.json" Outputs="$(SpaRoot)node_modules/.package-lock.json">
+    <Exec Command="npm ci" WorkingDirectory="$(SpaRoot)" EnvironmentVariables="PATH=$(SpaPath)" />
+  </Target>
+  <Target Name="BuildSpa" DependsOnTargets="RestoreSpa" BeforeTargets="PrepareForBuild;ResolveProjectStaticWebAssets"
+          Condition="'$(SpaEnabled)' == 'true'">
+    <Exec Command="npm run deploy" WorkingDirectory="$(SpaRoot)" EnvironmentVariables="PATH=$(SpaPath)" />
     <ItemGroup>
       <Content Remove="@(Content)" Condition="$([System.String]::Copy('%(Content.Identity)').Replace('\', '/').StartsWith('wwwroot/'))" />
       <Content Include="wwwroot/**/*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

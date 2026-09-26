@@ -35,6 +35,8 @@
     <ItemGroup>
         <ProjectReference Include="..\Wheelhouse.Application\Wheelhouse.Application.csproj"/>
         <ProjectReference Include="..\Wheelhouse.Domain\Wheelhouse.Domain.csproj"/>
+        <!-- RunnerFailureParser: pure parsing of the deployment runner's failure line. -->
+        <ProjectReference Include="..\Wheelhouse.Infrastructure\Wheelhouse.Infrastructure.csproj"/>
     </ItemGroup>
 
     <ItemGroup>
