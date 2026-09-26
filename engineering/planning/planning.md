@@ -26,6 +26,7 @@ deferred work waits in the [backlog](backlog.md).
 
 ## Tracks
 
+- [Studio workspace](ui-workspace.md) — Vue migration, merged navigation, themes and interaction verification.
 - [Deployment pilot](deployment-pilot.md) — ForeverPin launch gates and live wiring.
 - [CI and artifact policy](ci-artifact-policy.md) — release cadence, registry and catalog rules.
 - [Polish](polish.md) — behavior-invariant cleanup.

@@ -19,7 +19,7 @@ engineering/              ← the execution (build · ship · run)
 ├── engineering.md · architecture/ · development/ · deployment/ · planning/ (incl. version-track/) · research/ · scripts/
 └── codebase/
     ├── wheelhouse.backend-services/   ← .NET 10 Clean Architecture solution (Wheelhouse.BackendServices.slnx)
-    ├── wheelhouse.frontend-services/  ← React 19 + Vite + Tailwind v4 + @wow-two-beta/ui (layered, SDK query layer)
+    ├── wheelhouse.frontend-services/  ← Vue 3 + Vite + Tailwind v4 + @wow-two-beta/ui-vue (layered, SDK query layer)
     └── wheelhouse.runner-services/    ← Python operator runner: fleet, catalog, SSH transport, target executor
 ```
 
@@ -47,7 +47,9 @@ dotnet run --project Wheelhouse.Api --launch-profile https   # 8210 https / 8211
 # Add one → Wheelhouse.Persistence/Migrations/{NNN-name}/{Apply,Rollback}.sql
 
 # Frontend
-cd engineering/codebase/wheelhouse.frontend-services && npm install && npm run dev   # 5174, proxies /api → 8211
+cd engineering/codebase/wheelhouse.frontend-services && npm install && npm run dev   # HTTPS 5174, proxies /api → HTTPS 8210; Node 22+
+npm run test    # inventory, selection, protocol and sensitive-form lifecycle checks
+npm run build   # vue-tsc + SFC compiler gate + route-split production bundle
 npm run deploy   # build + copy SPA into Wheelhouse.Api/wwwroot
 
 # Local rig for an IDE run (then Wheelhouse.Api, profile https → https://localhost:8210)
@@ -83,10 +85,10 @@ Reserve unit for I/O-free logic; everything user-facing is covered e2e. Full rul
 
 ## Beta SDK usage (per workspace direction)
 
-- **Frontend → `@wow-two-beta/ui`.** Use its components (Button, Card, Badge, Heading, Text,
+- **Frontend → `@wow-two-beta/ui-vue` (`0.0.7`).** Use its components (Button, Card, Badge, Heading, Text,
   EmptyState, Alert, Spinner, TextInput, …) before hand-rolling. Tailwind v4 wiring: `index.css`
-  imports `tailwindcss` + `@wow-two-beta/ui/styles.css` and `@source`s the package's `dist` so its
-  utility classes are generated. If a component is missing, build it locally, then migrate it upstream.
+  imports `tailwindcss` + `@wow-two-beta/ui-vue/styles.css` and `@source`s the package's `dist` so its
+  utility classes are generated. Shared capability gaps belong in the SDK. Product composition stays local.
 - **Backend → `WoW.Two.Sdk.Backend.Beta` (adopted, `10.0.40-beta`).** `v0.2` migrated every layer onto
   the SDK: host floor (`AddApiDefaults`/`UseApiDefaults`), mediator + results + validation, identity
   (GitHub OAuth + cookie + allowlist/default-deny), `Integrations.GitHub`/`Ghcr` clients, the bespoke SQL

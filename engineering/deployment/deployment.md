@@ -111,12 +111,13 @@ python3 $R submit   --root /path/to/inventory --target foreverpin-staging --bund
 python3 $R status   --root /path/to/inventory --job <returned-id>
 python3 $R jobs     --root /path/to/inventory
 python3 $R state    --root /path/to/inventory --target foreverpin-staging
+python3 $R topology --root /path/to/inventory --target foreverpin-staging
 python3 $R reconcile --root /path/to/inventory --target foreverpin-staging --job <active-id> --actor operator
 python3 $R vitals   --root /path/to/inventory [--target foreverpin-staging]
 python3 $R stats    --root /path/to/inventory --days 30
 ```
 
-`check`, `state` and `vitals` stream the runner over SSH stdin and leave no files on the target.
+`check`, `state`, `topology` and `vitals` stream the runner over SSH stdin and leave no files on the target.
 `check` probes SSH, the deployment root, Docker architecture, Compose, disk, the shared network,
 every settings file and the target's lock state; each failure names the rule or key it broke.
 
@@ -125,6 +126,7 @@ every settings file and the target's lock state; each failure names the rule or 
 | `GET /api/deployments` | Recent submissions with their last observed outcome and reason |
 | `GET /api/deployments/targets` | Configured target bindings |
 | `GET /api/deployments/targets/{id}/state` | Verified release and `ready` / `running` / `needs_reconciliation` |
+| `GET /api/deployments/targets/{id}/topology` | Saved Compose services, startup dependencies, logical networks and named volumes from the last successful release |
 | `GET /api/deployments/targets/{id}/check?release=` | Read-only readiness, optionally against one release |
 | `POST /api/deployments/targets/{id}/reconcile` | `{"job":"<active-id>"}` with `X-Wheelhouse-Action: reconcile` |
 | `GET /api/servers` | Hosts defined in code; registration and deletion return `405` |

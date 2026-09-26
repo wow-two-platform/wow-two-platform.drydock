@@ -6,10 +6,12 @@
 
 Wheelhouse is the private infrastructure-governance control plane. Its essential slice is deploying a published
 ForeverPin release to a reviewed VPS target, with durable outcomes and recovery independent of the dashboard.
-The .NET/React application uses PostgreSQL, GitHub authentication and an explicit production owner allowlist.
+The .NET/Vue application uses PostgreSQL, GitHub authentication and an explicit production owner allowlist.
 Products, a read-only fleet, release-artifact selection and deployment operations are implemented locally.
 Operators see deployment history, check a target read-only, reconcile a locked target and administer secrets vaults.
-The overview lists what needs attention from host and container vitals, 30-day deployment metrics and vault hygiene.
+The studio workspace selects a product/environment, shows observed services and release state, and opens contextual details.
+Its portfolio attention list combines host/container vitals, 30-day deployment metrics and vault hygiene.
+Workspace, Deployments, Fleet, Secrets and Products share top navigation and coordinated light/dark themes.
 A local SSH rehearsal rig exercises deployments and the vault console end to end.
 Live VPS wiring and hosted release publication remain open.
 

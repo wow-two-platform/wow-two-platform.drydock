@@ -1,7 +1,7 @@
 # File References
 
 > **Lookup table only.** Do NOT read files proactively — only when the current task requires them.
-> **Tracks docs outside `engineering/codebase/`.** Source files (`.cs`/`.tsx`) are navigated via
+> **Tracks docs outside `engineering/codebase/`.** Source files (`.cs`/`.ts`/`.vue`) are navigated via
 > `tree`/`find`/`grep`, never listed here.
 
 | Question about | Read |
@@ -21,6 +21,7 @@
 | Deploy / ops | `engineering/deployment/deployment.md` |
 | Per-version progress | `engineering/planning/version-track/v{X.Y}/v{X.Y}.md` |
 | Deployment pilot / CI policy | `engineering/planning/deployment-pilot.md` · `ci-artifact-policy.md` |
+| Studio workspace / Vue migration | `engineering/planning/ui-workspace.md` |
 
 ## Source projects (`engineering/codebase/`)
 
@@ -39,7 +40,7 @@
 | `Wheelhouse.Tests.E2E` | **E2E** tier — full host + Testcontainers PG (on `…Beta.Testing`) |
 | `Wheelhouse.Tests.Migrations` | **Migrations** tier — bespoke SQL migrator apply/idempotency/rollback over real PG, on the SDK `MigratorHarness` |
 
-### `codebase/wheelhouse.frontend-services/` (React)
+### `codebase/wheelhouse.frontend-services/` (Vue)
 | App | What it is |
 |---|---|
 | (root Vite app) | Control-plane dashboard — deployments, fleet, secrets, products |

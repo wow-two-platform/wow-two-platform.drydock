@@ -7,5 +7,5 @@ How we build Wheelhouse. Guidelines defer to the shared conventions in `wow-two-
 | Doc | Covers |
 |---|---|
 | `backend-guidelines.md` | .NET deltas — MediatR CQRS, Result/`ResultError` → HTTP, SQLite, slim host |
-| `frontend-guidelines.md` | React deltas — `@wow-two-beta/ui`, same-origin API |
+| `frontend-guidelines.md` | Vue deltas — `@wow-two-beta/ui-vue`, same-origin API |
 | `iteration-guide.md` | how work moves: plan → implement → verify → consolidate → close |

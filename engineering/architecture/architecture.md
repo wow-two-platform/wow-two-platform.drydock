@@ -4,7 +4,7 @@
 
 ## Runtime
 
-A .NET 10 host serves the private administration API and React dashboard.
+A .NET 10 host serves the private administration API and Vue workspace.
 PostgreSQL stores the product registry and legacy inventory tables; bespoke SQL migrations run on startup.
 GitHub cookie authentication and an owner allowlist protect administration.
 Production requires a nonempty owner allowlist.

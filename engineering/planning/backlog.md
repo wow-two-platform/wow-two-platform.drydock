@@ -60,7 +60,13 @@ Deferred work; top of each group = next. Version docs hold only the active versi
 
 ---
 
-## SDK gaps found by Wheelhouse
+## Historical React SDK gaps
+
+These observations belong to the retired React frontend and are not current Wheelhouse blockers.
+The September 26 [Vue migration](ui-workspace.md) uses `@wow-two-beta/ui-vue@0.0.7`;
+React persistence peers, sidebar overrides, skeleton shim and exit-keyframe override were removed.
+The local refresh timing helper and page-action composition remain explicit Vue product adapters.
+SDK-wide follow-up ownership is independent of this migration; the original observations remain below.
 
 | Item | Type | Notes |
 |---|---|---|
@@ -86,9 +92,9 @@ Deferred work; top of each group = next. Version docs hold only the active versi
 |---|---|---|
 | Retire the placeholder server, deployment, domain and secret tables | issue | Unused since the code-owned fleet |
 | Retire the single-image version-status query | issue | Replaced by the published artifact catalog |
-| Split the dashboard bundle by route | issue | One 1.15 MB chunk today |
-| Move the remaining panels to skeleton first loads | check | Attention, the fleet host and environment tables, and the secrets panels still show a spinner |
 | Extract the vault admin client to the backend SDK | check | After `v0.3` proves it |
+
+Route splitting and skeleton first loads were completed in the [Vue workspace migration](ui-workspace.md).
 
 ---
 

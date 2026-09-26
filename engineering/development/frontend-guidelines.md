@@ -2,21 +2,31 @@
 
 *Last updated: 2026-09-26*
 
-> Shared frontend conventions are a future sibling of `wow-two-ws/conventions/` (planned `conventions/frontend/`). Until it lands, follow the points below + `@wow-two-beta/ui` usage patterns. Document repo-specific deltas here.
+Shared frontend conventions live in `wow-two-ws/conventions/development/frontend/`.
+This document records Wheelhouse-specific choices; the studio migration is tracked in
+[ui-workspace.md](../planning/ui-workspace.md).
 
 ## Stack
 
-- React 19 · Vite 6 · TypeScript (strict) · Tailwind v4.
-- UI: **`@wow-two-beta/ui`** — prefer its components (Button, Card, Badge, Heading, Text, EmptyState, Alert, Spinner, TextInput, …) before hand-rolling. Tailwind v4 wiring: `index.css` imports `tailwindcss` + `@wow-two-beta/ui/styles.css` and `@source`s the package's `dist` so its utility classes generate. Missing component → build it locally, then migrate it upstream.
+- Vue 3 Composition API · Vue Router · Vite 6 · TypeScript (strict) · Tailwind v4 · Node 22+.
+- UI: published **`@wow-two-beta/ui-vue@0.0.7`**. Use its components, forms, queries and Result contracts. Shared capability gaps belong in the SDK; product composition stays here.
+- `bootstrap/index.css` imports `tailwindcss` and `@wow-two-beta/ui-vue/styles.css`; its `@source` includes SDK utilities.
+- `bootstrap/query.ts` and `bootstrap/form.ts` are the application adapter pins. Integration functions decode wire payloads with Zod and return SDK `Result<T, ApiFailure>` values.
 
 ## Conventions
 
-- Single Vite app at `engineering/codebase/wheelhouse.frontend-services/`. API client is same-origin (`/api/...`); dev proxies to the backend on `:8211` (see `vite.config.ts`). Dashboard on `:5174`.
+- Single Vite app at `engineering/codebase/wheelhouse.frontend-services/`. API client is same-origin (`/api/...`); HTTPS dev server `:5174` proxies to HTTPS backend `:8210` (see `vite.config.ts`). Preserve secure cookies and forwarded origin during GitHub authentication.
 - Production: `npm run deploy` (`scripts/deploy.mjs`) builds the SPA and copies `dist/` into the API's `wwwroot` (single-host serving). Idempotent — `wwwroot` is wiped + repopulated each run.
+- `npm run typecheck` runs `vue-tsc` and the SFC compiler gate. `npm test` checks inventory/selection, API decoding and sensitive-form lifecycles. `npm run build` includes typechecking and lazy route bundling.
 
 ## Repo-specific deltas
 
-- Control-plane dashboard only — single operator, never public. No client-side caching of secret values beyond the immediate view.
-- Loading follows the workspace [loading pattern](../../../../../conventions/development/frontend/core/mla/domains/data/state-and-data.md#loading): `LoadState skeleton` for first loads, `useRefresh` + `Skeleton.Group` for a refresh the operator asks for. `presentation/common/skeleton` and `application/common/useRefresh` copy unreleased SDK parts until the re-pin.
-- A page's primary action goes in the shared page header through `PageActions`; the page keeps the dialog it opens.
+- Control-plane workspace only — single operator, never public. Secret writes and token minting bypass the mutation cache. Plaintext stays inside the active dialog; abort/generation guards prevent dismissed requests restoring it. Failed writes preserve editable input; successful writes and context changes clear values and form baselines.
+- First loads use `LoadState` with SDK `SkeletonState`; explicit refresh uses the local `useRefresh` timing helper and skeletons. Cached content remains visible with an error when background reads fail.
+- A page's primary action goes in the shared header through `PageActions` and Vue Teleport; the page owns the dialog.
 - Theme tokens live in `bootstrap/index.css` (`:root` and `.dark`); `public/theme.js` applies the remembered scheme before the first paint.
+- The Workspace route combines a product rail, environment/service surface and contextual inspector. Top navigation retains URL product/target selection. Invalid explicit selections remain unavailable rather than silently selecting another target.
+- Registry/runner association uses explicit bindings in `application/workspace/WorkspaceInventory.ts`. Registry lifecycle, observed runtime condition and deployment outcome remain separate facts.
+- Host vitals are current snapshots; the shared timer refreshes visible subscribers every 60 seconds. Deployment follow-up polls every three seconds. Neither implies retained host history.
+- Deployments submit approved target/release IDs. Reconciliation submits the authoritative remote active rollout ID and requires exact typed target confirmation. API action headers remain explicit.
+- Clearing authentication invalidates the query session and HTTP request scope, preventing previous-session responses entering a replacement session.
