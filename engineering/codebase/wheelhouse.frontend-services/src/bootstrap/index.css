@@ -1,0 +1,125 @@
+@import 'tailwindcss';
+
+/* Beta UI design tokens (@theme) shipped by the library — gives us bg-primary,
+   text-foreground, bg-card, border-border, etc. */
+@import '@wow-two-beta/ui/styles.css';
+
+/* Tailwind v4 ignores node_modules by default — point it at the beta UI's compiled
+   output so the utility classes its components emit actually get generated. */
+@source '../../node_modules/@wow-two-beta/ui/dist';
+
+/* Wheelhouse sidebar tokens: a deep-navy wheelhouse beside a sand-coloured deck. */
+@theme {
+  --color-sidebar: #0e2742;
+  --color-sidebar-deep: #081a2e;
+  --color-sidebar-foreground: #e8eef5;
+  --color-sidebar-muted: #93a7bd;
+  --color-sidebar-hover: rgb(255 255 255 / 0.06);
+  --color-sidebar-active: rgb(255 255 255 / 0.1);
+  --color-sidebar-border: rgb(255 255 255 / 0.08);
+  --color-sidebar-accent: #f4a259;
+}
+
+/* Wheelhouse palette over the library's semantic tokens; unlayered, so it wins over @theme.
+   Navy text on a warm deck, sea-teal actions, amber highlights, rust for danger. */
+:root {
+  --color-background: #f5f3ee;
+  --color-foreground: #13233a;
+  --color-card: #ffffff;
+  --color-card-foreground: #13233a;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #13233a;
+  --color-muted: #efebe3;
+  --color-muted-foreground: #5d6b7c;
+  --color-subtle-foreground: #8a95a3;
+  --color-border: #e6e1d6;
+  --color-border-strong: #d4ccbd;
+  --color-input: #ddd6c8;
+  --color-ring: #1f6f8b;
+
+  --color-primary: #1f6f8b;
+  --color-primary-foreground: #ffffff;
+  --color-primary-soft: #e2eff3;
+  --color-primary-soft-foreground: #17566c;
+  --color-accent: #f4a259;
+  --color-accent-foreground: #3b2305;
+  --color-accent-soft: #fdebd7;
+  --color-accent-soft-foreground: #8a4b0f;
+
+  --color-success: #2a9d8f;
+  --color-success-foreground: #ffffff;
+  --color-success-soft: #e3f4f1;
+  --color-success-soft-foreground: #1c6e64;
+  --color-warning: #e9a23b;
+  --color-warning-foreground: #3b2305;
+  --color-warning-soft: #fdf1dd;
+  --color-warning-soft-foreground: #8a5a0f;
+  --color-destructive: #d1495b;
+  --color-destructive-foreground: #ffffff;
+  --color-destructive-soft: #fbe7ea;
+  --color-destructive-soft-foreground: #9e2b3b;
+  --color-info: #1f7a8c;
+  --color-info-foreground: #ffffff;
+  --color-info-soft: #e2f1f4;
+  --color-info-soft-foreground: #155a68;
+}
+
+/* Night watch: the same roles on a deep-navy deck. Fills are light with navy text, so text and fills both keep AA. */
+.dark {
+  --color-background: #0b1a2c;
+  --color-foreground: #e6edf5;
+  --color-card: #11243a;
+  --color-card-foreground: #e6edf5;
+  --color-popover: #132a43;
+  --color-popover-foreground: #e6edf5;
+  --color-inverse: #e6edf5;
+  --color-inverse-foreground: #0b1a2c;
+  --color-muted: #172e48;
+  --color-muted-foreground: #9fb0c3;
+  --color-subtle-foreground: #8193a8;
+  --color-border: #1f3753;
+  --color-border-strong: #2b4766;
+  --color-input: #35557a;
+  --color-ring: #5cb8d6;
+
+  --color-primary: #4fb0cf;
+  --color-primary-foreground: #041722;
+  --color-primary-soft: #123a4d;
+  --color-primary-soft-foreground: #bfe3ef;
+  --color-accent: #f4a259;
+  --color-accent-foreground: #3b2305;
+  --color-accent-soft: #45300f;
+  --color-accent-soft-foreground: #fbd3a8;
+
+  --color-success: #3bb8a8;
+  --color-success-foreground: #04201c;
+  --color-success-soft: #0e3b36;
+  --color-success-soft-foreground: #a7e6dc;
+  --color-warning: #f0b252;
+  --color-warning-foreground: #3b2305;
+  --color-warning-soft: #47340f;
+  --color-warning-soft-foreground: #fbe0b0;
+  --color-destructive: #e46f82;
+  --color-destructive-foreground: #1f0509;
+  --color-destructive-soft: #4a1a22;
+  --color-destructive-soft-foreground: #f8c2cb;
+  --color-info: #48b0c7;
+  --color-info-foreground: #04161f;
+  --color-info-soft: #10394a;
+  --color-info-soft-foreground: #b5e3ec;
+
+  /* The wheelhouse sinks below the deck at night instead of matching it. */
+  --color-sidebar: #071321;
+  --color-sidebar-deep: #040c16;
+  --color-sidebar-border: rgb(255 255 255 / 0.06);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+}

@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import mkcert from 'vite-plugin-mkcert';
+import { fileURLToPath } from 'node:url';
 
 // The SPA is served from the .NET host's wwwroot in production (base '/', same-origin "/api/...").
 // In dev, Vite runs over HTTPS (vite-plugin-mkcert → a locally-trusted cert, so the Secure auth
@@ -11,6 +12,9 @@ import mkcert from 'vite-plugin-mkcert';
 export default defineConfig(({ command }) => ({
   base: '/',
   plugins: [react(), tailwindcss(), ...(command === 'serve' ? [mkcert()] : [])],
+  resolve: {
+    alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
+  },
   build: {
     outDir: 'dist',
     emptyOutDir: true,

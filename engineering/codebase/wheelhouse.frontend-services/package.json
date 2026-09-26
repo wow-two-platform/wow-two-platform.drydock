@@ -1,22 +1,29 @@
 {
   "name": "wheelhouse-frontend",
   "private": true,
+  "engines": {
+    "node": ">=22"
+  },
   "version": "0.1.0",
   "type": "module",
-  "description": "React dashboard for Wheelhouse — the product ops & deploy control plane. Served from the .NET host.",
+  "description": "React dashboard for Wheelhouse \u2014 the product ops & deploy control plane. Served from the .NET host.",
   "scripts": {
     "dev": "vite",
-    "typecheck": "tsc --noEmit",
-    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc -p tsconfig.app.json --noEmit",
+    "build": "tsc -p tsconfig.app.json --noEmit && vite build",
     "preview": "vite preview",
     "deploy": "npm run build && node ./scripts/deploy.mjs"
   },
   "dependencies": {
+    "@tanstack/query-sync-storage-persister": "^5.103.2",
     "@tanstack/react-form": "^1.33.1",
-    "@wow-two-beta/ui": "0.0.95",
+    "@tanstack/react-query": "^5.103.2",
+    "@tanstack/react-query-persist-client": "^5.103.2",
+    "@wow-two-beta/ui": "0.0.108",
     "lucide-react": "^0.460.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "react-router-dom": "^7.18.4",
     "zod": "^4.4.3"
   },
   "devDependencies": {
