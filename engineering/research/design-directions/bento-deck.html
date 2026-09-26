@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Bento Deck — Overview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&amp;family=DM+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'DM Sans',system-ui,sans-serif;color:#1b1f2a;background:#f1eee8}
+a{color:#1f5f7a}a:hover{color:#14485d}
+</style>
+</head>
+<body>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; padding: 20px; display: flex; gap: 20px; background: #f1eee8; font-family: 'DM Sans', system-ui, sans-serif">
+  <nav aria-label="Main" style="width: 76px; flex-shrink: 0; border-radius: 28px; background: #1b1f2a; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 18px 0">
+    <div style="width: 44px; height: 44px; border-radius: 15px; background: #f6c177; color: #1b1f2a; display: flex; align-items: center; justify-content: center; margin-bottom: 14px">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.4 17 22 10l-10-4-10 4 2.6 7"></path><path d="M12 2v4"></path><path d="M2 21c2 1 3 0 5 0s3 1 5 1 3-1 5-1 3 1 5 0"></path></svg>
+    </div>
+    <a href="#overview" aria-label="Overview" style="width: 48px; height: 48px; border-radius: 16px; background: #ffffff; color: #1b1f2a; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg></a>
+    <a href="#deployments" aria-label="Deployments" style="width: 48px; height: 48px; border-radius: 16px; color: #b9bfcc; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"></path><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2"></path></svg></a>
+    <a href="#fleet" aria-label="Fleet" style="width: 48px; height: 48px; border-radius: 16px; color: #b9bfcc; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="7" rx="2"></rect><rect x="2" y="14" width="20" height="7" rx="2"></rect></svg></a>
+    <a href="#secrets" aria-label="Secrets" style="width: 48px; height: 48px; border-radius: 16px; color: #b9bfcc; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"></circle><path d="m21 2-9.6 9.6"></path><path d="m15.5 7.5 3 3L22 7l-3-3"></path></svg></a>
+    <a href="#products" aria-label="Products" style="width: 48px; height: 48px; border-radius: 16px; color: #b9bfcc; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5z"></path><path d="m3 8 9 5 9-5"></path></svg></a>
+    <div style="flex-grow: 1"></div>
+    <div style="width: 40px; height: 40px; border-radius: 50%; background: #f6c177; color: #1b1f2a; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700">SR</div>
+  </nav>
+
+  <main style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+    <header style="display: flex; align-items: center; justify-content: space-between; height: 52px">
+      <div style="display: flex; align-items: baseline; gap: 14px">
+        <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 34px; font-weight: 800; letter-spacing: -0.03em">Overview</h1>
+        <span style="font-size: 14px; color: #5a6072">Local rig · read 2:08 PM</span>
+      </div>
+      <div style="display: flex; gap: 10px">
+        <button type="button" style="height: 46px; padding: 0 18px; border-radius: 16px; border: 1px solid #d9d4ca; background: #ffffff; color: #1b1f2a; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600">Check readiness</button>
+        <button type="button" style="height: 46px; padding: 0 20px; border-radius: 16px; border: 0; background: #1f5f7a; color: #ffffff; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700">Deploy release</button>
+      </div>
+    </header>
+
+    <div style="flex-grow: 1; min-height: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr)); gap: 16px">
+      <section aria-label="Status" style="grid-column: span 2; grid-row: span 2; border-radius: 28px; background: #1b1f2a; color: #f4f1ea; padding: 26px; display: flex; flex-direction: column; justify-content: space-between">
+        <div style="display: flex; align-items: center; gap: 10px">
+          <span style="width: 10px; height: 10px; border-radius: 50%; background: #7ee2b8"></span>
+          <span style="font-size: 14px; color: #c8cdd8">Everything answered</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <div style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 52px; font-weight: 800; line-height: 1; letter-spacing: -0.04em">Nothing needs attention</div>
+          <div style="font-size: 14px; color: #c8cdd8">1 host · 1 target · 1 vault. Every container is healthy and nothing is due for rotation.</div>
+        </div>
+        <div style="display: flex; gap: 10px">
+          <span style="height: 30px; padding: 0 12px; display: flex; align-items: center; border-radius: 999px; background: rgba(255,255,255,0.1); font-size: 12px; font-weight: 600">foreverpin-rehearsal · ready</span>
+          <span style="height: 30px; padding: 0 12px; display: flex; align-items: center; border-radius: 999px; background: rgba(246,193,119,0.2); color: #f6c177; font-size: 12px; font-weight: 600">1 release behind</span>
+        </div>
+      </section>
+
+      <section aria-label="Deploys" style="border-radius: 28px; background: #dff0ea; padding: 20px; display: flex; flex-direction: column; justify-content: space-between">
+        <span style="font-size: 13px; font-weight: 600; color: #2d5a4e">Deploys · 30d</span>
+        <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 48px; font-weight: 800; line-height: 1">9</span>
+        <span style="font-size: 12px; color: #2d5a4e">5 ok · 2 failed · 2 refused</span>
+      </section>
+      <section aria-label="Success rate" style="border-radius: 28px; background: #e3ecf7; padding: 20px; display: flex; flex-direction: column; justify-content: space-between">
+        <span style="font-size: 13px; font-weight: 600; color: #2e4a6b">Success rate</span>
+        <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 48px; font-weight: 800; line-height: 1">71%</span>
+        <span style="font-size: 12px; color: #2e4a6b">of finished rollouts</span>
+      </section>
+      <section aria-label="Median rollout" style="border-radius: 28px; background: #f6e5d3; padding: 20px; display: flex; flex-direction: column; justify-content: space-between">
+        <span style="font-size: 13px; font-weight: 600; color: #6b4520">Median rollout</span>
+        <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 48px; font-weight: 800; line-height: 1">7s</span>
+        <span style="font-size: 12px; color: #6b4520">start to verified</span>
+      </section>
+      <section aria-label="Median recovery" style="border-radius: 28px; background: #ebe4f5; padding: 20px; display: flex; flex-direction: column; justify-content: space-between">
+        <span style="font-size: 13px; font-weight: 600; color: #4a3a6b">Median recovery</span>
+        <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 44px; font-weight: 800; line-height: 1">1m 19s</span>
+        <span style="font-size: 12px; color: #4a3a6b">failure to next success</span>
+      </section>
+
+      <section aria-label="Host" style="grid-column: span 2; border-radius: 28px; background: #ffffff; padding: 20px 22px; display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; justify-content: space-between; align-items: baseline">
+          <h2 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 18px; font-weight: 700">Local rehearsal target</h2>
+          <span style="font-size: 12px; color: #5a6072">up 3d 12h</span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; flex-grow: 1; align-items: end">
+          <div style="display: flex; flex-direction: column; gap: 8px"><div style="height: 64px; border-radius: 12px; background: #f1eee8; display: flex; align-items: flex-end"><div style="width: 100%; height: 4%; min-height: 4px; border-radius: 12px; background: #3fae8a"></div></div><span style="font-size: 12px; color: #5a6072">CPU <b style="color: #1b1f2a">2%</b></span></div>
+          <div style="display: flex; flex-direction: column; gap: 8px"><div style="height: 64px; border-radius: 12px; background: #f1eee8; display: flex; align-items: flex-end"><div style="width: 100%; height: 16%; border-radius: 12px; background: #3fae8a"></div></div><span style="font-size: 12px; color: #5a6072">Memory <b style="color: #1b1f2a">16%</b></span></div>
+          <div style="display: flex; flex-direction: column; gap: 8px"><div style="height: 64px; border-radius: 12px; background: #f1eee8; display: flex; align-items: flex-end"><div style="width: 100%; height: 69%; border-radius: 12px; background: #e0a24a"></div></div><span style="font-size: 12px; color: #5a6072">Disk <b style="color: #1b1f2a">69%</b></span></div>
+        </div>
+      </section>
+      <section aria-label="Deploys per day" style="grid-column: span 2; border-radius: 28px; background: #ffffff; padding: 20px 22px; display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; justify-content: space-between; align-items: baseline">
+          <h2 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 18px; font-weight: 700">Deploys per day</h2>
+          <span style="font-size: 12px; color: #5a6072">last 14 days</span>
+        </div>
+        <div style="flex-grow: 1; display: grid; grid-template-columns: repeat(14, minmax(0, 1fr)); gap: 5px; align-items: end">
+          <div style="height: 6px; border-radius: 4px; background: #ebe6dc"></div><div style="height: 6px; border-radius: 4px; background: #ebe6dc"></div><div style="height: 6px; border-radius: 4px; background: #ebe6dc"></div><div style="height: 6px; border-radius: 4px; background: #ebe6dc"></div><div style="height: 6px; border-radius: 4px; background: #ebe6dc"></div><div style="height: 6px; border-radius: 4px; background: #ebe6dc"></div><div style="height: 6px; border-radius: 4px; background: #ebe6dc"></div><div style="height: 6px; border-radius: 4px; background: #ebe6dc"></div><div style="height: 6px; border-radius: 4px; background: #ebe6dc"></div><div style="height: 6px; border-radius: 4px; background: #ebe6dc"></div><div style="height: 6px; border-radius: 4px; background: #ebe6dc"></div><div style="height: 6px; border-radius: 4px; background: #ebe6dc"></div>
+          <div style="height: 100%; border-radius: 6px; background: #1f5f7a"></div>
+          <div style="height: 30%; border-radius: 6px; background: #d9534f"></div>
+        </div>
+      </section>
+
+      <section aria-label="Recent deployments" style="grid-column: span 2; border-radius: 28px; background: #ffffff; padding: 20px 22px; display: flex; flex-direction: column; gap: 10px">
+        <div style="display: flex; justify-content: space-between; align-items: baseline">
+          <h2 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 18px; font-weight: 700">Recent</h2>
+          <a href="#deployments" style="font-size: 13px; font-weight: 600; text-decoration: none">All</a>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; font-size: 13px"><span style="width: 8px; height: 8px; border-radius: 50%; background: #3fae8a"></span><span style="flex-grow: 1">rehearsal-1 succeeded</span><span style="color: #5a6072">11:10 AM</span></div>
+        <div style="display: flex; align-items: center; gap: 10px; font-size: 13px"><span style="width: 8px; height: 8px; border-radius: 50%; background: #3fae8a"></span><span style="flex-grow: 1">rehearsal-1 succeeded</span><span style="color: #5a6072">10:21 AM</span></div>
+        <div style="display: flex; align-items: center; gap: 10px; font-size: 13px"><span style="width: 8px; height: 8px; border-radius: 50%; background: #3fae8a"></span><span style="flex-grow: 1">rehearsal-1 succeeded</span><span style="color: #5a6072">Sep 25</span></div>
+        <div style="display: flex; align-items: center; gap: 10px; font-size: 13px"><span style="width: 8px; height: 8px; border-radius: 50%; background: #d9534f"></span><span style="flex-grow: 1">rehearsal-broken failed</span><span style="color: #5a6072">Sep 25</span></div>
+      </section>
+    </div>
+  </main>
+</div>
+</body>
+</html>

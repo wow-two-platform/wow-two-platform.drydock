@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Frost — Overview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Plus Jakarta Sans',system-ui,sans-serif;color:#15233a;background:#eef3f8}
+a{color:#1f6f8b}a:hover{color:#15566c}
+</style>
+</head>
+<body>
+<div style="width: 1440px; height: 900px; position: relative; overflow: hidden; background: linear-gradient(160deg, #e7f1fa 0%, #f3f0f8 55%, #fbf1e7 100%); font-family: 'Plus Jakarta Sans', system-ui, sans-serif">
+  <div style="position: absolute; width: 640px; height: 640px; left: -120px; top: -220px; border-radius: 50%; background: #9fd6ea; opacity: 0.55; filter: blur(120px)"></div>
+  <div style="position: absolute; width: 560px; height: 560px; left: 980px; top: 420px; border-radius: 50%; background: #ffc9a3; opacity: 0.55; filter: blur(130px)"></div>
+  <div style="position: absolute; width: 480px; height: 480px; left: 560px; top: 180px; border-radius: 50%; background: #c9c1f5; opacity: 0.45; filter: blur(140px)"></div>
+
+  <header style="position: absolute; left: 40px; right: 40px; top: 20px; height: 64px; box-sizing: border-box; padding: 0 12px 0 18px; display: flex; align-items: center; gap: 24px; border-radius: 20px; background: rgba(255,255,255,0.55); border: 1px solid rgba(255,255,255,0.85); box-shadow: 0 10px 30px rgba(30,60,90,0.08); backdrop-filter: blur(22px) saturate(150%)">
+    <div style="display: flex; align-items: center; gap: 10px">
+      <div style="width: 34px; height: 34px; border-radius: 11px; background: #15233a; color: #f4c08a; display: flex; align-items: center; justify-content: center">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"></path><path d="M19.4 17 22 10l-10-4-10 4 2.6 7"></path><path d="M12 2v4"></path></svg>
+      </div>
+      <span style="font-size: 17px; font-weight: 800; letter-spacing: -0.02em">Wheelhouse</span>
+    </div>
+    <nav aria-label="Main" style="display: flex; gap: 4px; padding: 4px; border-radius: 14px; background: rgba(21,35,58,0.06)">
+      <a href="#overview" style="height: 36px; padding: 0 16px; display: flex; align-items: center; border-radius: 11px; background: #ffffff; color: #15233a; text-decoration: none; font-size: 14px; font-weight: 700; box-shadow: 0 2px 8px rgba(21,35,58,0.10)">Overview</a>
+      <a href="#deployments" style="height: 36px; padding: 0 16px; display: flex; align-items: center; border-radius: 11px; color: #44546b; text-decoration: none; font-size: 14px; font-weight: 600">Deployments</a>
+      <a href="#fleet" style="height: 36px; padding: 0 16px; display: flex; align-items: center; border-radius: 11px; color: #44546b; text-decoration: none; font-size: 14px; font-weight: 600">Fleet</a>
+      <a href="#secrets" style="height: 36px; padding: 0 16px; display: flex; align-items: center; border-radius: 11px; color: #44546b; text-decoration: none; font-size: 14px; font-weight: 600">Secrets</a>
+      <a href="#products" style="height: 36px; padding: 0 16px; display: flex; align-items: center; border-radius: 11px; color: #44546b; text-decoration: none; font-size: 14px; font-weight: 600">Products</a>
+    </nav>
+    <div style="flex-grow: 1"></div>
+    <span style="display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; border-radius: 999px; background: #fdebd7; color: #8a4b0f; font-size: 12px; font-weight: 700"><span style="width: 7px; height: 7px; border-radius: 50%; background: #e9a23b"></span>Local rig</span>
+    <button type="button" style="height: 40px; padding: 0 18px; border: 0; border-radius: 12px; background: #1f6f8b; color: #ffffff; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 14px; font-weight: 700">Deploy release</button>
+    <div style="width: 38px; height: 38px; border-radius: 50%; background: #15233a; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700">SR</div>
+  </header>
+
+  <main style="position: absolute; left: 40px; right: 40px; top: 108px; bottom: 28px; display: flex; flex-direction: column; gap: 18px">
+    <div style="display: flex; align-items: flex-end; justify-content: space-between">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <h1 style="margin: 0; font-size: 30px; font-weight: 800; letter-spacing: -0.03em">Good afternoon — all targets answered</h1>
+        <div style="font-size: 14px; color: #52627a">Read over SSH every minute. Nothing needs attention.</div>
+      </div>
+      <div style="font-size: 13px; color: #52627a">Last read 2:08 PM</div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px">
+      <div style="padding: 18px 20px; border-radius: 22px; background: rgba(255,255,255,0.62); border: 1px solid rgba(255,255,255,0.9); box-shadow: 0 12px 32px rgba(30,60,90,0.07); backdrop-filter: blur(18px); display: flex; flex-direction: column; gap: 6px">
+        <div style="font-size: 13px; font-weight: 600; color: #52627a">Deploys · 30 days</div>
+        <div style="font-size: 36px; font-weight: 800; letter-spacing: -0.03em">9</div>
+        <div style="font-size: 12px; color: #52627a">5 succeeded · 2 failed · 2 refused</div>
+      </div>
+      <div style="padding: 18px 20px; border-radius: 22px; background: rgba(255,255,255,0.62); border: 1px solid rgba(255,255,255,0.9); box-shadow: 0 12px 32px rgba(30,60,90,0.07); backdrop-filter: blur(18px); display: flex; flex-direction: column; gap: 6px">
+        <div style="font-size: 13px; font-weight: 600; color: #52627a">Success rate</div>
+        <div style="font-size: 36px; font-weight: 800; letter-spacing: -0.03em">71%</div>
+        <div style="font-size: 12px; color: #52627a">of finished rollouts</div>
+      </div>
+      <div style="padding: 18px 20px; border-radius: 22px; background: rgba(255,255,255,0.62); border: 1px solid rgba(255,255,255,0.9); box-shadow: 0 12px 32px rgba(30,60,90,0.07); backdrop-filter: blur(18px); display: flex; flex-direction: column; gap: 6px">
+        <div style="font-size: 13px; font-weight: 600; color: #52627a">Median rollout</div>
+        <div style="font-size: 36px; font-weight: 800; letter-spacing: -0.03em">7s</div>
+        <div style="font-size: 12px; color: #52627a">start to verified</div>
+      </div>
+      <div style="padding: 18px 20px; border-radius: 22px; background: rgba(255,255,255,0.62); border: 1px solid rgba(255,255,255,0.9); box-shadow: 0 12px 32px rgba(30,60,90,0.07); backdrop-filter: blur(18px); display: flex; flex-direction: column; gap: 6px">
+        <div style="font-size: 13px; font-weight: 600; color: #52627a">Median recovery</div>
+        <div style="font-size: 36px; font-weight: 800; letter-spacing: -0.03em">1m 19s</div>
+        <div style="font-size: 12px; color: #52627a">failure to the next success</div>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 16px; flex-grow: 1; min-height: 0">
+      <section aria-label="Host" style="padding: 22px; border-radius: 24px; background: rgba(255,255,255,0.62); border: 1px solid rgba(255,255,255,0.9); box-shadow: 0 12px 32px rgba(30,60,90,0.07); backdrop-filter: blur(18px); display: flex; flex-direction: column; gap: 18px">
+        <div style="display: flex; flex-direction: column; gap: 2px">
+          <h2 style="margin: 0; font-size: 18px; font-weight: 800">Local rehearsal target</h2>
+          <div style="font-size: 12px; color: #52627a">127.0.0.1 · up 3d 12h</div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 10px">
+            <div style="width: 104px; height: 104px; border-radius: 50%; background: conic-gradient(#2a9d8f 0 2%, rgba(21,35,58,0.08) 2% 100%); display: flex; align-items: center; justify-content: center">
+              <div style="width: 80px; height: 80px; border-radius: 50%; background: #f7f8fb; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 800">2%</div>
+            </div>
+            <div style="font-size: 13px; font-weight: 700">CPU load</div>
+            <div style="font-size: 12px; color: #52627a">0.19 on 10 CPUs</div>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 10px">
+            <div style="width: 104px; height: 104px; border-radius: 50%; background: conic-gradient(#2a9d8f 0 16%, rgba(21,35,58,0.08) 16% 100%); display: flex; align-items: center; justify-content: center">
+              <div style="width: 80px; height: 80px; border-radius: 50%; background: #f7f8fb; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 800">16%</div>
+            </div>
+            <div style="font-size: 13px; font-weight: 700">Memory</div>
+            <div style="font-size: 12px; color: #52627a">12 of 14 GiB free</div>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 10px">
+            <div style="width: 104px; height: 104px; border-radius: 50%; background: conic-gradient(#e9a23b 0 69%, rgba(21,35,58,0.08) 69% 100%); display: flex; align-items: center; justify-content: center">
+              <div style="width: 80px; height: 80px; border-radius: 50%; background: #f7f8fb; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 800">69%</div>
+            </div>
+            <div style="font-size: 13px; font-weight: 700">Disk</div>
+            <div style="font-size: 12px; color: #52627a">27 of 87 GiB free</div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-radius: 16px; background: rgba(255,255,255,0.75)">
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <span style="font-size: 14px; font-weight: 700">foreverpin-rehearsal</span>
+            <span style="font-size: 12px; color: #52627a">verified rehearsal-1 · 1 release behind</span>
+          </div>
+          <span style="height: 26px; padding: 0 12px; display: flex; align-items: center; border-radius: 999px; background: #dff3ef; color: #1c6e64; font-size: 12px; font-weight: 800">ready</span>
+        </div>
+      </section>
+
+      <section aria-label="Recent deployments" style="padding: 22px; border-radius: 24px; background: rgba(255,255,255,0.62); border: 1px solid rgba(255,255,255,0.9); box-shadow: 0 12px 32px rgba(30,60,90,0.07); backdrop-filter: blur(18px); display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; justify-content: space-between; align-items: baseline">
+          <h2 style="margin: 0; font-size: 18px; font-weight: 800">Recent deployments</h2>
+          <a href="#deployments" style="font-size: 13px; font-weight: 700; text-decoration: none">View all</a>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <div style="display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 16px; background: rgba(255,255,255,0.8)">
+            <span style="width: 34px; height: 34px; border-radius: 12px; background: #dff3ef; color: #1c6e64; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span>
+            <div style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1"><span style="font-size: 14px; font-weight: 700">rehearsal-1 → foreverpin-rehearsal</span><span style="font-size: 12px; color: #52627a">succeeded · rehearsal</span></div>
+            <span style="font-size: 12px; color: #52627a">Sep 26, 11:10 AM</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 16px; background: rgba(255,255,255,0.8)">
+            <span style="width: 34px; height: 34px; border-radius: 12px; background: #dff3ef; color: #1c6e64; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span>
+            <div style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1"><span style="font-size: 14px; font-weight: 700">rehearsal-1 → foreverpin-rehearsal</span><span style="font-size: 12px; color: #52627a">succeeded · rehearsal</span></div>
+            <span style="font-size: 12px; color: #52627a">Sep 26, 10:21 AM</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 16px; background: rgba(255,255,255,0.8)">
+            <span style="width: 34px; height: 34px; border-radius: 12px; background: #dff3ef; color: #1c6e64; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span>
+            <div style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1"><span style="font-size: 14px; font-weight: 700">rehearsal-1 → foreverpin-rehearsal</span><span style="font-size: 12px; color: #52627a">succeeded · preview-operator</span></div>
+            <span style="font-size: 12px; color: #52627a">Sep 25, 9:51 PM</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 16px; background: rgba(255,255,255,0.8)">
+            <span style="width: 34px; height: 34px; border-radius: 12px; background: #fbe4e7; color: #9e2b3b; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></span>
+            <div style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1; min-width: 0"><span style="font-size: 14px; font-weight: 700">rehearsal-broken → foreverpin-rehearsal</span><span style="font-size: 12px; color: #9e2b3b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">failed · smoke check: /api/runtime-config returned 404</span></div>
+            <span style="font-size: 12px; color: #52627a">Sep 25, 9:48 PM</span>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+</body>
+</html>

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mission Control — Overview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'JetBrains Mono',ui-monospace,monospace;color:#d7e0ea;background:#0a0e13}
+a{color:#ffc46b}a:hover{color:#ffd99c}
+</style>
+</head>
+<body>
+<div style="width: 1440px; height: 900px; display: flex; flex-direction: column; background: #0a0e13; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px">
+  <header style="height: 44px; flex-shrink: 0; display: flex; align-items: center; gap: 22px; padding: 0 18px; border-bottom: 1px solid #1b2530; background: #0d131a">
+    <span style="font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 700; letter-spacing: 0.08em; color: #ffc46b">WHEELHOUSE</span>
+    <span style="color: #8c9aab">LOCAL RIG</span>
+    <span style="display: flex; align-items: center; gap: 6px"><span style="width: 7px; height: 7px; border-radius: 50%; background: #3ddc97"></span>API ONLINE</span>
+    <span style="color: #8c9aab">1 HOST · 1 TARGET · 1 VAULT</span>
+    <span style="flex-grow: 1"></span>
+    <span style="color: #8c9aab">14:08:15 UTC+5</span>
+    <button type="button" style="height: 30px; padding: 0 14px; border: 1px solid #ffc46b; border-radius: 4px; background: transparent; color: #ffc46b; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.06em">DEPLOY ▸</button>
+    <span style="width: 28px; height: 28px; border-radius: 4px; background: #1b2530; display: flex; align-items: center; justify-content: center; font-weight: 700">SR</span>
+  </header>
+
+  <div style="flex-grow: 1; min-height: 0; display: grid; grid-template-columns: 280px minmax(0, 1fr) 380px">
+    <aside aria-label="Navigation and targets" style="border-right: 1px solid #1b2530; display: flex; flex-direction: column">
+      <nav aria-label="Main" style="display: flex; flex-direction: column; padding: 12px 10px; gap: 2px; border-bottom: 1px solid #1b2530">
+        <a href="#overview" style="height: 30px; display: flex; align-items: center; gap: 10px; padding: 0 10px; border-radius: 4px; background: #16202b; color: #eef3f8; text-decoration: none"><span style="color: #ffc46b">▸</span>OVERVIEW</a>
+        <a href="#deployments" style="height: 30px; display: flex; align-items: center; gap: 10px; padding: 0 10px 0 28px; color: #a3b1c2; text-decoration: none">DEPLOYMENTS<span style="margin-left: auto; color: #8c9aab">09</span></a>
+        <a href="#fleet" style="height: 30px; display: flex; align-items: center; gap: 10px; padding: 0 10px 0 28px; color: #a3b1c2; text-decoration: none">FLEET<span style="margin-left: auto; color: #3ddc97">OK</span></a>
+        <a href="#secrets" style="height: 30px; display: flex; align-items: center; gap: 10px; padding: 0 10px 0 28px; color: #a3b1c2; text-decoration: none">SECRETS<span style="margin-left: auto; color: #3ddc97">OK</span></a>
+        <a href="#products" style="height: 30px; display: flex; align-items: center; gap: 10px; padding: 0 10px 0 28px; color: #a3b1c2; text-decoration: none">PRODUCTS<span style="margin-left: auto; color: #8c9aab">01</span></a>
+      </nav>
+      <div style="padding: 14px 16px 8px; color: #8c9aab; letter-spacing: 0.1em">TARGETS</div>
+      <div style="margin: 0 10px; padding: 12px; border: 1px solid #243140; border-radius: 4px; display: flex; flex-direction: column; gap: 8px; background: #0f161e">
+        <div style="display: flex; justify-content: space-between"><span style="color: #eef3f8; font-weight: 700">foreverpin-rehearsal</span><span style="color: #3ddc97">READY</span></div>
+        <div style="color: #8c9aab">foreverpin / rehearsal / 127.0.0.1</div>
+        <div style="display: flex; justify-content: space-between"><span>running rehearsal-1</span><span style="color: #ffc46b">-1 REL</span></div>
+        <div style="display: flex; gap: 3px"><span style="flex: 1; height: 6px; background: #3ddc97"></span><span style="flex: 1; height: 6px; background: #3ddc97"></span><span style="flex: 1; height: 6px; background: #3ddc97"></span><span style="flex: 1; height: 6px; background: #ff6b6b"></span><span style="flex: 1; height: 6px; background: #3ddc97"></span></div>
+        <div style="color: #8c9aab">last 5 rollouts</div>
+      </div>
+      <div style="padding: 18px 16px 8px; color: #8c9aab; letter-spacing: 0.1em">ATTENTION</div>
+      <div style="margin: 0 10px; padding: 12px; border: 1px dashed #243140; border-radius: 4px; color: #a3b1c2">NONE — all targets answered, containers healthy, nothing due for rotation.</div>
+    </aside>
+
+    <main style="padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; min-width: 0">
+      <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid #1b2530; border-radius: 4px">
+        <div style="padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; border-right: 1px solid #1b2530"><span style="color: #8c9aab; letter-spacing: 0.08em">DEPLOYS/30D</span><span style="font-family: 'Space Grotesk', sans-serif; font-size: 34px; font-weight: 600; color: #eef3f8">9</span><span style="color: #8c9aab">5 OK · 2 FAIL · 2 REF</span></div>
+        <div style="padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; border-right: 1px solid #1b2530"><span style="color: #8c9aab; letter-spacing: 0.08em">SUCCESS</span><span style="font-family: 'Space Grotesk', sans-serif; font-size: 34px; font-weight: 600; color: #eef3f8">71%</span><span style="color: #8c9aab">FINISHED ROLLOUTS</span></div>
+        <div style="padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; border-right: 1px solid #1b2530"><span style="color: #8c9aab; letter-spacing: 0.08em">MEDIAN ROLLOUT</span><span style="font-family: 'Space Grotesk', sans-serif; font-size: 34px; font-weight: 600; color: #eef3f8">7s</span><span style="color: #8c9aab">START → VERIFIED</span></div>
+        <div style="padding: 14px 16px; display: flex; flex-direction: column; gap: 6px"><span style="color: #8c9aab; letter-spacing: 0.08em">MEDIAN RECOVERY</span><span style="font-family: 'Space Grotesk', sans-serif; font-size: 34px; font-weight: 600; color: #eef3f8">1m19s</span><span style="color: #8c9aab">FAIL → NEXT OK</span></div>
+      </div>
+
+      <section aria-label="Host" style="border: 1px solid #1b2530; border-radius: 4px; padding: 14px 16px; display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; justify-content: space-between"><span style="color: #eef3f8; font-weight: 700">HOST · local rehearsal target · 127.0.0.1</span><span style="color: #8c9aab">UP 3d 12h · READ 14:08:15</span></div>
+        <div style="display: grid; grid-template-columns: 150px minmax(0, 1fr) 60px; gap: 10px 14px; align-items: center">
+          <span style="color: #a3b1c2">CPU  0.19/10</span>
+          <div style="display: flex; gap: 2px"><span style="flex: 1; height: 14px; background: #3ddc97"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span></div>
+          <span style="text-align: right; color: #eef3f8">2%</span>
+          <span style="color: #a3b1c2">MEM  12/14 GiB</span>
+          <div style="display: flex; gap: 2px"><span style="flex: 1; height: 14px; background: #3ddc97"></span><span style="flex: 1; height: 14px; background: #3ddc97"></span><span style="flex: 1; height: 14px; background: #3ddc97"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span></div>
+          <span style="text-align: right; color: #eef3f8">16%</span>
+          <span style="color: #a3b1c2">DISK 27/87 GiB</span>
+          <div style="display: flex; gap: 2px"><span style="flex: 1; height: 14px; background: #ffc46b"></span><span style="flex: 1; height: 14px; background: #ffc46b"></span><span style="flex: 1; height: 14px; background: #ffc46b"></span><span style="flex: 1; height: 14px; background: #ffc46b"></span><span style="flex: 1; height: 14px; background: #ffc46b"></span><span style="flex: 1; height: 14px; background: #ffc46b"></span><span style="flex: 1; height: 14px; background: #ffc46b"></span><span style="flex: 1; height: 14px; background: #ffc46b"></span><span style="flex: 1; height: 14px; background: #ffc46b"></span><span style="flex: 1; height: 14px; background: #ffc46b"></span><span style="flex: 1; height: 14px; background: #ffc46b"></span><span style="flex: 1; height: 14px; background: #ffc46b"></span><span style="flex: 1; height: 14px; background: #ffc46b"></span><span style="flex: 1; height: 14px; background: #ffc46b"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span><span style="flex: 1; height: 14px; background: #1b2530"></span></div>
+          <span style="text-align: right; color: #eef3f8">69%</span>
+        </div>
+      </section>
+
+      <section aria-label="Containers" style="border: 1px solid #1b2530; border-radius: 4px; overflow: hidden">
+        <div style="display: grid; grid-template-columns: 180px 150px 100px 90px minmax(0, 1fr); gap: 10px; padding: 10px 16px; background: #0f161e; color: #8c9aab; letter-spacing: 0.08em"><span>SERVICE</span><span>STATE</span><span>RESTARTS</span><span>CPU</span><span>MEMORY</span></div>
+        <div style="display: grid; grid-template-columns: 180px 150px 100px 90px minmax(0, 1fr); gap: 10px; padding: 10px 16px; border-top: 1px solid #1b2530"><span style="color: #eef3f8">management</span><span style="color: #3ddc97">● healthy</span><span>0</span><span>0.5%</span><span>125 MiB / 768 MiB</span></div>
+        <div style="display: grid; grid-template-columns: 180px 150px 100px 90px minmax(0, 1fr); gap: 10px; padding: 10px 16px; border-top: 1px solid #1b2530"><span style="color: #eef3f8">redirect</span><span style="color: #3ddc97">● healthy</span><span>0</span><span>0.1%</span><span>112 MiB / 384 MiB</span></div>
+      </section>
+    </main>
+
+    <aside aria-label="Event log" style="border-left: 1px solid #1b2530; display: flex; flex-direction: column; background: #0c1117">
+      <div style="padding: 14px 16px; display: flex; justify-content: space-between; border-bottom: 1px solid #1b2530"><span style="color: #eef3f8; font-weight: 700; letter-spacing: 0.08em">EVENT LOG</span><a href="#deployments" style="text-decoration: none">ALL ▸</a></div>
+      <div style="padding: 10px 16px; display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; flex-direction: column; gap: 3px"><span style="color: #8c9aab">09-26 11:10</span><span><span style="color: #3ddc97">OK </span>rehearsal-1 → foreverpin-rehearsal</span><span style="color: #8c9aab">by rehearsal</span></div>
+        <div style="display: flex; flex-direction: column; gap: 3px"><span style="color: #8c9aab">09-26 10:21</span><span><span style="color: #3ddc97">OK </span>rehearsal-1 → foreverpin-rehearsal</span><span style="color: #8c9aab">by rehearsal</span></div>
+        <div style="display: flex; flex-direction: column; gap: 3px"><span style="color: #8c9aab">09-25 21:51</span><span><span style="color: #3ddc97">OK </span>rehearsal-1 → foreverpin-rehearsal</span><span style="color: #8c9aab">by preview-operator</span></div>
+        <div style="display: flex; flex-direction: column; gap: 3px; padding: 10px; border: 1px solid #4a2328; border-radius: 4px; background: #1a0f12"><span style="color: #8c9aab">09-25 21:48</span><span><span style="color: #ff6b6b">FAIL </span>rehearsal-broken → foreverpin-rehearsal</span><span style="color: #ffb3b3">smoke check: management /api/runtime-config returned 404, expected 200</span></div>
+        <div style="display: flex; flex-direction: column; gap: 3px"><span style="color: #8c9aab">09-25 21:36</span><span><span style="color: #3ddc97">OK </span>rehearsal-1 → foreverpin-rehearsal</span><span style="color: #8c9aab">by rehearsal</span></div>
+      </div>
+    </aside>
+  </div>
+</div>
+</body>
+</html>
