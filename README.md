@@ -2,6 +2,7 @@
 
 **Wheelhouse** — the product ops & deploy control plane for the micro-SaaS portfolio. The essential slice deploys published
 product artifacts to VPSs defined in code. Domain, cost, backup and fleet governance follow that pilot.
+Named DryDock until 2026-09-26 — a ship moving containers, where Docker is the whale that carries them.
 
 > Internal tooling — **never expose publicly**. Bind to loopback and reach it over Tailscale / an SSH tunnel.
 
@@ -11,7 +12,7 @@ product artifacts to VPSs defined in code. Domain, cost, backup and fleet govern
 product/                          ← the definition (what · why · planning) — no code
 └── product.md · context.md · features/ · flows/ · planning/
 engineering/                      ← the execution (build · ship · run)
-├── engineering.md · architecture/ · development/ · deployment/ · planning/ · versions/ · research/ · scripts/
+├── engineering.md · architecture/ · development/ · deployment/ · planning/ (incl. version-track/) · research/ · scripts/
 └── codebase/
     ├── wheelhouse.backend-services/         ← .NET 10 API (Clean Architecture + MediatR + EF Core/PostgreSQL)
     │   ├── Wheelhouse.Domain        ← entities, enums, Result pattern

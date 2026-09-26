@@ -1,12 +1,17 @@
 # Wheelhouse — Rules
 
-*Last updated: 2026-06-12*
+*Last updated: 2026-09-25*
 
-Operational conventions specific to Wheelhouse. Shared code style lives in `wow-two-ws/conventions/`.
+Operational rules specific to Wheelhouse. Shared code style lives in `wow-two-ws/conventions/`.
 
-- **Secrets handling:** Wheelhouse holds the highest-value secret set in the portfolio (VPS SSH keys, registrar billing API, Cloudflare token, GHCR PAT). Encrypt at rest; never commit, bake into an image, or log a secret value. Use scoped tokens (Cloudflare per-zone, GitHub GHCR-read). Keep an audit trail on every deploy / secret change / domain purchase.
-- **Data handling:** SQLite store; EF migrations applied on startup, forward-only. Never ship a real `*.db` into an image layer (see `codebase/.dockerignore`).
-- **Deployment:** one instance; bind to loopback and reach over a private mesh (Tailscale / SSH tunnel) — never expose publicly.
-- **Outbound exec:** remote operations go through SSH.NET (transparent + loggable) and scoped REST clients in `Infrastructure` — never ad-hoc shell-outs from the host.
-- **Versioning:** product progress is tracked as version docs under `versions/v{X.Y}/`.
-- **Ports:** HTTPS 8210 / HTTP 8211 (dev) — even HTTPS + odd HTTP adjacent.
+- **Secrets:** Wheelhouse holds SSH identities, catalog tokens and vault credentials — the highest-value set in the portfolio.
+  Mount them as protected files; never commit, bake into an image, log, or return a secret value.
+- **Secret values:** the vault console is write-only — values go to the vault and never come back to the browser.
+  A minted product token is shown once, then only its metadata remains.
+- **Failure reasons:** surface only static rule text, setting key names, step names and exit codes; never raw command output.
+- **Data:** PostgreSQL; schema owned by hand-authored SQL migrations applied on startup, forward-only.
+- **Deployment:** one private instance; bind to loopback and reach it over a private mesh or SSH tunnel.
+- **Outbound execution:** remote operations go through the Python runner over pinned OpenSSH, and HTTP calls only
+  to code-owned endpoints — never ad-hoc shell commands or browser-supplied URLs.
+- **Versioning:** progress lives in [version docs](version-track/version-track.md).
+- **Ports:** HTTPS 8210 / HTTP 8211 (dev) — even HTTPS, odd HTTP.

@@ -1,6 +1,6 @@
 # Wheelhouse — Product planning
 
-*Last updated: 2026-09-19*
+*Last updated: 2026-09-26*
 
 ## Essential milestone
 
@@ -12,6 +12,7 @@ A working public redirect and editor, real provider callbacks and a verified bac
 |---|---|---|
 | Foundations | PostgreSQL, private authenticated dashboard, products | Locally verified |
 | Deployment | Code-owned fleet, published artifact catalog, SSH runner, readiness and compatible image recovery | Implemented; live wiring open |
+| Operations and secrets | History, target checks, reconciliation, vault console, metrics dashboard | Implemented locally (`v0.3`) |
 | Domains | Explicit registrar/DNS integrations, routes and expiry inventory | Planned |
 | Operations | Uptime, backup age, disk, costs and restore drills | Planned |
 | Portfolio | Placement, additional provider integrations and explicit data relocation | Planned |

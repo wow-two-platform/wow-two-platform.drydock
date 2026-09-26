@@ -15,11 +15,12 @@
 | Backend dev guidelines | `engineering/development/backend-guidelines.md` |
 | Frontend dev guidelines | `engineering/development/frontend-guidelines.md` |
 | Iteration / version workflow | `engineering/development/iteration-guide.md` |
-| Eng roadmap, component tracker, decisions | `engineering/planning/planning.md` |
+| Eng versions, phases, tracks | `engineering/planning/planning.md` |
 | Backlog (deferred / known issues) | `engineering/planning/backlog.md` |
 | Operational rules | `engineering/planning/rules.md` |
 | Deploy / ops | `engineering/deployment/deployment.md` |
-| Per-version progress | `engineering/versions/v{X.Y}/v{X.Y}.md` |
+| Per-version progress | `engineering/planning/version-track/v{X.Y}/v{X.Y}.md` |
+| Deployment pilot / CI policy | `engineering/planning/deployment-pilot.md` · `ci-artifact-policy.md` |
 
 ## Source projects (`engineering/codebase/`)
 
@@ -31,7 +32,7 @@
 | `Wheelhouse.Api` | HTTP host — control-plane controllers; single-host SPA serving |
 | `Wheelhouse.Application` | Use cases — MediatR handlers, repository abstractions, DTOs |
 | `Wheelhouse.Domain` | Entities (Server/Product/Deployment/ManagedDomain/SecretEntry) + enums + Result |
-| `Wheelhouse.Infrastructure` | Adapters — clock now; SSH / Hetzner / Porkbun / Cloudflare / GHCR next |
+| `Wheelhouse.Infrastructure` | Adapters — runner process gateway, vault admin client, settings |
 | `Wheelhouse.Persistence` | EF Core + Postgres context, repositories, hand-authored SQL migrations |
 | `Wheelhouse.Tests.Unit` | **Unit** tier — pure logic (version-state machine, validators); Docker-free |
 | `Wheelhouse.Tests.Integration` | **Integration** tier — EF model below the pipeline (enum round-trip, repository predicates/ordering, constraints) over the SDK `RelationalTestDb`, no HTTP; PG↔SQLite |
@@ -41,4 +42,12 @@
 ### `codebase/wheelhouse.frontend-services/` (React)
 | App | What it is |
 |---|---|
-| (root Vite app) | Control-plane dashboard — servers (+ products/deployments/domains/secrets next) |
+| (root Vite app) | Control-plane dashboard — deployments, fleet, secrets, products |
+
+### `codebase/wheelhouse.runner-services/` (Python)
+| File | What it is |
+|---|---|
+| `fleet.py` | Code-owned providers, servers, targets, vaults |
+| `artifacts.py` | Approved release sources and catalog |
+| `transport.py` | Operator CLI + SSH adapter used by the API |
+| `runner.py` | Target-side executor: locks, health gates, recovery |

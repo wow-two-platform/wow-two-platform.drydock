@@ -1,120 +1,99 @@
 # Wheelhouse — Backlog
 
-*Last updated: 2026-06-22*
+*Last updated: 2026-09-26*
 
-Deferred work + known issues. Version docs (`../versions/`) stay clean — items land here, not there.
-**Ordered queue: top = next to pull.** Grouped by theme; ordered within. Type: `feature` · `issue` · `check` · `idea`. Order is the priority — no future-version tags. Strike-through + ✅ when done (kept for traceability).
+Deferred work; top of each group = next. Version docs hold only the active version.
 
-## Extract to the SDK (the +0.1 rhythm — infra proves in Wheelhouse, then leaves it)
-
-> Full-solution scan 2026-06-16. The SDK **already ships most of this** → for most items the extract is *adopt-and-delete the inline copy*. Legend: **[adopt]** SDK has it, delete inline · **[Δ]** upstream wheelhouse's extra behavior into the SDK type · **[new]** net-new SDK leaf. Ordered simplest/most-independent → dependent-last.
-
-| # | Extract (wheelhouse type) | → SDK area | Kind |
-|---|---|---|---|
-| 1 | `IClock`/`SystemClock` | `Foundation.Time` | adopt ⚠️ NodaTime collision |
-| 2 | `IEntity`/`IKeyedEntity<TKey>` | `Data.Abstractions` | adopt |
-| 3 | `AddGitHubAuthentication` | `Identity.OAuth.GitHub` | adopt + Δ (`configure` overload) |
-| 4 | `FailureCategory` + `ToStatusCode` + `IWheelhouseFailure` | `Web.Results` + `Mediator.Result` (`ICategorizedFailure`) | new |
-| 5 | `ApiResponse<T>` envelope | `Web.Contracts` | new |
-| 6 | cookie secure-defaults + XHR 401/403 | `Identity.Cookies` | adopt + Δ (ApiMode) |
-| 7 | `AuthSettings` allowlist + `GitHubOAuthSettings` | `Identity.OAuth.Allowlist` | new |
-| 8 | default-deny cookie fallback policy | `Identity.Authorization` | new |
-| 9 | `EfServerStore`/`EfProductStore` → generic repo | `Data.EntityFrameworkCore` (`EfRepository`) | adopt |
-| ~~10~~ | ~~`DateTimeOffset`→binary SQLite convention~~ | — | ~~obsolete~~ — SQLite path removed 2026-06-20; tests run on Postgres |
-| ~~11~~ | ~~migrate-on-boot + design-time factory~~ | `Data.Migrations.Bespoke` | ✅ done — extracted by the migration lane (bespoke SQL migrator), 2026-06-20 |
-| 12 | slim host wiring (`Program.cs`/`Api/Configurations`) | `Meta` (`AddApiDefaults`/`UseApiDefaults`) | adopt (partial) |
-| 13 | single-host SPA serving + `/api/*` JSON-404 | `Web.Hosting` (new `Spa` leaf) | new — **highest cross-portfolio ROI** (wheelhouse+smart-qr+vault all hand-roll it; 2026-06-22 SDK-% audit) |
-| 14 | `StubGitHubClient`/`StubContainerRegistryClient` (E2E doubles for SDK `Integrations.GitHub`/`Ghcr`) | new `Testing.Integrations.{GitHub,Ghcr}` doubles | new — surfaced by 2026-06-22 SDK-% audit; pairs with the Iter-7 test adoption |
-
-**Stays (business logic, never extracted):** the 5 domain aggregates + enums · all `Products`/`Servers` CQRS verticals + DTOs · `ProductValidation` · `IGitHubClient`/`GitHubClient` (request-scoped repo-existence probe — product-specific) · store *interfaces* (+ `Exists*` predicates) · DbContext entity mappings · controllers · settings *values* + `launchSettings`.
-
-**Decide once (every portfolio product hits it):** `IClock` is `DateTimeOffset`-based in wheelhouse but **NodaTime** in the SDK — adopt NodaTime (+ touch the ~3 handlers reading `clock.UtcNow`) OR have `Foundation.Time` expose a `DateTimeOffset`/`TimeProvider` clock so adoption is a pure delete.
-
-## Build & dev-loop (local single-host build)
-
-> Wheelhouse-actionable **now** — no SDK dependency (unlike the Iter 7 test adoption, which is gated on the SDK closing its 5 testing gaps).
+## Hosting
 
 | Item | Type | Notes |
 |---|---|---|
-| ~~Frontend build wiring — MSBuild `BuildSpa` target on `Wheelhouse.Api`~~ ✅ | feature | **Done 2026-06-22** — `Wheelhouse.Api.csproj` `BuildSpa` target (`BeforeTargets="Build"`, `Inputs`/`Outputs` incremental, `npm ci` only when `node_modules` absent → `npm run deploy` → `wwwroot/`); ports smart-qr `f55d296`. **Docker guard:** `Condition="'$(SkipSpaBuild)' != 'true'"` + `-p:SkipSpaBuild=true` on the Dockerfile publish (`Dockerfile:28`) so the Node-less .NET publish stage skips it (its node stage already built the SPA). Verified: 1st build → SPA in `wwwroot`; 2nd build → incremental skip; guard → skips. **Open follow-up → mirror to `secrets-vault`** (`SecretsVault.Api.csproj`). |
+| Prepare a VPS for deployments with one command | feature | Ingress, PostgreSQL, `platform` network, deploy account, protected root, firewall |
+| Encrypted off-provider backups with a restore drill | feature | Product databases, key volumes, Wheelhouse state; decryption keys held off-host |
+| Keep 30 days of vitals history | feature | A sampler beside the on-demand read; feeds trends and alerts |
+| Uptime, backup-age and disk alerts | feature | Needs the history sampler; external probe of a real redirect; channel alerts |
+| Run Wheelhouse through its own release pipeline | feature | Needs a Wheelhouse image workflow and private ingress |
 
-## Make products publishable (prerequisite for the whole deploy model)
+---
 
-| Item | Type | Notes |
-|---|---|---|
-| Reusable image-publish CI workflow (GitHub Actions → GHCR) | feature | Build the single-host image on release → push to registry. Without it Wheelhouse has no ready image to resolve. Lives in `…pipelines` / per-repo. Do early. |
-| Image-naming + tag-resolution convention | check | `ghcr.io/{org}/{repo}` + tag from release (vs main-SHA). Settles how Wheelhouse resolves "latest ready". |
-
-## Deploy slice — finish the core (the road from v0.1 to MVP)
-
-| Item | Type | Notes |
-|---|---|---|
-| Verify a server is reachable + Docker-ready | feature | Connection/Docker test; prerequisite to any push. (Was scoped into v0.1, pulled out.) |
-| Push a product's ready image to a server | feature | SSH → render deploy compose → pull & up. The actual deploy. (Was v0.1.) |
-| Serve a deployed product over a real domain with automatic HTTPS | feature | Closes the "real domain + SSL" half of the milestone; assumes a domain already owned + hand-pointed. |
-| Persisted deploy history per product-on-a-server | feature | Who / when / what per deploy — the record rollback selects from. |
-| One-click rollback to a previous version | feature | Re-pin the prior released image; core ask. Needs history above. |
-| Restart / redeploy / teardown a running product stack | feature | Round out deploy lifecycle controls. |
-| Tests around the deploy executor | issue | First logic worth locking down; scaffold has none yet — add with the executor. |
-
-## Image resolution & fallback verification (deeper layers beyond v0.1's resolve-latest)
+## Secrets
 
 | Item | Type | Notes |
 |---|---|---|
-| Cache version-status probes to respect GitHub rate limits | feature | On-demand resolve does ~3 probes/product/load; `50–100` products × dashboard loads will blow GitHub's `5k`/hr. Cache `ProductVersionState` + refresh on a release / workflow-run **webhook** (or a TTL poll), not per-render. |
-| Multi-environment / channel resolution (release vs main-SHA, prod vs staging) | feature | v0.1 resolves one latest-release image; this generalises. |
-| Multi-image / two-container topology support | feature | When a product genuinely needs a separate frontend; single-host is the default. |
-| `wheelhouse.yml` manifest standard | feature | Declare services (name·role·image·port) for multi-service / non-conformant products — the override. |
-| (fallback) Scan/parse a Dockerfile when a repo has no CI image | check | Escape hatch only — demoted; the CI-image model makes this rare. |
-| (fallback) Clone + real `docker build` verify | check | Escape hatch for non-CI products; needs git + token on the box. |
+| Grant a product environment its vault token during deployment | feature | Mint, then write into the target settings; never displayed |
+| Vault consumer in the backend SDK | feature | Startup resolution, bounded timeout, fail-closed; unblocks ForeverPin adoption |
+| Scoped management credential for Wheelhouse | check | Vault-side change; replaces the shared administrator password |
+| Record operator actions in an audit table | feature | Actor, operation, target; values never stored |
+| Mint expiring product tokens | feature | Vault API change: mint accepts only a name today; hygiene already flags expiry |
 
-## Domains — in the MVP track (≤ v1.0)
+---
 
-| Item | Type | Notes |
-|---|---|---|
-| Search domain availability + price from the dashboard | feature | Registrar lookup. |
-| Buy a domain against a pre-funded balance | feature | Records cost + expiry. |
-| Point a bought domain's DNS at a server + assign it to a product | feature | DNS record → server; next deploy routes the host + issues its cert. |
-
-## Harden for real use (around MVP)
+## Deployments
 
 | Item | Type | Notes |
 |---|---|---|
-| Multi-user — host one Wheelhouse for many users | feature | Base model is **self-hosted: the signed-in GitHub user _is_ the user** (no allowlist, no org gating — anyone can run it). For a shared hosted instance: a **`Users`** table + **`OwnerId`** scoping on Product/Server/Deployment so each user sees only their own. |
-| MFA / WebAuthn | idea | The beta SDK already ships `Identity/Mfa/WebAuthn` — wire when exposure warrants. |
-| Delete-confirm via `@wow-two-beta/ui` modal | idea | Product delete confirmation is inline in the card; swap to a proper modal dialog from the beta UI lib. |
-| Migrate secrets at rest to the secrets-vault service | check | Wheelhouse grows NO secrets handling of its own — `wow-two-platform.secrets-vault` owns it; wire when it's ready. |
-| Adopt the backend beta SDK (host + pipeline) | check | Move host + pipeline onto `WoW.Two.Sdk.Backend.Beta` once a restore-verified spike confirms its hosting/observability/mediator helpers. (Identity slice already scheduled in `v0.2`.) |
+| Browse releases older than the recent catalog | feature | The target journal already retains deployed bundles |
+| Signed provenance for release bundles | feature | Attestation check before selection |
+| Private release-asset download | feature | Token-authenticated catalog for private repositories |
+| Zero-downtime replacement | idea | Blue/green only when measured demand warrants it |
 
-## Ops & alerts — post-MVP
+---
 
-| Item | Type | Notes |
-|---|---|---|
-| Health / uptime monitoring with channel alerts | feature | Notify when a product falls over. |
-| Domain + certificate expiry alerts | feature | A dead domain = a dead product. |
-| Per-product managed datastore + scheduled backups | feature | Every product eventually needs a DB + backups. |
-| Cost per product (server share + domain) | feature | Feeds the micro-SaaS kill-gates. |
-| Adopt Postgres + the smart-qr migration layer | feature | Target DB = **Postgres** via the bespoke smart-qr migrator (→ backend-beta). SQLite is the interim; swap the provider + migrator once it's extracted. |
-| Local SQLite store hygiene — document / automate a reset | issue | Dev db accumulates throwaway rows. |
-
-## Accelerate & lifecycle — post-MVP
+## Domains
 
 | Item | Type | Notes |
 |---|---|---|
-| 0→live scaffold: create repo → wire CI (incl. image-publish) → first deploy | feature | The portfolio accelerator for 50–100 launches. |
-| Teardown / kill-gate automation: stop, final backup, archive, release domain | feature | Executes the micro-SaaS kill gates cleanly. |
-| One-click server provisioning + first-boot bootstrap | feature | New box from a single provider call. |
-| Capacity / placement view across servers | feature | Bin-pack products onto boxes. |
-| Staging / preview environments per product | feature | Branch deploys. |
-| Privacy-friendly analytics auto-wire | idea | GWDNBM — no creepy tracking. |
-| Reusable stack presets | idea | Define a stack shape once, reuse across the portfolio. |
-| Full cross-action audit log | feature | Every deploy, secret change, domain purchase — beyond deploy history. |
+| Registrar search and purchase against a pre-funded balance | feature | Registrar choice open |
+| DNS records and ingress routes per product environment | feature | Per-zone scoped tokens |
+| Domain and certificate expiry tracking | feature | A dead domain is a dead product |
+
+---
+
+## Portfolio
+
+| Item | Type | Notes |
+|---|---|---|
+| Second provider and a placement view | feature | Provider enum plus integration in code |
+| Cost per product and host | feature | Feeds the micro-SaaS kill gates |
+| Teardown with a final backup and archive | feature | |
+| Zero-to-live scaffold from the product template | feature | Repository, CI, first deployment |
+
+---
+
+## SDK gaps found by Wheelhouse
+
+| Item | Type | Notes |
+|---|---|---|
+| UI SDK `AlertModal.Action`/`Cancel` render as the corner close icon | issue | Fixed in the SDK working tree; tests pass in Chromium; needs a release and re-pin |
+| UI SDK `query` entry imports optional persistence peers | issue | Consumers must install both persister packages; move persistence to a subpath |
+| UI SDK `useAppQuery` has no polling interval | feature | Wheelhouse polls inside two hooks meanwhile |
+| UI SDK `useAppQuery` exposes no background-fetching flag | feature | Added in the SDK working tree (`fetching`, `useRefresh`); needs a release and re-pin |
+| Swap the skeleton and `useRefresh` shims for the SDK's | check | `presentation/common/skeleton` + `application/common/useRefresh` copy the unreleased SDK parts; delete after the re-pin |
+| UI SDK `AppShell` has no user-collapsible rail or full-height sidebar | feature | Wheelhouse overrides the sidebar's classes and drawer padding |
+| Move the Wheelhouse palette into the UI SDK theme registry | check | Lives in the app's `index.css` today, beside `theme-smart-qr` |
+| UI SDK `Stat` trend has no inverse or custom format | feature | Durations fall as they improve; Wheelhouse's `KpiTile` composes `TrendIndicator` meanwhile |
+| UI SDK `Table` has no sticky-header option | feature | Its head is translucent; Wheelhouse's `TableStyles` pins an opaque one |
+| UI SDK `AppShell` has no page-header actions slot | feature | Wheelhouse portals them through `PageActions` |
+| UI SDK `DropdownMenu` has no radio items | feature | The theme choice uses plain items with a check |
+| UI SDK `Select` root is full-width inside a flex row | issue | The product form's provider select needed a fixed-width box |
+
+---
+
+## Cleanup
+
+| Item | Type | Notes |
+|---|---|---|
+| Retire the placeholder server, deployment, domain and secret tables | issue | Unused since the code-owned fleet |
+| Retire the single-image version-status query | issue | Replaced by the published artifact catalog |
+| Split the dashboard bundle by route | issue | One 1.15 MB chunk today |
+| Move the remaining panels to skeleton first loads | check | Attention, the fleet host and environment tables, and the secrets panels still show a spinner |
+| Extract the vault admin client to the backend SDK | check | After `v0.3` proves it |
+
+---
 
 ## Open decisions
 
-| Item | Type | Notes |
-|---|---|---|
-| Image resolution source — release vs main-SHA | check | Lean **release** = intentional ready version (matches "push ready code"). |
-| Build the deploy substrate vs wrap an existing self-hosted PaaS | check | Bespoke = the real platform; wrap = faster fallback if the deploy spike stalls. |
-| Registrar choice — cleanest-API vs familiar-but-stricter | check | Settle before the Domains group is pulled. |
-| One big server vs one-per-product placement | check | Decides multi-server priority; tied to how many boxes exist now. |
+| Item | Notes |
+|---|---|
+| Registrar | Settle before the Domains group |
+| One vault per environment or one per host with namespaces | Vault docs assume one per product environment |

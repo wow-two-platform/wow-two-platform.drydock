@@ -1,6 +1,6 @@
 # Wheelhouse — Frontend Development Guidelines
 
-*Last updated: 2026-06-12*
+*Last updated: 2026-09-26*
 
 > Shared frontend conventions are a future sibling of `wow-two-ws/conventions/` (planned `conventions/frontend/`). Until it lands, follow the points below + `@wow-two-beta/ui` usage patterns. Document repo-specific deltas here.
 
@@ -17,3 +17,6 @@
 ## Repo-specific deltas
 
 - Control-plane dashboard only — single operator, never public. No client-side caching of secret values beyond the immediate view.
+- Loading follows the workspace [loading pattern](../../../../../conventions/development/frontend/core/mla/domains/data/state-and-data.md#loading): `LoadState skeleton` for first loads, `useRefresh` + `Skeleton.Group` for a refresh the operator asks for. `presentation/common/skeleton` and `application/common/useRefresh` copy unreleased SDK parts until the re-pin.
+- A page's primary action goes in the shared page header through `PageActions`; the page keeps the dialog it opens.
+- Theme tokens live in `bootstrap/index.css` (`:root` and `.dark`); `public/theme.js` applies the remembered scheme before the first paint.

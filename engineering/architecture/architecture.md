@@ -1,6 +1,6 @@
 # Wheelhouse architecture
 
-*Last updated: 2026-09-19*
+*Last updated: 2026-09-26*
 
 ## Runtime
 
@@ -34,7 +34,8 @@ flowchart LR
 | Infrastructure | SDK integration clients and bounded runner-process adapter |
 | Persistence | PostgreSQL EF mapping, repositories and bespoke migration files |
 | API | Host wiring, authorization, request validation, controllers and SPA serving |
-| Python runner | Code-owned fleet, release discovery, bundle validation, SSH, rollout and recovery |
+| Python runner | Code-owned fleet and vault catalog, release discovery, bundle validation, SSH, rollout, checks and recovery |
+| Vault gateway | Administers catalog vaults over their management API; values are write-only |
 
 The pre-existing server/deployment/domain/secret database models are retained for compatibility.
 The current server API reads the code-owned fleet; it cannot create or delete hosts.
@@ -68,11 +69,19 @@ Interrupted or unrecovered mutation requires explicit reconciliation.
 Image recovery requires a declared schema-compatibility guarantee. It does not restore the database.
 Compose replacement has a restart window; this implementation does not promise zero downtime.
 
+## Secrets vaults
+
+Secrets Vault stays a separate service and repository; Wheelhouse is its central management console.
+The gateway resolves a vault id through the code-owned catalog, signs in with a mounted administrator credential,
+and forwards namespace, secret, state and token operations. It never requests secret values.
+Products keep reading secrets from their own vault on the private network, so an unavailable Wheelhouse
+cannot interrupt runtime reads. See the vault's own security analysis for the global-console trust boundary.
+
 ## Infrastructure governance
 
 Products and the code-owned fleet are the implemented inventory. Deployment is the essential operational slice.
-Domain registration/DNS automation, a secrets vault, provisioning, capacity/cost inventory and continuous fleet monitoring
-remain separate capabilities in the [governance plan](../planning/deployment-pilot.md).
+On-demand vitals, deployment metrics and vault hygiene feed one attention list. Domain registration/DNS automation,
+provisioning, capacity/cost inventory, vitals history and alerting remain separate capabilities in the [governance plan](../planning/deployment-pilot.md).
 The first product is ForeverPin: management API/SPA plus redirect API sharing a product database.
 
 A different VPS requires a reviewed fleet code change and a new Wheelhouse build; product images remain unchanged.

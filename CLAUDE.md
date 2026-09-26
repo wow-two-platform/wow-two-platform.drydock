@@ -5,6 +5,7 @@
 **Wheelhouse** — the internal product ops & deploy control plane for the micro-SaaS portfolio. Deploys
 product release bundles to code-owned VPS targets over SSH (Docker + ingress). Domain governance,
 secret rotation and fleet monitoring remain planned capabilities. Single-user; **never exposed publicly**.
+Named DryDock until 2026-09-26; history before then says DryDock.
 
 > This is a **platform service** in the `wow-two-platform` org. It manages the *other* products —
 > it sits above them operationally.
@@ -15,10 +16,11 @@ secret rotation and fleet monitoring remain planned capabilities. Single-user; *
 product/                  ← the definition (what · why · features · flows) — no code
 └── product.md · context.md · features/ · flows/ · planning/
 engineering/              ← the execution (build · ship · run)
-├── engineering.md · architecture/ · development/ · deployment/ · planning/ · versions/ · research/ · scripts/
+├── engineering.md · architecture/ · development/ · deployment/ · planning/ (incl. version-track/) · research/ · scripts/
 └── codebase/
     ├── wheelhouse.backend-services/   ← .NET 10 Clean Architecture solution (Wheelhouse.BackendServices.slnx)
-    └── wheelhouse.frontend-services/  ← React 19 + Vite + Tailwind v4 + @wow-two-beta/ui
+    ├── wheelhouse.frontend-services/  ← React 19 + Vite + Tailwind v4 + @wow-two-beta/ui (layered, SDK query layer)
+    └── wheelhouse.runner-services/    ← Python operator runner: fleet, catalog, SSH transport, target executor
 ```
 
 Follows `wow-two-ws/conventions/development/repo/structure/repo-structure.md`.
@@ -29,9 +31,10 @@ Backend layers: `Domain` (entities/enums/Result) → `Application` (MediatR CQRS
 
 ## Core domains (the 5 things Wheelhouse manages)
 
-Products · Servers · Deployments · Domains · Secrets. **Products** (create/list/update/delete +
-version-resolution) and **Servers** (read-only code-owned fleet) are wired end-to-end. Deployments use the independent
-runner and published artifact catalog. Domains/Secrets remain scaffold models.
+Products · Servers · Deployments · Domains · Secrets. **Products** (create/list/update/delete) and **Servers**
+(read-only code-owned fleet) are wired end-to-end. Deployments use the independent runner and published artifact
+catalog, with history, read-only checks and reconciliation. **Secrets** are administered in code-owned vaults through
+the vault console (write-only values). Domains remain a scaffold model.
 
 ## Build & run
 
@@ -46,6 +49,11 @@ dotnet run --project Wheelhouse.Api --launch-profile https   # 8210 https / 8211
 # Frontend
 cd engineering/codebase/wheelhouse.frontend-services && npm install && npm run dev   # 5174, proxies /api → 8211
 npm run deploy   # build + copy SPA into Wheelhouse.Api/wwwroot
+
+# Local rig for an IDE run (then Wheelhouse.Api, profile https → https://localhost:8210)
+cd engineering/deployment/rehearsal && python3 rehearse.py dev
+# The whole system locally: production image + rehearsal SSH target + vault (deployment.md → Local console)
+cd engineering/deployment/rehearsal && python3 rehearse.py console   # http://localhost:18210
 ```
 
 ## Testing
@@ -79,7 +87,7 @@ Reserve unit for I/O-free logic; everything user-facing is covered e2e. Full rul
   EmptyState, Alert, Spinner, TextInput, …) before hand-rolling. Tailwind v4 wiring: `index.css`
   imports `tailwindcss` + `@wow-two-beta/ui/styles.css` and `@source`s the package's `dist` so its
   utility classes are generated. If a component is missing, build it locally, then migrate it upstream.
-- **Backend → `WoW.Two.Sdk.Backend.Beta` (adopted, `10.0.34-beta`).** `v0.2` migrated every layer onto
+- **Backend → `WoW.Two.Sdk.Backend.Beta` (adopted, `10.0.40-beta`).** `v0.2` migrated every layer onto
   the SDK: host floor (`AddApiDefaults`/`UseApiDefaults`), mediator + results + validation, identity
   (GitHub OAuth + cookie + allowlist/default-deny), `Integrations.GitHub`/`Ghcr` clients, the bespoke SQL
   migrator, and `…Beta.Testing` for the test harness. Products hold business logic only; new infra proves
