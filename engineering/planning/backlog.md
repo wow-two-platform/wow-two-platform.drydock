@@ -1,20 +1,20 @@
-# Drydock — Backlog
+# Wheelhouse — Backlog
 
 *Last updated: 2026-06-22*
 
 Deferred work + known issues. Version docs (`../versions/`) stay clean — items land here, not there.
 **Ordered queue: top = next to pull.** Grouped by theme; ordered within. Type: `feature` · `issue` · `check` · `idea`. Order is the priority — no future-version tags. Strike-through + ✅ when done (kept for traceability).
 
-## Extract to the SDK (the +0.1 rhythm — infra proves in Drydock, then leaves it)
+## Extract to the SDK (the +0.1 rhythm — infra proves in Wheelhouse, then leaves it)
 
-> Full-solution scan 2026-06-16. The SDK **already ships most of this** → for most items the extract is *adopt-and-delete the inline copy*. Legend: **[adopt]** SDK has it, delete inline · **[Δ]** upstream drydock's extra behavior into the SDK type · **[new]** net-new SDK leaf. Ordered simplest/most-independent → dependent-last.
+> Full-solution scan 2026-06-16. The SDK **already ships most of this** → for most items the extract is *adopt-and-delete the inline copy*. Legend: **[adopt]** SDK has it, delete inline · **[Δ]** upstream wheelhouse's extra behavior into the SDK type · **[new]** net-new SDK leaf. Ordered simplest/most-independent → dependent-last.
 
-| # | Extract (drydock type) | → SDK area | Kind |
+| # | Extract (wheelhouse type) | → SDK area | Kind |
 |---|---|---|---|
 | 1 | `IClock`/`SystemClock` | `Foundation.Time` | adopt ⚠️ NodaTime collision |
 | 2 | `IEntity`/`IKeyedEntity<TKey>` | `Data.Abstractions` | adopt |
 | 3 | `AddGitHubAuthentication` | `Identity.OAuth.GitHub` | adopt + Δ (`configure` overload) |
-| 4 | `FailureCategory` + `ToStatusCode` + `IDrydockFailure` | `Web.Results` + `Mediator.Result` (`ICategorizedFailure`) | new |
+| 4 | `FailureCategory` + `ToStatusCode` + `IWheelhouseFailure` | `Web.Results` + `Mediator.Result` (`ICategorizedFailure`) | new |
 | 5 | `ApiResponse<T>` envelope | `Web.Contracts` | new |
 | 6 | cookie secure-defaults + XHR 401/403 | `Identity.Cookies` | adopt + Δ (ApiMode) |
 | 7 | `AuthSettings` allowlist + `GitHubOAuthSettings` | `Identity.OAuth.Allowlist` | new |
@@ -23,27 +23,27 @@ Deferred work + known issues. Version docs (`../versions/`) stay clean — items
 | ~~10~~ | ~~`DateTimeOffset`→binary SQLite convention~~ | — | ~~obsolete~~ — SQLite path removed 2026-06-20; tests run on Postgres |
 | ~~11~~ | ~~migrate-on-boot + design-time factory~~ | `Data.Migrations.Bespoke` | ✅ done — extracted by the migration lane (bespoke SQL migrator), 2026-06-20 |
 | 12 | slim host wiring (`Program.cs`/`Api/Configurations`) | `Meta` (`AddApiDefaults`/`UseApiDefaults`) | adopt (partial) |
-| 13 | single-host SPA serving + `/api/*` JSON-404 | `Web.Hosting` (new `Spa` leaf) | new — **highest cross-portfolio ROI** (drydock+smart-qr+vault all hand-roll it; 2026-06-22 SDK-% audit) |
+| 13 | single-host SPA serving + `/api/*` JSON-404 | `Web.Hosting` (new `Spa` leaf) | new — **highest cross-portfolio ROI** (wheelhouse+smart-qr+vault all hand-roll it; 2026-06-22 SDK-% audit) |
 | 14 | `StubGitHubClient`/`StubContainerRegistryClient` (E2E doubles for SDK `Integrations.GitHub`/`Ghcr`) | new `Testing.Integrations.{GitHub,Ghcr}` doubles | new — surfaced by 2026-06-22 SDK-% audit; pairs with the Iter-7 test adoption |
 
 **Stays (business logic, never extracted):** the 5 domain aggregates + enums · all `Products`/`Servers` CQRS verticals + DTOs · `ProductValidation` · `IGitHubClient`/`GitHubClient` (request-scoped repo-existence probe — product-specific) · store *interfaces* (+ `Exists*` predicates) · DbContext entity mappings · controllers · settings *values* + `launchSettings`.
 
-**Decide once (every portfolio product hits it):** `IClock` is `DateTimeOffset`-based in drydock but **NodaTime** in the SDK — adopt NodaTime (+ touch the ~3 handlers reading `clock.UtcNow`) OR have `Foundation.Time` expose a `DateTimeOffset`/`TimeProvider` clock so adoption is a pure delete.
+**Decide once (every portfolio product hits it):** `IClock` is `DateTimeOffset`-based in wheelhouse but **NodaTime** in the SDK — adopt NodaTime (+ touch the ~3 handlers reading `clock.UtcNow`) OR have `Foundation.Time` expose a `DateTimeOffset`/`TimeProvider` clock so adoption is a pure delete.
 
 ## Build & dev-loop (local single-host build)
 
-> Drydock-actionable **now** — no SDK dependency (unlike the Iter 7 test adoption, which is gated on the SDK closing its 5 testing gaps).
+> Wheelhouse-actionable **now** — no SDK dependency (unlike the Iter 7 test adoption, which is gated on the SDK closing its 5 testing gaps).
 
 | Item | Type | Notes |
 |---|---|---|
-| ~~Frontend build wiring — MSBuild `BuildSpa` target on `Drydock.Api`~~ ✅ | feature | **Done 2026-06-22** — `Drydock.Api.csproj` `BuildSpa` target (`BeforeTargets="Build"`, `Inputs`/`Outputs` incremental, `npm ci` only when `node_modules` absent → `npm run deploy` → `wwwroot/`); ports smart-qr `f55d296`. **Docker guard:** `Condition="'$(SkipSpaBuild)' != 'true'"` + `-p:SkipSpaBuild=true` on the Dockerfile publish (`Dockerfile:28`) so the Node-less .NET publish stage skips it (its node stage already built the SPA). Verified: 1st build → SPA in `wwwroot`; 2nd build → incremental skip; guard → skips. **Open follow-up → mirror to `secrets-vault`** (`SecretsVault.Api.csproj`). |
+| ~~Frontend build wiring — MSBuild `BuildSpa` target on `Wheelhouse.Api`~~ ✅ | feature | **Done 2026-06-22** — `Wheelhouse.Api.csproj` `BuildSpa` target (`BeforeTargets="Build"`, `Inputs`/`Outputs` incremental, `npm ci` only when `node_modules` absent → `npm run deploy` → `wwwroot/`); ports smart-qr `f55d296`. **Docker guard:** `Condition="'$(SkipSpaBuild)' != 'true'"` + `-p:SkipSpaBuild=true` on the Dockerfile publish (`Dockerfile:28`) so the Node-less .NET publish stage skips it (its node stage already built the SPA). Verified: 1st build → SPA in `wwwroot`; 2nd build → incremental skip; guard → skips. **Open follow-up → mirror to `secrets-vault`** (`SecretsVault.Api.csproj`). |
 
 ## Make products publishable (prerequisite for the whole deploy model)
 
 | Item | Type | Notes |
 |---|---|---|
-| Reusable image-publish CI workflow (GitHub Actions → GHCR) | feature | Build the single-host image on release → push to registry. Without it Drydock has no ready image to resolve. Lives in `…pipelines` / per-repo. Do early. |
-| Image-naming + tag-resolution convention | check | `ghcr.io/{org}/{repo}` + tag from release (vs main-SHA). Settles how Drydock resolves "latest ready". |
+| Reusable image-publish CI workflow (GitHub Actions → GHCR) | feature | Build the single-host image on release → push to registry. Without it Wheelhouse has no ready image to resolve. Lives in `…pipelines` / per-repo. Do early. |
+| Image-naming + tag-resolution convention | check | `ghcr.io/{org}/{repo}` + tag from release (vs main-SHA). Settles how Wheelhouse resolves "latest ready". |
 
 ## Deploy slice — finish the core (the road from v0.1 to MVP)
 
@@ -64,7 +64,7 @@ Deferred work + known issues. Version docs (`../versions/`) stay clean — items
 | Cache version-status probes to respect GitHub rate limits | feature | On-demand resolve does ~3 probes/product/load; `50–100` products × dashboard loads will blow GitHub's `5k`/hr. Cache `ProductVersionState` + refresh on a release / workflow-run **webhook** (or a TTL poll), not per-render. |
 | Multi-environment / channel resolution (release vs main-SHA, prod vs staging) | feature | v0.1 resolves one latest-release image; this generalises. |
 | Multi-image / two-container topology support | feature | When a product genuinely needs a separate frontend; single-host is the default. |
-| `drydock.yml` manifest standard | feature | Declare services (name·role·image·port) for multi-service / non-conformant products — the override. |
+| `wheelhouse.yml` manifest standard | feature | Declare services (name·role·image·port) for multi-service / non-conformant products — the override. |
 | (fallback) Scan/parse a Dockerfile when a repo has no CI image | check | Escape hatch only — demoted; the CI-image model makes this rare. |
 | (fallback) Clone + real `docker build` verify | check | Escape hatch for non-CI products; needs git + token on the box. |
 
@@ -80,10 +80,10 @@ Deferred work + known issues. Version docs (`../versions/`) stay clean — items
 
 | Item | Type | Notes |
 |---|---|---|
-| Multi-user — host one Drydock for many users | feature | Base model is **self-hosted: the signed-in GitHub user _is_ the user** (no allowlist, no org gating — anyone can run it). For a shared hosted instance: a **`Users`** table + **`OwnerId`** scoping on Product/Server/Deployment so each user sees only their own. |
+| Multi-user — host one Wheelhouse for many users | feature | Base model is **self-hosted: the signed-in GitHub user _is_ the user** (no allowlist, no org gating — anyone can run it). For a shared hosted instance: a **`Users`** table + **`OwnerId`** scoping on Product/Server/Deployment so each user sees only their own. |
 | MFA / WebAuthn | idea | The beta SDK already ships `Identity/Mfa/WebAuthn` — wire when exposure warrants. |
 | Delete-confirm via `@wow-two-beta/ui` modal | idea | Product delete confirmation is inline in the card; swap to a proper modal dialog from the beta UI lib. |
-| Migrate secrets at rest to the secrets-vault service | check | Drydock grows NO secrets handling of its own — `wow-two-platform.secrets-vault` owns it; wire when it's ready. |
+| Migrate secrets at rest to the secrets-vault service | check | Wheelhouse grows NO secrets handling of its own — `wow-two-platform.secrets-vault` owns it; wire when it's ready. |
 | Adopt the backend beta SDK (host + pipeline) | check | Move host + pipeline onto `WoW.Two.Sdk.Backend.Beta` once a restore-verified spike confirms its hosting/observability/mediator helpers. (Identity slice already scheduled in `v0.2`.) |
 
 ## Ops & alerts — post-MVP

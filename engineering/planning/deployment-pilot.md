@@ -4,8 +4,8 @@
 
 ## Outcome and ownership
 
-DryDock governs the infrastructure portfolio. The essential slice is a repeatable, observable deployment of
-ForeverPin to one already-provisioned Linux VPS. GitHub Actions builds; DryDock selects and deploys verified artifacts.
+Wheelhouse governs the infrastructure portfolio. The essential slice is a repeatable, observable deployment of
+ForeverPin to one already-provisioned Linux VPS. GitHub Actions builds; Wheelhouse selects and deploys verified artifacts.
 Purchasing servers, provider billing, DNS changes and production cutover belong to the subsequent wiring session.
 
 This plan supersedes the June deployment assumptions in the old architecture and version notes.
@@ -31,7 +31,7 @@ framework are not prerequisites for this deployment. A single VPS is still one f
 
 ## Current evidence and implications
 
-### DryDock
+### Wheelhouse
 
 - PostgreSQL and bespoke startup migrations are implemented; SQLite packaging and architecture prose were stale.
 - GitHub authentication and a normalized-login allowlist exist; an empty list previously admitted every GitHub user.
@@ -87,7 +87,7 @@ Architecture starts with `linux/amd64`. ARM is a separate build/test target, not
 Compose in-place replacement has a restart window. Zero-downtime blue/green routing is deferred until measured demand warrants it.
 A failed first deployment may leave unhealthy containers for diagnosis. A partial failure cannot be labelled successful.
 
-The recovery CLI and DryDock call the same target runner. SSH uses strict host-key checking, a pinned known-hosts file,
+The recovery CLI and Wheelhouse call the same target runner. SSH uses strict host-key checking, a pinned known-hosts file,
 batch authentication, explicit identities and a bounded connection timeout. No automatic host-key acceptance.
 The target runner owns state even if the caller disconnects. Unknown/interrupted states require observation, not blind retries.
 
@@ -107,7 +107,7 @@ Initial host services:
 - One ingress accepts public 80/443, obtains TLS certificates and forwards only configured hosts.
 - PostgreSQL is reachable on a private Docker network, with one non-superuser role/database per environment.
 - ForeverPin management and redirect join the required private networks.
-- DryDock has private ingress only and its own database/key volume.
+- Wheelhouse has private ingress only and its own database/key volume.
 - Backups leave the provider/account boundary, encrypted with a recovery key held elsewhere.
 
 Container limits are initial guardrails, not a capacity claim. Measure host headroom and redirect latency before admitting more products.
@@ -120,7 +120,7 @@ Do not build images on the budget VPS. Count independent backup storage, tax and
 3. Install supported Docker Engine/Compose and Python 3; create the deployment account and protected deployment root.
 4. Configure firewall/private administration, time sync, bounded Docker logs and monitoring.
 5. Start host PostgreSQL/ingress; create isolated product databases and runtime setting files.
-6. Add a reviewed server/target definition to `fleet.py` and rebuild DryDock.
+6. Add a reviewed server/target definition to `fleet.py` and rebuild Wheelhouse.
 7. Run read-only preflight, deploy a staging release, rehearse recovery, verify backup restoration.
 8. Assign production to that host only after DNS/TLS and application tests pass.
 
@@ -146,7 +146,7 @@ Adding another host definition does not establish active-active service availabi
 Execution evidence and exact commands belong in [deployment operations](../deployment/deployment.md).
 Unchecked items remain open regardless of build success.
 
-Local evidence on September 19: 115 DryDock backend tests; 40 runner/fleet/artifact/SSH-adapter tests;
+Local evidence on September 19: 115 Wheelhouse backend tests; 40 runner/fleet/artifact/SSH-adapter tests;
 213 ForeverPin backend tests and four frontend tests. Clean images started on Docker Desktop `linux/arm64`.
 A real guest-created URL code persisted across replacement, rendered SVG and returned its expected redirect.
 The target runner applied digest-pinned images, recovered from an intentionally unhealthy release,
@@ -163,7 +163,7 @@ The bundle importer accepted the tested release archive and rejects links or dup
 
 ## Ownership and publication
 
-This task owns DryDock fully and may commit its complete verified changes.
+This task owns Wheelhouse fully and may commit its complete verified changes.
 ForeverPin remains uncommitted locally unless a release requires the intended source to be published.
 GitHub CI cannot include uncommitted working-tree edits.
 The [CI/artifact policy](ci-artifact-policy.md) owns the main/tag cadence, GHCR retention,

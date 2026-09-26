@@ -1,8 +1,8 @@
-# Drydock — Iteration Guide
+# Wheelhouse — Iteration Guide
 
 *Last updated: 2026-06-12*
 
-How work moves through Drydock. Keep the phases explicit.
+How work moves through Wheelhouse. Keep the phases explicit.
 
 1. **Plan** — capture the slice in `engineering/planning/planning.md`; open or extend the active version doc in `versions/`.
 2. **Implement** — code under `codebase/`; follow `development/`.

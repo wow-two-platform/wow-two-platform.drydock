@@ -1,0 +1,32 @@
+{
+  "name": "wheelhouse-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "React dashboard for Wheelhouse — the product ops & deploy control plane. Served from the .NET host.",
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "deploy": "npm run build && node ./scripts/deploy.mjs"
+  },
+  "dependencies": {
+    "@tanstack/react-form": "^1.33.1",
+    "@wow-two-beta/ui": "0.0.95",
+    "lucide-react": "^0.460.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "tailwindcss": "^4.1.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.0",
+    "vite-plugin-mkcert": "^2.1.0"
+  }
+}

@@ -3,27 +3,27 @@ services:
   database:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: drydock
-      POSTGRES_USER: drydock
+      POSTGRES_DB: wheelhouse
+      POSTGRES_USER: wheelhouse
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
     volumes:
       - database:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U drydock -d drydock"]
+      test: ["CMD-SHELL", "pg_isready -U wheelhouse -d wheelhouse"]
       interval: 5s
       timeout: 3s
       retries: 20
     restart: unless-stopped
-  drydock:
-    image: drydock:local
+  wheelhouse:
+    image: wheelhouse:local
     build:
       context: ../codebase
       dockerfile: ../deployment/Dockerfile
     ports:
-      - "127.0.0.1:${DRYDOCK_PORT:-8211}:8080"
+      - "127.0.0.1:${WHEELHOUSE_PORT:-8211}:8080"
     environment:
-      DB_CONNECTION: "Host=database;Database=drydock;Username=drydock;Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}"
-      Identity__AllowedGitHubLogins__0: ${DRYDOCK_ADMIN:?Set DRYDOCK_ADMIN}
+      DB_CONNECTION: "Host=database;Database=wheelhouse;Username=wheelhouse;Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}"
+      Identity__AllowedGitHubLogins__0: ${WHEELHOUSE_ADMIN:?Set WHEELHOUSE_ADMIN}
     volumes:
       - keys:/data/keys
       - deployments:/data/deployments

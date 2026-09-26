@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+        <IsTestProject>true</IsTestProject>
+    </PropertyGroup>
+
+    <!--
+      Migrator-engine suite (the specialized .Migrations tier): the bespoke SQL migrator's apply / idempotency / rollback
+      over the embedded Migrations/NNN/*.sql, asserted against a real Postgres. NO HTTP / no web host, NO EF model.
+
+      Rides the SDK Testing.Data harness: MigratorHarness (the apply/rollback/history driver) over the drop-schema
+      MigratorPostgresFixture — always Postgres, since it asserts the real PG SQL. typeof(WheelhouseDbContext).Assembly
+      (from the Wheelhouse.Persistence reference) carries the embedded migration scripts. The EF-model tier
+      (Constraint / EnumRoundTrip / Store over RelationalTestDb) lives in Wheelhouse.Tests.Integration.
+
+      Testing.Data brings the harness + Testcontainers.PostgreSql / Npgsql / Respawn transitively; the bespoke migrator
+      engine (MigrationOptions in …Data.Migrations.Bespoke) comes from WoW2.Sdk.Backend.Beta.
+    -->
+    <ItemGroup>
+        <!-- MigratorHarness / MigratorPostgresFixture / MigrationHistoryRow + transitive Testcontainers.PostgreSql / Npgsql / Respawn. -->
+        <PackageReference Include="WoW2.Sdk.Backend.Beta.Testing.Data" Version="10.0.40-beta"/>
+        <!-- The bespoke migrator engine — MigrationOptions (AllowRollback) the apply/rollback scenarios configure. -->
+        <PackageReference Include="WoW2.Sdk.Backend.Beta" Version="10.0.40-beta"/>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0"/>
+        <PackageReference Include="xunit" Version="2.9.2"/>
+        <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2"/>
+        <PackageReference Include="AwesomeAssertions" Version="9.0.0"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Wheelhouse.Persistence\Wheelhouse.Persistence.csproj"/>
+        <ProjectReference Include="..\Wheelhouse.Domain\Wheelhouse.Domain.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="Xunit"/>
+    </ItemGroup>
+
+</Project>

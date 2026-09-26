@@ -1,4 +1,4 @@
-# Drydock — Frontend Development Guidelines
+# Wheelhouse — Frontend Development Guidelines
 
 *Last updated: 2026-06-12*
 
@@ -11,7 +11,7 @@
 
 ## Conventions
 
-- Single Vite app at `engineering/codebase/drydock.frontend-services/`. API client is same-origin (`/api/...`); dev proxies to the backend on `:8211` (see `vite.config.ts`). Dashboard on `:5174`.
+- Single Vite app at `engineering/codebase/wheelhouse.frontend-services/`. API client is same-origin (`/api/...`); dev proxies to the backend on `:8211` (see `vite.config.ts`). Dashboard on `:5174`.
 - Production: `npm run deploy` (`scripts/deploy.mjs`) builds the SPA and copies `dist/` into the API's `wwwroot` (single-host serving). Idempotent — `wwwroot` is wiped + repopulated each run.
 
 ## Repo-specific deltas

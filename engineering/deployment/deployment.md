@@ -4,7 +4,7 @@
 
 ## Ownership and current boundary
 
-GitHub Actions builds immutable images. DryDock submits reviewed release bundles over pinned SSH.
+GitHub Actions builds immutable images. Wheelhouse submits reviewed release bundles over pinned SSH.
 The target-side Python runner owns locks, durable intent, health gates and recovery. The same runner works without the dashboard.
 Git triggers, artifact publication and retention are defined in the [CI policy](../planning/ci-artifact-policy.md).
 
@@ -17,8 +17,8 @@ From this repository root:
 
 ```sh
 export POSTGRES_PASSWORD='<local-only generated password>'
-export DRYDOCK_ADMIN='<your GitHub login>'
-docker compose -p drydock-local -f engineering/deployment/docker-compose.yml up --build --wait
+export WHEELHOUSE_ADMIN='<your GitHub login>'
+docker compose -p wheelhouse-local -f engineering/deployment/docker-compose.yml up --build --wait
 ```
 
 This Compose file is a local acceptance stack. Its PostgreSQL database and cookie keys use project-scoped volumes.
@@ -35,7 +35,7 @@ The runtime runs as `app` and uses PostgreSQL, not SQLite.
 The image includes `/app/runner/{runner,transport,fleet,artifacts}.py`.
 `fleet.py` is the reviewed source of provider enums, VPS identities and deployment bindings.
 No `targets/*.json` file or database server row can add an executable target.
-The UI and server API are read-only; adding a host requires a code change and a new DryDock image.
+The UI and server API are read-only; adding a host requires a code change and a new Wheelhouse image.
 
 Mount a protected persistent directory at `/data/deployments` containing:
 
@@ -61,15 +61,15 @@ TARGETS = (Target("foreverpin-staging", "pilot-host", "foreverpin",
 ```
 
 Add a real redirect smoke probe to the target after the stable pilot code exists.
-The default root is `/srv/drydock`; secret values never enter source, bundles or the browser.
+The default root is `/srv/wheelhouse`; secret values never enter source, bundles or the browser.
 IDs are stable lowercase slugs; never reuse a host ID for a different machine.
 
 `artifacts.py` declares approved public GitHub repositories and exact service image repositories.
 The catalog lists only published versioned release assets with completed upload and checksum metadata.
-DryDock validates the archive, bundle contents and tag/source commit when a release is selected.
+Wheelhouse validates the archive, bundle contents and tag/source commit when a release is selected.
 A GHCR pull remains the definitive image-availability check before container replacement.
 Use `Deployment:GitHubTokenFile` for a mounted read-only catalog token; the operator CLI reads the equivalent
-`DRYDOCK_GITHUB_TOKEN_FILE` environment variable. Anonymous GitHub requests have a lower shared-IP rate limit.
+`WHEELHOUSE_GITHUB_TOKEN_FILE` environment variable. Anonymous GitHub requests have a lower shared-IP rate limit.
 The token is sent only to the API origin and is removed from CDN redirects. Private release downloads are not yet supported.
 
 Registry login belongs to the target deployment account. Public GHCR images need no pull credential;
@@ -89,11 +89,11 @@ Never use group/world-writable settings. Cookie key volumes must remain writable
 From the repository root, using the same inventory as the dashboard:
 
 ```sh
-python3 engineering/codebase/drydock.runner-services/transport.py targets --root /path/to/inventory
-python3 engineering/codebase/drydock.runner-services/transport.py releases --root /path/to/inventory
-python3 engineering/codebase/drydock.runner-services/transport.py submit \
+python3 engineering/codebase/wheelhouse.runner-services/transport.py targets --root /path/to/inventory
+python3 engineering/codebase/wheelhouse.runner-services/transport.py releases --root /path/to/inventory
+python3 engineering/codebase/wheelhouse.runner-services/transport.py submit \
   --root /path/to/inventory --target foreverpin-staging --bundle <artifact-id-from-releases> --actor operator
-python3 engineering/codebase/drydock.runner-services/transport.py status \
+python3 engineering/codebase/wheelhouse.runner-services/transport.py status \
   --root /path/to/inventory --job <returned-id>
 ```
 
@@ -101,7 +101,7 @@ python3 engineering/codebase/drydock.runner-services/transport.py status \
 - `GET /api/servers`: hosts defined in code; registration and deletion return `405`.
 - `GET /api/deployments/releases`: published artifacts from approved release sources.
 - `POST /api/deployments`: JSON `{"target":"foreverpin-staging","release":"foreverpin-v1"}`,
-  authenticated admin plus `X-Drydock-Action: deploy`.
+  authenticated admin plus `X-Wheelhouse-Action: deploy`.
 - `GET /api/deployments/{id}`: refresh the target-owned outcome.
 - HTTP `202` means queued, not deployed.
 - A lost SSH response is an unknown outcome; inspect target state before retrying.
@@ -114,7 +114,7 @@ It does not yet provide a fleet-wide history browser. Artifact discovery reads G
 ## Target state and recovery
 
 ```text
-/srv/drydock/<product>-<environment>/
+/srv/wheelhouse/<product>-<environment>/
   lock
   active.json
   current.json
@@ -130,10 +130,10 @@ Database restore is never automatic. Image rollback cannot undo a destructive mi
 An interrupted or unrecovered mutation blocks another deployment until the operator inspects containers/schema and acknowledges it:
 
 ```sh
-python3 /srv/drydock/incoming/<submission>/runner.py status \
-  --target /srv/drydock/incoming/<submission>/target.json --job <remote-job-id>
-python3 /srv/drydock/incoming/<submission>/runner.py acknowledge \
-  --target /srv/drydock/incoming/<submission>/target.json --job <remote-job-id>
+python3 /srv/wheelhouse/incoming/<submission>/runner.py status \
+  --target /srv/wheelhouse/incoming/<submission>/target.json --job <remote-job-id>
+python3 /srv/wheelhouse/incoming/<submission>/runner.py acknowledge \
+  --target /srv/wheelhouse/incoming/<submission>/target.json --job <remote-job-id>
 ```
 
 Acknowledgement clears the previous-success pointer rather than assuming it is still safe for automatic rollback.
@@ -156,10 +156,10 @@ Inspect detailed container logs privately on the target. Runtime Docker logs rot
 8. Route management/redirect domains to `foreverpin-<environment>-management:8080` and
    `foreverpin-<environment>-redirect:8080`.
 9. Add the ingress IP to `Deployment:TrustedProxies` in both app settings; no trust-all proxy setting.
-10. Bootstrap DryDock privately or use the operator command from a workstation.
+10. Bootstrap Wheelhouse privately or use the operator command from a workstation.
 11. Deploy staging, verify real URLs and provider callbacks, restore a backup, promote the same image digests.
 
-Existing product containers keep serving without DryDock. A new VPS requires a reviewed fleet code change and DryDock rebuild; it uses the same product release.
+Existing product containers keep serving without Wheelhouse. A new VPS requires a reviewed fleet code change and Wheelhouse rebuild; it uses the same product release.
 Data relocation remains a separately planned copy/restore/cutover operation.
 
 ## Backups and launch gates
@@ -178,6 +178,6 @@ See the checked acceptance items in the [pilot plan](../planning/deployment-pilo
 Local container evidence is scoped to Docker Desktop `linux/arm64`; a hosted `linux/amd64` workflow run and real SSH/OAuth/TLS remain separate gates.
 
 ```sh
-python3 -m unittest discover -s engineering/codebase/drydock.runner-services -v
-dotnet test engineering/codebase/drydock.backend-services/Drydock.slnx -p:BuildSpa=false -m:1
+python3 -m unittest discover -s engineering/codebase/wheelhouse.runner-services -v
+dotnet test engineering/codebase/wheelhouse.backend-services/Wheelhouse.BackendServices.slnx -p:BuildSpa=false -m:1
 ```

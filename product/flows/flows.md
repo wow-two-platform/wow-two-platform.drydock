@@ -1,4 +1,4 @@
-# DryDock — Flows
+# Wheelhouse — Flows
 
 *Last updated: 2026-09-19*
 
@@ -9,7 +9,7 @@
 - **Recover:** inspect the target journal → restore compatible prior images, or explicitly recover data →
   verify health. The operator runner works without the dashboard. Database restoration is never automatic.
 - **Integrate a VPS:** verify the provider/host → add its provider enum/integration if needed →
-  add host and environment bindings in code → mount credentials → test and rebuild DryDock.
+  add host and environment bindings in code → mount credentials → test and rebuild Wheelhouse.
   No server-registration action appears in the UI.
 - **Move a workload:** prepare another code-owned target → copy/restore data and keys → verify →
   perform an explicit cutover. Selecting another host does not transfer persistent data.

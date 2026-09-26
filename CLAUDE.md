@@ -1,8 +1,8 @@
-# wow-two-platform.drydock
+# wow-two-platform.wheelhouse
 
 ## What is this
 
-**Drydock** — the internal product ops & deploy control plane for the micro-SaaS portfolio. Deploys
+**Wheelhouse** — the internal product ops & deploy control plane for the micro-SaaS portfolio. Deploys
 product release bundles to code-owned VPS targets over SSH (Docker + ingress). Domain governance,
 secret rotation and fleet monitoring remain planned capabilities. Single-user; **never exposed publicly**.
 
@@ -17,8 +17,8 @@ product/                  ← the definition (what · why · features · flows) 
 engineering/              ← the execution (build · ship · run)
 ├── engineering.md · architecture/ · development/ · deployment/ · planning/ · versions/ · research/ · scripts/
 └── codebase/
-    ├── drydock.backend-services/   ← .NET 10 Clean Architecture solution (Drydock.slnx)
-    └── drydock.frontend-services/  ← React 19 + Vite + Tailwind v4 + @wow-two-beta/ui
+    ├── wheelhouse.backend-services/   ← .NET 10 Clean Architecture solution (Wheelhouse.BackendServices.slnx)
+    └── wheelhouse.frontend-services/  ← React 19 + Vite + Tailwind v4 + @wow-two-beta/ui
 ```
 
 Follows `wow-two-ws/conventions/development/repo/structure/repo-structure.md`.
@@ -27,7 +27,7 @@ Backend layers: `Domain` (entities/enums/Result) → `Application` (MediatR CQRS
 → `Infrastructure` (adapters) + `Persistence` (EF Core + Postgres) → `Api` (slim host). Mirrors the
 `wow-two-platform.secrets-vault` sibling exactly.
 
-## Core domains (the 5 things Drydock manages)
+## Core domains (the 5 things Wheelhouse manages)
 
 Products · Servers · Deployments · Domains · Secrets. **Products** (create/list/update/delete +
 version-resolution) and **Servers** (read-only code-owned fleet) are wired end-to-end. Deployments use the independent
@@ -37,27 +37,27 @@ runner and published artifact catalog. Domains/Secrets remain scaffold models.
 
 ```bash
 # Backend
-cd engineering/codebase/drydock.backend-services && dotnet build Drydock.slnx
-dotnet run --project Drydock.Api --launch-profile https   # 8210 https / 8211 http
+cd engineering/codebase/wheelhouse.backend-services && dotnet build Wheelhouse.BackendServices.slnx
+dotnet run --project Wheelhouse.Api --launch-profile https   # 8210 https / 8211 http
 
 # DB migrations: hand-authored SQL (bespoke migrator, applied on boot). No EF tooling.
-# Add one → Drydock.Persistence/Migrations/{NNN-name}/{Apply,Rollback}.sql
+# Add one → Wheelhouse.Persistence/Migrations/{NNN-name}/{Apply,Rollback}.sql
 
 # Frontend
-cd engineering/codebase/drydock.frontend-services && npm install && npm run dev   # 5174, proxies /api → 8211
-npm run deploy   # build + copy SPA into Drydock.Api/wwwroot
+cd engineering/codebase/wheelhouse.frontend-services && npm install && npm run dev   # 5174, proxies /api → 8211
+npm run deploy   # build + copy SPA into Wheelhouse.Api/wwwroot
 ```
 
 ## Testing
 
-4-tier `{Product}.Tests.{Type}`, e2e-first (run all: `dotnet test Drydock.slnx`). Solution folders: `services/` + `tests/`.
+4-tier `{Product}.Tests.{Type}`, e2e-first (run all: `dotnet test Wheelhouse.BackendServices.slnx`). Solution folders: `services/` + `tests/`.
 
-- **`Drydock.Tests.Unit`** — pure logic (version-state machine, validators). Docker-free.
-- **`Drydock.Tests.Integration`** — the EF model below the pipeline: `DrydockDbContext` over the SDK
+- **`Wheelhouse.Tests.Unit`** — pure logic (version-state machine, validators). Docker-free.
+- **`Wheelhouse.Tests.Integration`** — the EF model below the pipeline: `WheelhouseDbContext` over the SDK
   `RelationalTestDb` (enum round-trip, repository predicates/ordering, unique-index constraints), no HTTP.
-  Provider-switchable PG↔SQLite (`DRYDOCK_TEST_DB=sqlite`). Docker (PG default).
-- **`Drydock.Tests.E2E`** — full host + Testcontainers PG (on `…Beta.Testing`). The primary tier. Docker.
-- **`Drydock.Tests.Migrations`** — specialized: the bespoke SQL migrator's apply/idempotency/rollback over a real
+  Provider-switchable PG↔SQLite (`WHEELHOUSE_TEST_DB=sqlite`). Docker (PG default).
+- **`Wheelhouse.Tests.E2E`** — full host + Testcontainers PG (on `…Beta.Testing`). The primary tier. Docker.
+- **`Wheelhouse.Tests.Migrations`** — specialized: the bespoke SQL migrator's apply/idempotency/rollback over a real
   PG, on the SDK `MigratorHarness` + `MigratorPostgresFixture` (embedded `Migrations/NNN/*.sql`). Docker.
 
 Reserve unit for I/O-free logic; everything user-facing is covered e2e. Full rule:
@@ -87,7 +87,7 @@ Reserve unit for I/O-free logic; everything user-facing is covered e2e. Full rul
 
 ## Security
 
-Drydock will hold VPS SSH keys, registrar billing APIs, the Cloudflare token, and a GHCR PAT — the
+Wheelhouse will hold VPS SSH keys, registrar billing APIs, the Cloudflare token, and a GHCR PAT — the
 highest-value secret set in the portfolio. Keep it off the public internet (Tailscale / SSH tunnel),
 encrypt secrets at rest, use scoped tokens, and keep an audit trail.
 
@@ -97,7 +97,7 @@ Auth/multi-tenant/billing (single-user — bind to Tailscale).
 
 ## Fleet and artifact policy
 
-Providers and individual VPS bindings are defined in `engineering/codebase/drydock.runner-services/fleet.py`.
+Providers and individual VPS bindings are defined in `engineering/codebase/wheelhouse.runner-services/fleet.py`.
 Provider/environment choices use enums; no dynamic provider plugins or Add VPS UI/API.
-`artifacts.py` owns approved release sources. DryDock consumes published bundles and never triggers builds.
+`artifacts.py` owns approved release sources. Wheelhouse consumes published bundles and never triggers builds.
 The detailed Git/CI/registry policy lives in `engineering/planning/ci-artifact-policy.md`.

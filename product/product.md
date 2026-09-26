@@ -1,4 +1,4 @@
-# Drydock — Product
+# Wheelhouse — Product
 
 *Last updated: 2026-06-12*
 
@@ -18,11 +18,11 @@ Internal infrastructure, **not a sold product**. A `wow-two-platform` service th
 
 ## Name
 
-**Drydock** (chosen 2026-06-09) — a ship is built, serviced, launched, and repaired from drydock; the portfolio is a fleet of small vessels. (Considered: Hangar, Marina, Mission Control, Shipyard, Launchpad.)
+**Wheelhouse** (chosen 2026-06-09) — a ship is built, serviced, launched, and repaired from wheelhouse; the portfolio is a fleet of small vessels. (Considered: Hangar, Marina, Mission Control, Shipyard, Launchpad.)
 
 ## Positioning
 
 - **vs manual ops (SSH + registrar tabs + scattered `.env`):** one dashboard, one audited path; deploy/rollback/domain/secret in a few clicks instead of a checklist.
 - **vs Vercel/Heroku/Coolify (buy):** bespoke on the wow-two stack (Docker + Traefik + SSH.NET + GHCR) for full control and learning. The registry + domain-buying + unified dashboard + cost/kill-gate layer is the value-add; deployment is the commodity underneath. Coolify is the fast-lane fallback substrate if the bespoke deploy thread stalls.
 
-> Full design spec: `wow-two-ws/ideas/drydock-spec.md`.
+> Full design spec: `wow-two-ws/ideas/wheelhouse-spec.md`.

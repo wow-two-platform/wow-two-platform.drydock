@@ -7,7 +7,7 @@
 Use `main` for development and explicit version tags for deployable releases.
 A main push verifies the code and builds disposable images; it does not publish a deployment candidate.
 A version tag on a commit already in `main` verifies, publishes and smoke-tests both service images,
-then publishes one complete release bundle. DryDock lists that bundle and deploys its recorded digests.
+then publishes one complete release bundle. Wheelhouse lists that bundle and deploys its recorded digests.
 
 This is the recommended cadence, implemented locally for review. No workflow, tag, image or release was published by this task.
 The user can instead choose a deployable candidate for every successful main push; that changes publishing frequency,
@@ -24,7 +24,7 @@ Unrelated product work can stay local; required uncommitted runtime fixes cannot
 
 ## Main-only workflow
 
-| Event | Verification and build | Persistent deployment artifact | DryDock visibility |
+| Event | Verification and build | Persistent deployment artifact | Wheelhouse visibility |
 |---|---|---|---|
 | Local edit or local commit | Local verifier when requested | None | None |
 | Push to `main` | Backend/frontend checks, both Linux images, real smoke, replacement/persistence check | None; runner-local images expire with the job | None |
@@ -38,7 +38,7 @@ The workflow checks that the tag commit belongs to `main`; it does not silently 
 Never move or reuse a release tag. Use another patch or prerelease version for changed source.
 The first private pilot can use a prerelease; that label is not evidence that unfinished product features are ready for public use.
 
-A tag build must finish before the operator selects its artifact. DryDock has no pending-build row or Build button.
+A tag build must finish before the operator selects its artifact. Wheelhouse has no pending-build row or Build button.
 Normal commits remain cheap; a deployable release is an intentional cut. If frequent staging deployments become the norm,
 an explicit candidate-per-main policy can be added, using commit/run IDs and short retention for candidates.
 It is not required to deploy ForeverPin today.
@@ -54,7 +54,7 @@ flowchart LR
   Smoke --> Bundle[Manifest + Compose with digest map]
   Bundle --> Draft[Create draft + attach archive]
   Draft --> Published[Publish completed release]
-  Published --> Dock[DryDock artifact catalog]
+  Published --> Dock[Wheelhouse artifact catalog]
   Dock --> Target[Chosen code-owned VPS target]
 ```
 
@@ -64,11 +64,11 @@ flowchart LR
 4. Check guest creation, saved-code ownership, SVG rendering, redirect and persistence after replacement.
 5. Record both image digests, source SHA, architecture, Compose checksum and runtime setting requirements.
 6. Create a draft release, upload `foreverpin-release.tar.gz`, then publish it.
-7. DryDock discovers published releases with a complete uploaded asset and SHA-256 metadata.
+7. Wheelhouse discovers published releases with a complete uploaded asset and SHA-256 metadata.
 8. Selection verifies the archive hash, its internal contract, approved image names and the tag's source commit.
 9. The target pulls all recorded image digests before replacing containers and verifies readiness afterwards.
 
-An image push can succeed before smoke or the second image fails. That image is not a release and is never listed by DryDock.
+An image push can succeed before smoke or the second image fails. That image is not a release and is never listed by Wheelhouse.
 A failed draft stays hidden; it is diagnosed explicitly rather than overwritten by a rerun.
 The workflow cannot atomically publish registry objects and a GitHub release, so the final release bundle is the visibility boundary.
 
@@ -79,7 +79,7 @@ No repository setting was changed here. Local discovery also rechecks asset hash
 
 External actions are pinned to resolved commit SHAs. Normal main CI receives read-only repository permission;
 only the version workflow grants package writes and release publication writes to the jobs that need them.
-DryDock's credentials are read-only and cannot trigger CI or publish packages.
+Wheelhouse's credentials are read-only and cannot trigger CI or publish packages.
 
 ## Registry choice, size and retention
 
@@ -105,7 +105,7 @@ Retention policy:
 - Keep every currently deployed digest and every declared rollback/recovery dependency, across all hosts and environments.
 - Keep at least the most recent 10 released bundles and their images; extend this for the chosen recovery window.
 - Treat failed-run/orphan image cleanup separately; never delete an image merely because its tag is old or absent.
-- Do not automate deletion until DryDock has a cross-host reference inventory and protected-set checks.
+- Do not automate deletion until Wheelhouse has a cross-host reference inventory and protected-set checks.
 - Keep local VPS image caches bounded with an operator-reviewed policy; no blanket image/volume prune during deployment.
 
 GitHub Actions artifacts normally expire after 90 days. They are useful for temporary logs/test outputs,
@@ -119,7 +119,7 @@ The pipeline does not change package visibility automatically. Public images mus
 Docker Hub can hold public repositories but applies pull/fair-use limits; it provides no advantage over the existing GitHub/GHCR setup here.
 Normal image retention at this portfolio's release cadence is manageable. There is no operational reason to store an image for every edit.
 
-## DryDock artifact catalog
+## Wheelhouse artifact catalog
 
 `artifacts.py` declares approved repositories, artifact providers, archive names and service-to-image repository mappings in code.
 The first source is ForeverPin. It reads published GitHub release assets, not branch heads, commit lists, Actions runs or arbitrary registry tags.
@@ -135,7 +135,7 @@ The archive and source metadata are cached after selection. Registry deletion ca
 this is rejected before container replacement, not treated as a healthy deployment.
 
 Unauthenticated GitHub discovery hit the shared IP's rate limit during local verification.
-A mounted read-only GitHub token is supported through `Deployment:GitHubTokenFile` (API) or `DRYDOCK_GITHUB_TOKEN_FILE` (CLI).
+A mounted read-only GitHub token is supported through `Deployment:GitHubTokenFile` (API) or `WHEELHOUSE_GITHUB_TOKEN_FILE` (CLI).
 Live authenticated discovery returned an empty catalog, matching GitHub's current release list.
 Tokens are sent only to the GitHub API and stripped from cross-origin redirects; tokens never enter bundles, arguments or logs.
 Public source discovery is implemented; private release-asset download is not an implemented provider capability yet.
@@ -146,7 +146,7 @@ Public source discovery is implemented; private release-asset download is not an
 The first supported `VpsProvider` is `Hetzner`; environments are `Staging` and `Production` (serialized lowercase).
 The deployed catalog is empty until verified VPS details are supplied. No placeholder host is silently enabled.
 
-Adding a VPS means adding a reviewed `Server` and its `Target` bindings in source, testing and rebuilding DryDock.
+Adding a VPS means adding a reviewed `Server` and its `Target` bindings in source, testing and rebuilding Wheelhouse.
 Adding a provider also requires an enum member, its explicit integration behavior and contract tests.
 There are no dynamic plugins, provider URLs, Add VPS form or server mutation API.
 Existing database server rows are retained but no longer control execution.
@@ -156,7 +156,7 @@ SSH key and known-host files are mounted separately; runtime settings remain pro
 Product images do not change when choosing another VPS. Data and persistent keys must be moved and verified separately.
 Use stable unique IDs; do not reuse an old host/target ID for another machine. Submission records snapshot the SSH identity references,
 so later catalog edits do not redirect polling of an already launched job to a different host.
-DryDock itself requires a rebuild for a catalog code change; the operator recovery runner remains independent of its UI process.
+Wheelhouse itself requires a rebuild for a catalog code change; the operator recovery runner remains independent of its UI process.
 
 ## Remaining publication and launch work
 

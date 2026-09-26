@@ -2,7 +2,7 @@
 
 *Last updated: 2026-06-12*
 
-How we build Drydock. Guidelines defer to the shared conventions in `wow-two-ws/conventions/`; only repo-specific deltas live here.
+How we build Wheelhouse. Guidelines defer to the shared conventions in `wow-two-ws/conventions/`; only repo-specific deltas live here.
 
 | Doc | Covers |
 |---|---|

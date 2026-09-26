@@ -25,20 +25,20 @@
 
 > Individual files NOT listed — use `tree`/`find`/`grep`. Projects only.
 
-### `codebase/drydock.backend-services/` (.NET Clean Arch — `Drydock.slnx`, folders `services/` + `tests/`)
+### `codebase/wheelhouse.backend-services/` (.NET Clean Arch — `Wheelhouse.BackendServices.slnx`, folders `services/` + `tests/`)
 | Project | What it is |
 |---|---|
-| `Drydock.Api` | HTTP host — control-plane controllers; single-host SPA serving |
-| `Drydock.Application` | Use cases — MediatR handlers, repository abstractions, DTOs |
-| `Drydock.Domain` | Entities (Server/Product/Deployment/ManagedDomain/SecretEntry) + enums + Result |
-| `Drydock.Infrastructure` | Adapters — clock now; SSH / Hetzner / Porkbun / Cloudflare / GHCR next |
-| `Drydock.Persistence` | EF Core + Postgres context, repositories, hand-authored SQL migrations |
-| `Drydock.Tests.Unit` | **Unit** tier — pure logic (version-state machine, validators); Docker-free |
-| `Drydock.Tests.Integration` | **Integration** tier — EF model below the pipeline (enum round-trip, repository predicates/ordering, constraints) over the SDK `RelationalTestDb`, no HTTP; PG↔SQLite |
-| `Drydock.Tests.E2E` | **E2E** tier — full host + Testcontainers PG (on `…Beta.Testing`) |
-| `Drydock.Tests.Migrations` | **Migrations** tier — bespoke SQL migrator apply/idempotency/rollback over real PG, on the SDK `MigratorHarness` |
+| `Wheelhouse.Api` | HTTP host — control-plane controllers; single-host SPA serving |
+| `Wheelhouse.Application` | Use cases — MediatR handlers, repository abstractions, DTOs |
+| `Wheelhouse.Domain` | Entities (Server/Product/Deployment/ManagedDomain/SecretEntry) + enums + Result |
+| `Wheelhouse.Infrastructure` | Adapters — clock now; SSH / Hetzner / Porkbun / Cloudflare / GHCR next |
+| `Wheelhouse.Persistence` | EF Core + Postgres context, repositories, hand-authored SQL migrations |
+| `Wheelhouse.Tests.Unit` | **Unit** tier — pure logic (version-state machine, validators); Docker-free |
+| `Wheelhouse.Tests.Integration` | **Integration** tier — EF model below the pipeline (enum round-trip, repository predicates/ordering, constraints) over the SDK `RelationalTestDb`, no HTTP; PG↔SQLite |
+| `Wheelhouse.Tests.E2E` | **E2E** tier — full host + Testcontainers PG (on `…Beta.Testing`) |
+| `Wheelhouse.Tests.Migrations` | **Migrations** tier — bespoke SQL migrator apply/idempotency/rollback over real PG, on the SDK `MigratorHarness` |
 
-### `codebase/drydock.frontend-services/` (React)
+### `codebase/wheelhouse.frontend-services/` (React)
 | App | What it is |
 |---|---|
 | (root Vite app) | Control-plane dashboard — servers (+ products/deployments/domains/secrets next) |

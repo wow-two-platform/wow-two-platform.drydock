@@ -1,11 +1,11 @@
 # engineering/
 
-The **how** of Drydock — all technical content.
+The **how** of Wheelhouse — all technical content.
 
 | Folder | Purpose |
 |---|---|
 | `architecture/` | System design — control plane, deploy/domain flows, data model |
-| `codebase/` | **The code** — `drydock.backend-services/` (.NET) + `drydock.frontend-services/` (React) |
+| `codebase/` | **The code** — `wheelhouse.backend-services/` (.NET) + `wheelhouse.frontend-services/` (React) |
 | `development/` | Repo dev guidelines — defer to `wow-two-ws/conventions/`, document only deltas |
 | `deployment/` | Dockerfile + compose (single-host image) |
 | `planning/` | Eng roadmap + backlog (`planning.md`) + operational rules (`rules.md`) |

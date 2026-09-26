@@ -1,4 +1,4 @@
-# DryDock architecture
+# Wheelhouse architecture
 
 *Last updated: 2026-09-19*
 
@@ -14,7 +14,7 @@ flowchart LR
   CI[GitHub Actions] --> Images[Immutable GHCR images]
   CI --> Bundle[Release manifest + Compose]
   Bundle --> Release[Published GitHub release asset]
-  Release --> Dock[Private DryDock dashboard/API]
+  Release --> Dock[Private Wheelhouse dashboard/API]
   Fleet[Code-owned provider and host catalog] --> Dock
   Dock --> SSH[Pinned OpenSSH adapter]
   Operator[Operator CLI] --> SSH
@@ -58,7 +58,7 @@ that an image subsequently deleted from the registry is still pullable.
 `fleet.py` declares providers, hosts and environment bindings in code. Mounted files hold credentials only.
 No JSON file, database row or HTTP call can register a new host or provider.
 The old single-image version query remains a legacy diagnostic endpoint; the dashboard no longer calls it.
-DryDock has no build, Git push, tag creation or CI-dispatch operation.
+Wheelhouse has no build, Git push, tag creation or CI-dispatch operation.
 
 A target lock serializes dashboard and operator changes. Pulls precede mutation.
 The target saves intent before applying Compose, verifies exact image references and health, and records the result.
@@ -75,12 +75,12 @@ Domain registration/DNS automation, a secrets vault, provisioning, capacity/cost
 remain separate capabilities in the [governance plan](../planning/deployment-pilot.md).
 The first product is ForeverPin: management API/SPA plus redirect API sharing a product database.
 
-A different VPS requires a reviewed fleet code change and a new DryDock build; product images remain unchanged.
+A different VPS requires a reviewed fleet code change and a new Wheelhouse build; product images remain unchanged.
 State relocation requires an explicit database/volume transfer and cutover plan.
 
 ## Security and recovery
 
-DryDock stays private through a tunnel/private network. OpenSSH requires a pinned known-hosts file.
+Wheelhouse stays private through a tunnel/private network. OpenSSH requires a pinned known-hosts file.
 Runtime secrets live in protected host files, mounted read-only into applications.
 Persistent cookie key volumes survive container replacement.
 The dashboard receives safe failure categories; raw runtime logs remain on the target.
@@ -89,6 +89,6 @@ Release bundles are privileged operator inputs. Hash checks bind files together,
 Artifact repositories and expected image names are code-owned. Optional read-only GitHub authentication
 is sent only to the API origin and is stripped from cross-origin redirects.
 See the [CI and artifact policy](../planning/ci-artifact-policy.md) for publication and retention.
-A database backup and the cookie/recovery keys must be recoverable without DryDock.
+A database backup and the cookie/recovery keys must be recoverable without Wheelhouse.
 
 Executable commands, directory layouts and VPS wiring gates are in [deployment operations](../deployment/deployment.md).

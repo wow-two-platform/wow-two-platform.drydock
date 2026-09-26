@@ -1,6 +1,6 @@
 # versions/
 
-Per-version progress docs for Drydock. One folder per version, named exactly the version: `v{X.Y}/v{X.Y}.md` (no brand/platform prefix). The latest folder is the active version.
+Per-version progress docs for Wheelhouse. One folder per version, named exactly the version: `v{X.Y}/v{X.Y}.md` (no brand/platform prefix). The latest folder is the active version.
 
 - **How to write one:** follow `wow-two-ws/conventions/planning/version-planning/version-docs.md`.
 - **Shape:** iterations with one-line goals + abstract tasks — no schema/service/file detail.

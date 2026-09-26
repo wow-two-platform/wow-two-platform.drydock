@@ -1,4 +1,4 @@
-# DryDock — Product planning
+# Wheelhouse — Product planning
 
 *Last updated: 2026-09-19*
 
@@ -17,6 +17,6 @@ A working public redirect and editor, real provider callbacks and a verified bac
 | Portfolio | Placement, additional provider integrations and explicit data relocation | Planned |
 
 New VPSs and providers are added through reviewed code, not dynamic UI configuration.
-Git/CI remains outside DryDock's deployment controls.
+Git/CI remains outside Wheelhouse's deployment controls.
 Detailed work and evidence: [pilot](../../engineering/planning/deployment-pilot.md),
 [CI/artifact policy](../../engineering/planning/ci-artifact-policy.md).
