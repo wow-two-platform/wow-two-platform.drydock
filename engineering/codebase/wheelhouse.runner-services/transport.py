@@ -16,7 +16,7 @@ import uuid
 import fleet
 import artifacts
 from runner import (PROXIES, SLUG, CommandFailed, Rejected, now, reason, rejection, require, read_json,
-                    write_json, validate_bundle, validate_target)
+                    write_json, validate_bundle, validate_target, empty_topology)
 
 RUNNER = Path(__file__).with_name("runner.py")
 
@@ -233,6 +233,17 @@ def target_state(root, target_id):
     return result
 
 
+def target_topology(root, target_id):
+    config = fleet.resolve_target(root, target_id)
+    validate_target(config["target"])
+    try:
+        result = run_remote(Ssh(config["ssh"]), "topology", config["target"])
+    except (OSError, ValueError, CommandFailed):
+        result = empty_topology("unavailable", "The target topology could not be collected.")
+    result["targetId"] = target_id
+    return result
+
+
 def check(root, target_id, bundle_id=None):
     config = fleet.resolve_target(root, target_id)
     manifest = validate_bundle(artifacts.prepare(root, bundle_id, import_bundle)) if bundle_id else None
@@ -386,7 +397,7 @@ def summary_of(record):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=["import", "servers", "targets", "vaults", "releases", "template", "submit",
-                                           "status", "jobs", "state", "check", "reconcile", "vitals", "stats"])
+                                           "status", "jobs", "state", "check", "reconcile", "vitals", "stats", "topology"])
     parser.add_argument("--root", required=True)
     parser.add_argument("--target")
     parser.add_argument("--bundle")
@@ -417,6 +428,8 @@ def main():
             result = jobs(root)
         elif args.action == "state":
             result = target_state(root, args.target)
+        elif args.action == "topology":
+            result = target_topology(root, args.target)
         elif args.action == "check":
             result = check(root, args.target, args.bundle)
         elif args.action == "reconcile":

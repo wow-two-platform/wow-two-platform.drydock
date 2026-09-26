@@ -406,6 +406,44 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(["docker ps failed (exit 1); inspect target containers privately"], result["problems"])
         self.assertIsNotNone(result["host"])
 
+    def test_vitals_correlate_only_a_stable_ready_release(self):
+        observed = {"project": "pilot-test", "condition": "ready",
+                    "current": {"id": "first", "release": "v1"}, "active": {"id": "first", "status": "succeeded"}}
+        with patch.object(runner, "state", return_value=observed), \
+             patch.object(runner, "host_vitals", return_value={}), \
+             patch.object(runner, "container_vitals", return_value=[{"service": "api"}]):
+            result = runner.vitals(self.target, docker_factory=VitalsDocker)
+        self.assertEqual("v1", result["release"])
+        self.assertEqual([], result["problems"])
+
+    def test_vitals_withhold_release_when_deployment_changes_during_collection(self):
+        before = {"project": "pilot-test", "condition": "ready",
+                  "current": {"id": "first", "release": "v1"}, "active": {"id": "first", "status": "succeeded"}}
+        for after in (
+            {**before, "current": {"id": "second", "release": "v2"}},
+            {**before, "current": {"id": "second", "release": "v1"}},
+            {**before, "active": {"id": "second", "status": "rolled_back"}},
+        ):
+            with self.subTest(after=after), patch.object(runner, "state", side_effect=[before, after]), \
+                 patch.object(runner, "host_vitals", return_value={}), \
+                 patch.object(runner, "container_vitals", return_value=[{"service": "api"}]):
+                result = runner.vitals(self.target, docker_factory=VitalsDocker)
+                self.assertIsNone(result["release"])
+                self.assertEqual([{"service": "api"}], result["containers"])
+                self.assertTrue(any("changed during observation" in problem for problem in result["problems"]))
+
+    def test_vitals_withhold_release_while_target_is_not_ready(self):
+        for condition in ("running", "needs_reconciliation"):
+            observed = {"project": "pilot-test", "condition": condition,
+                        "current": {"id": "first", "release": "v1"}, "active": {"id": "second", "status": "running"}}
+            with self.subTest(condition=condition), patch.object(runner, "state", return_value=observed), \
+                 patch.object(runner, "host_vitals", return_value={}), \
+                 patch.object(runner, "container_vitals", return_value=[{"service": "api"}]):
+                result = runner.vitals(self.target, docker_factory=VitalsDocker)
+                self.assertIsNone(result["release"])
+                self.assertEqual(condition, result["condition"])
+                self.assertTrue(any("not ready" in problem for problem in result["problems"]))
+
     def test_docker_sizes_and_percentages_parse(self):
         self.assertEqual((1536, 2 * 1000 ** 3, None), (runner.size_bytes("1.5KiB"), runner.size_bytes(" 2GB "),
                                                         runner.size_bytes("12 parsecs")))

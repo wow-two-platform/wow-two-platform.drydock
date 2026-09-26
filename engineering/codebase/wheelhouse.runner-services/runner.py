@@ -395,6 +395,175 @@ def state(target):
     return {"project": project, "condition": condition, "current": summary(current), "active": summary(active)}
 
 
+def empty_topology(availability, warning=None):
+    return {"availability": availability, "release": None, "collectedAt": now(), "services": [],
+            "networks": [], "volumes": [], "dependencies": [], "warnings": [warning] if warning else []}
+
+
+def topology_port(value):
+    """Allow only numeric port mappings; never return a host address or interpolated value."""
+    if type(value) is int:
+        value = str(value)
+    if isinstance(value, str):
+        parts = value.rsplit("/", 1)
+        protocol = parts[1] if len(parts) == 2 else "tcp"
+        mapping = parts[0].split(":")
+        if len(mapping) > 3 and not parts[0].startswith("["):
+            return None
+        target = mapping[-1]
+        published = mapping[-2] if len(mapping) > 1 else None
+    elif isinstance(value, dict):
+        target, published, protocol = value.get("target"), value.get("published"), value.get("protocol", "tcp")
+    else:
+        return None
+    def port(part):
+        if type(part) is int:
+            part = str(part)
+        if not isinstance(part, str) or not re.fullmatch(r"[0-9]{1,5}(?:-[0-9]{1,5})?", part):
+            return None
+        numbers = list(map(int, part.split("-")))
+        return part if all(1 <= number <= 65535 for number in numbers) and numbers[0] <= numbers[-1] else None
+    target, original_published = port(target), published
+    published = port(published) if published is not None else None
+    if not target or (original_published is not None and not published) or protocol not in ("tcp", "udp", "sctp"):
+        return None
+    return (published + ":" if published else "") + target + "/" + protocol
+
+
+def compose_topology(compose, manifest):
+    """Projects declared relationships only. This never invokes or interpolates Docker Compose."""
+    warnings = set()
+    identifier = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+    def resource_map(kind):
+        raw = compose.get(kind)
+        if raw is None:
+            raw = {}
+        require(isinstance(raw, dict), "Invalid topology resource declarations")
+        result = {}
+        for name, value in raw.items():
+            if not isinstance(name, str) or not identifier.fullmatch(name):
+                warnings.add("Unsupported resource identifiers were omitted.")
+                continue
+            if value is not None and not isinstance(value, dict):
+                warnings.add("Unsupported resource declarations were omitted.")
+                continue
+            external = (value or {}).get("external", False)
+            if type(external) is not bool and not isinstance(external, dict):
+                warnings.add("Unsupported resource declarations were omitted.")
+                continue
+            # The legacy external.name form denotes an external resource; its name stays private.
+            result[name] = {"name": name, "external": external is True or isinstance(external, dict)}
+        return result
+    networks, volumes = resource_map("networks"), resource_map("volumes")
+    services, dependencies = [], []
+    declared = compose["services"]
+    for name, service in sorted(declared.items()):
+        memberships = service.get("networks")
+        if "network_mode" in service:
+            memberships = []
+            warnings.add("Services using network_mode have no projected network memberships.")
+        elif memberships is None or memberships == [] or memberships == {}:
+            memberships = ["default"]
+        require(isinstance(memberships, (list, dict)), "Invalid topology network memberships")
+        # Compose also creates default when services explicitly reference it without declaring it.
+        if "default" in memberships and "default" not in (compose.get("networks") or {}):
+            networks.setdefault("default", {"name": "default", "external": False})
+        network_names = []
+        for network in memberships:
+            if isinstance(network, str) and network in networks:
+                network_names.append(network)
+            else:
+                warnings.add("Undeclared or unsupported network memberships were omitted.")
+        mounts = service.get("volumes")
+        if mounts is None:
+            mounts = []
+        require(isinstance(mounts, list), "Invalid topology volume mounts")
+        volume_names = []
+        for mount in mounts:
+            source = None
+            if isinstance(mount, str) and ":" in mount:
+                source = mount.split(":", 1)[0]
+            elif isinstance(mount, dict) and mount.get("type") == "volume":
+                source = mount.get("source")
+            if isinstance(source, str) and source in volumes:
+                volume_names.append(source)
+            else:
+                warnings.add("Bind mounts, anonymous volumes and unsupported mounts were omitted.")
+        ports = service.get("ports")
+        if ports is None:
+            ports = []
+        require(isinstance(ports, list), "Invalid topology port declarations")
+        port_names = []
+        for value in ports:
+            normalized = topology_port(value)
+            if normalized:
+                port_names.append(normalized)
+            else:
+                warnings.add("Unsupported or interpolated port declarations were omitted.")
+        depends = service.get("depends_on")
+        if depends is None:
+            depends = {}
+        require(isinstance(depends, (list, dict)), "Invalid topology dependencies")
+        seen_dependencies = set()
+        for dependency in depends:
+            if not isinstance(dependency, str) or dependency not in declared:
+                warnings.add("Dependencies on undeclared services were omitted.")
+                continue
+            if dependency in seen_dependencies:
+                continue
+            seen_dependencies.add(dependency)
+            details = depends[dependency] if isinstance(depends, dict) else {}
+            if not isinstance(details, dict):
+                warnings.add("Unsupported dependency declarations were omitted.")
+                continue
+            condition, required = details.get("condition", "service_started"), details.get("required", True)
+            if condition not in ("service_started", "service_healthy", "service_completed_successfully") or type(required) is not bool:
+                warnings.add("Unsupported dependency declarations were omitted.")
+                continue
+            dependencies.append({"from": name, "to": dependency, "condition": condition, "required": required})
+        services.append({"name": name, "image": manifest["images"][name], "networks": sorted(set(network_names)),
+                         "volumes": sorted(set(volume_names)), "ports": sorted(set(port_names))})
+    return {"services": services, "networks": [networks[name] for name in sorted(networks)],
+            "volumes": [volumes[name] for name in sorted(volumes)],
+            "dependencies": sorted(dependencies, key=lambda item: (item["from"], item["to"])), "warnings": sorted(warnings)}
+
+
+def topology(target):
+    """Reads the current successful release snapshot, never the incoming bundle or artifact catalog."""
+    root, project = validate_target(target)
+    base = root / project
+    try:
+        require(not base.is_symlink(), "Invalid topology state path")
+        current_path = base / "current.json"
+        require(not current_path.is_symlink(), "Invalid topology record path")
+        if not current_path.exists():
+            return empty_topology("not-deployed")
+        current = read_json(current_path)
+        identifier = current["id"]
+        require(isinstance(identifier, str) and str(uuid.UUID(identifier)) == identifier, "Invalid topology release identity")
+        releases = base / "releases"
+        bundle = releases / identifier
+        require(not releases.is_symlink() and not bundle.is_symlink(), "Invalid topology release path")
+        for filename in ("release.json", "compose.json"):
+            path = bundle / filename
+            require(not path.is_symlink() and path.is_file() and path.stat().st_size <= 1024 * 1024,
+                    "Invalid topology snapshot file")
+        manifest = validate_bundle(bundle)
+        validate_target(target, manifest)
+        require(current["release"] == manifest["release"], "Topology release record mismatch")
+        contents = (bundle / "compose.json").read_bytes()
+        require(hashlib.sha256(contents).hexdigest() == manifest["composeSha256"], "Topology snapshot changed")
+        projected = compose_topology(json.loads(contents), manifest)
+        if state(target)["condition"] != "ready":
+            projected["warnings"].append("The target is changing or needs reconciliation; this describes its last successful release.")
+        require(read_json(current_path) == current, "Topology current release changed")
+        result = empty_topology("available")
+        result.update(projected, release=manifest["release"])
+        return result
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return empty_topology("unavailable", "The current release topology could not be verified.")
+
+
 def check(target, manifest=None, docker_factory=None):
     """Reads the target without changing it; every detail is operator-safe text."""
     checks = []
@@ -540,6 +709,7 @@ def vitals(target, docker_factory=None):
     """Reads host and container vitals without changing the target; every field is operator-safe."""
     root, project = validate_target(target)
     docker = (docker_factory or Docker)(target, base_environment(target))
+    before = state(target)
     result = {"project": project, "host": None, "containers": None, "problems": []}
     try:
         result["host"] = host_vitals(root)
@@ -552,7 +722,14 @@ def vitals(target, docker_factory=None):
     except (ValueError, KeyError, TypeError):
         result["problems"].append("Container details were unreadable")
     current = state(target)
-    result.update(condition=current["condition"], release=(current["current"] or {}).get("release"))
+    # Container collection spans several Docker calls. A completed rollout can otherwise attach
+    # the new release to observations collected from its predecessor, including same-version redeploys.
+    stable = before == current and current["condition"] == "ready"
+    result.update(condition=current["condition"], release=(current["current"] or {}).get("release") if stable else None)
+    if before != current:
+        result["problems"].append("Deployment changed during observation; release attribution was withheld.")
+    elif not stable:
+        result["problems"].append("Target is not ready; release attribution was withheld.")
     return result
 
 
@@ -564,7 +741,7 @@ def decode(value):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=["validate", "apply", "launch", "status", "acknowledge", "state", "check",
-                                           "vitals"])
+                                           "vitals", "topology"])
     parser.add_argument("--bundle")
     parser.add_argument("--target")
     parser.add_argument("--target-json")
@@ -584,6 +761,8 @@ def main():
             result = acknowledge(target or read_json(args.target), args.job)
         elif args.action == "state":
             result = state(target or read_json(args.target))
+        elif args.action == "topology":
+            result = topology(target or read_json(args.target))
         elif args.action == "check":
             result = check(target or read_json(args.target), decode(args.release_json) if args.release_json else None)
         elif args.action == "vitals":
