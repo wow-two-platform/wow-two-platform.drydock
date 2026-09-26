@@ -29,7 +29,7 @@ export function AppLayout(props: AppLayoutProps) {
   return (
     <PageActionsProvider>
     <AppShell sidebarWidth={sidebarWidth} isSidebarOpen={menuOpen} onSidebarOpenChange={setMenuOpen}
-      className="transition-[grid-template-columns] duration-200 ease-out motion-reduce:transition-none">
+      className="transition-[grid-template-columns] duration-150 ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none">
       {/* Small screens only: the sidebar becomes a drawer behind this bar. */}
       <AppShell.Header className="lg:hidden">
         <Button variant="ghost" tone="neutral" size="sm" aria-label="Open navigation"
@@ -59,7 +59,10 @@ export function AppLayout(props: AppLayoutProps) {
                 <PageActionsOutlet className="flex flex-wrap items-center gap-2 empty:hidden" />
               </header>
             )}
-            {props.children}
+            {/* Each page fades in as it opens. */}
+            <div key={location.pathname} className="flex flex-col gap-6 motion-safe:animate-(--animate-fade-in)">
+              {props.children}
+            </div>
           </div>
         </AppShell.Content>
       </AppShell.Main>

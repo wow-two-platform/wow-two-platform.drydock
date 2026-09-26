@@ -75,6 +75,8 @@ export function DeployModal(props: DeployModalProps) {
   return (
     <Modal open={props.open} onOpenChange={props.onOpenChange}>
       <Modal.Content className="w-full max-w-xl">
+        {/* Each step fades in as the dialog moves on. */}
+        <div key={step} className="motion-safe:animate-(--animate-fade-in)">
         {step === 'choose' && (
           <>
             <Modal.Header>
@@ -194,6 +196,7 @@ export function DeployModal(props: DeployModalProps) {
             </Modal.Footer>
           </>
         )}
+        </div>
       </Modal.Content>
     </Modal>
   );

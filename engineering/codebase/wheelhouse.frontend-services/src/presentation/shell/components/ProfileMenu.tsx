@@ -48,7 +48,7 @@ export function ProfileMenu(props: ProfileMenuProps) {
             <span aria-hidden className={cn('absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full ring-2 ring-sidebar', status.dot)} />
           </span>
           {/* Text fades rather than unmounting, so the avatar holds its place while the rail animates. */}
-          <span className={cn('flex min-w-0 flex-1 items-center gap-2 whitespace-nowrap transition-opacity duration-150',
+          <span className={cn('flex min-w-0 flex-1 items-center gap-2 whitespace-nowrap transition-opacity duration-100',
             props.isRail ? 'pointer-events-none opacity-0' : 'opacity-100')}>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium">{name}</span>

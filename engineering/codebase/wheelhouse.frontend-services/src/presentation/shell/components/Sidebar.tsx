@@ -31,7 +31,7 @@ export interface SidebarProps {
 }
 
 // Labels fade instead of unmounting, and every row keeps its height, so nothing moves while the width animates.
-const LABEL = 'whitespace-nowrap transition-opacity duration-150';
+const LABEL = 'whitespace-nowrap transition-opacity duration-100';
 const labelVisibility = (isRail: boolean) => (isRail ? 'pointer-events-none opacity-0' : 'opacity-100');
 
 /** Brand, environment, places and the operator — the wheelhouse beside every page. */

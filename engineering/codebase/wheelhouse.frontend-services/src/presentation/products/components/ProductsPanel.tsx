@@ -5,7 +5,7 @@ import { Code, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow
 import { StatusIndicator } from '@wow-two-beta/ui/presentation/feedback';
 import { useProducts } from '@/application/products';
 import { ProductStatus, type Product } from '@/domain/products';
-import { LoadState, Panel, TableStyles } from '@/presentation/common/components';
+import { Expand, LoadState, Panel, TableStyles, useExpand } from '@/presentation/common/components';
 import { Skeleton } from '@/presentation/common/skeleton';
 import { RegisterProductForm } from './RegisterProductForm';
 
@@ -58,10 +58,12 @@ export function ProductsPanel(props: ProductsPanelProps) {
   return (
     <Panel title="Registry" description="Each product's slug, source repository and lifecycle status.">
       <div className="flex flex-col gap-5">
-        {(props.registering || editing) && (
-          <RegisterProductForm key={editing?.id ?? 'create'} product={editing ?? undefined} create={create}
-            update={update} onSaved={closeForm} onCancel={closeForm} />
-        )}
+        <Expand open={props.registering || editing !== null} className="-mb-5">
+          <div className="pb-5">
+            <RegisterProductForm key={editing?.id ?? 'create'} product={editing ?? undefined} create={create}
+              update={update} onSaved={closeForm} onCancel={closeForm} />
+          </div>
+        </Expand>
         <LoadState loading={loading} error={error ? { message: error } : null} empty={products.length === 0}
           emptyIcon={<Package size={28} />} emptyTitle="No products yet"
           emptyDescription="Register your first portfolio product to start deploying."
@@ -92,34 +94,26 @@ export function ProductsPanel(props: ProductsPanelProps) {
             )}
             details={(product) => (
               <>
-                {viewing === product.id && (
-                  <TableRow className="bg-muted/40">
-                    <TableCell colSpan={COLUMNS} className="py-4">
-                      <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs sm:grid-cols-4">
-                        <Detail label="Id"><Code>{product.id}</Code></Detail>
-                        <Detail label="Repo"><Code>{product.repo}</Code></Detail>
-                        <Detail label="Status">{product.status}</Detail>
-                        <Detail label="Created">{new Date(product.createdAtUtc).toLocaleString()}</Detail>
-                      </dl>
-                    </TableCell>
-                  </TableRow>
-                )}
-                {confirmDelete === product.id && (
-                  <TableRow className="bg-destructive-soft">
-                    <TableCell colSpan={COLUMNS} className="py-3">
-                      <div className="flex items-center justify-between gap-4">
-                        <Text size="sm">Delete <span className="font-medium">{product.name}</span>? This cannot be undone.</Text>
-                        <div className="flex items-center gap-2">
-                          <Button variant="ghost" tone="neutral" size="sm" onClick={() => setConfirmDelete(null)}>Cancel</Button>
-                          <Button variant="solid" tone="danger" size="sm" isLoading={deletingId === product.id}
-                            onClick={() => void onDelete(product.id)}>
-                            Delete
-                          </Button>
-                        </div>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )}
+                <DetailRow open={viewing === product.id} className="bg-muted/40">
+                  <dl className="grid grid-cols-2 gap-x-6 gap-y-2 px-3 py-4 text-xs sm:grid-cols-4">
+                    <Detail label="Id"><Code className="break-all">{product.id}</Code></Detail>
+                    <Detail label="Repo"><Code className="break-all">{product.repo}</Code></Detail>
+                    <Detail label="Status">{product.status}</Detail>
+                    <Detail label="Created">{new Date(product.createdAtUtc).toLocaleString()}</Detail>
+                  </dl>
+                </DetailRow>
+                <DetailRow open={confirmDelete === product.id} className="bg-destructive-soft">
+                  <div className="flex items-center justify-between gap-4 px-3 py-3">
+                    <Text size="sm">Delete <span className="font-medium">{product.name}</span>? This cannot be undone.</Text>
+                    <div className="flex items-center gap-2">
+                      <Button variant="ghost" tone="neutral" size="sm" onClick={() => setConfirmDelete(null)}>Cancel</Button>
+                      <Button variant="solid" tone="danger" size="sm" isLoading={deletingId === product.id}
+                        onClick={() => void onDelete(product.id)}>
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                </DetailRow>
               </>
             )} />
         </LoadState>
@@ -137,7 +131,15 @@ function ProductsTable(props: {
   details?: (product: Product) => ReactNode;
 }) {
   return (
-    <Table density="compact" isHoverable containerClassName={TableStyles.scrollBox}>
+    <Table density="compact" isHoverable className="table-fixed" containerClassName={TableStyles.scrollBox}>
+      {/* Fixed columns: an opening detail row never re-lays the header. */}
+      <colgroup>
+        <col className="w-[22%]" />
+        <col className="w-[18%]" />
+        <col />
+        <col className="w-32" />
+        <col className="w-32" />
+      </colgroup>
       <TableHead className={TableStyles.stickyHead}>
         <TableRow>
           <TableHeaderCell>Name</TableHeaderCell><TableHeaderCell>Slug</TableHeaderCell>
@@ -149,9 +151,9 @@ function ProductsTable(props: {
         {props.products.map((product) => (
           <Fragment key={product.id}>
             <TableRow>
-              <TableCell className="font-medium"><Skeleton.Slot>{product.name}</Skeleton.Slot></TableCell>
-              <TableCell className="font-mono text-xs text-muted-foreground"><Skeleton.Slot>{product.slug}</Skeleton.Slot></TableCell>
-              <TableCell className="font-mono text-xs text-muted-foreground"><Skeleton.Slot>{product.repo}</Skeleton.Slot></TableCell>
+              <TableCell className="truncate font-medium"><Skeleton.Slot>{product.name}</Skeleton.Slot></TableCell>
+              <TableCell className="truncate font-mono text-xs text-muted-foreground"><Skeleton.Slot>{product.slug}</Skeleton.Slot></TableCell>
+              <TableCell className="truncate font-mono text-xs text-muted-foreground"><Skeleton.Slot>{product.repo}</Skeleton.Slot></TableCell>
               <TableCell>
                 <Skeleton.Slot><StatusIndicator tone={STATUS_TONE[product.status]} label={product.status} /></Skeleton.Slot>
               </TableCell>
@@ -162,6 +164,21 @@ function ProductsTable(props: {
         ))}
       </TableBody>
     </Table>
+  );
+}
+
+// A row under a product that opens and closes by height; it leaves no empty row behind once closed.
+function DetailRow(props: { open: boolean; className: string; children: ReactNode }) {
+  const expand = useExpand(props.open);
+  if (!expand.mounted) return null;
+  return (
+    <TableRow className={props.className}>
+      <TableCell colSpan={COLUMNS} className="p-0">
+        <div {...expand.region}>
+          <div className="min-h-0 overflow-hidden">{props.children}</div>
+        </div>
+      </TableCell>
+    </TableRow>
   );
 }
 

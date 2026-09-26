@@ -33,5 +33,6 @@ export function LoadState(props: LoadStateProps) {
       <EmptyState size="sm" icon={props.emptyIcon} title={props.emptyTitle} description={props.emptyDescription}
         actions={props.emptyActions} />
     );
-  return <>{props.children}</>;
+  // Content that replaces its skeleton fades in once; a refresh inside it swaps its own values instead.
+  return <div className="motion-safe:animate-(--animate-fade-in)">{props.children}</div>;
 }
