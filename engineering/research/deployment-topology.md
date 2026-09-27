@@ -1,16 +1,18 @@
-# Deployment topology — environments, platform services and site links
+# Deployment topology — environments, builds, platform services and site links
 
 *Last updated: 2026-09-27*
 
-How wow-two products should run on Wheelhouse-managed hosts: the deployment pattern, databases, cache,
-messaging, networks, volumes, public site links, the dev/test/prod environments and their local equivalent.
-This is analysis. Each decision is a box in [Points](#points); a settled point moves into
-[deployment.md](../deployment/deployment.md), the [pilot plan](../planning/deployment-pilot.md) or a version track.
+How wow-two products should build, version and run on Wheelhouse-managed hosts: the deployment pattern, environments
+on one host, routing and site links, per-service builds and versions, builds from any commit, databases, cache,
+messaging, networks, volumes and the local server. This is analysis. Each decision is a box in [Points](#points);
+a settled point moves into [deployment.md](../deployment/deployment.md), the [CI policy](../planning/ci-artifact-policy.md)
+or a version track.
 
 ## Status
 
-- [x] Current model read: fleet, bundle contract, runner, rehearsal rig, pilot plan, CI policy and product stacks.
-- [ ] Points decided.
+- [x] Current model read: fleet, bundle contract, runner, rehearsal rig, pilot plan, CI policy, product stacks, Haven delivery.
+- [x] Placement, environment names and site links decided (points 1, 2, 13).
+- [ ] Remaining points decided.
 
 ---
 
@@ -23,11 +25,23 @@ This is analysis. Each decision is a box in [Points](#points); a settled point m
 | Environments | `staging`, `production`, `rehearsal` in `fleet.py`; `rehearsal` names the local server, not a stage |
 | Network | One external `platform` network per host; services join with alias `<product>-<environment>-<service>`; ingress and Postgres share it |
 | Settings | One protected file per service, bind-mounted read-only; the bundle lists every required key |
-| Data | Postgres: forever-pin, transcript-forge, tnis, transportbrain, wheelhouse, secrets-vault. SQLite: sift, museums-gallery, arcade, listing-shelf, ocharo-studio, ocharo-marketing, tnis-mintrans, product template |
+| Services | ForeverPin: 2 images in one bundle. Haven: 6 images (5 .NET services + a Caddy edge serving 5 Vue apps), all tagged with one product version |
+| Publishing | `repo-structure.md` §13 assumes one deployable image per repo, tagged with the product version |
+| Data | Postgres: forever-pin, transcript-forge, tnis, transportbrain, wheelhouse, secrets-vault, haven. SQLite: sift, museums-gallery, arcade, listing-shelf, ocharo-studio, ocharo-marketing, tnis-mintrans, product template |
 | Cache and messaging | No product uses Redis, RabbitMQ or Kafka. The backend SDK ships adapters for all three plus NATS; its default bus is in-memory, with an optional EF outbox |
-| Releases | `main` pushes verify only; version tags publish bundles; Wheelhouse deploys the recorded digests |
+| Releases | `main` pushes verify only; version tags publish bundles; Wheelhouse deploys the recorded digests and never triggers builds |
 | Site links | Wheelhouse knows no public URL for a target; smoke probes call `http://localhost:8080` inside containers |
 | Local | The rig drives the host Docker daemon; product containers have no ingress, so nothing is browsable |
+
+---
+
+## Decided
+
+| # | Decision | Date |
+|---|---|---|
+| 1 | All environments of a product may run at the same time on one host. They need no hardware isolation; separate projects, data and hostnames are enough. Dev on the prod host exists so a collaborator can open a feature from one click | 2026-09-27 |
+| 2 | Environments are `dev`, `test` and `prod`. The rehearsal rig becomes the local server | 2026-09-27 |
+| 13 | Products declare public services; targets declare hostnames; Wheelhouse shows Open site | 2026-09-27 |
 
 ---
 
@@ -47,29 +61,129 @@ Add a platform layer per host that Wheelhouse owns and products consume:
 | Message broker | Only once two deployed services exchange events | Host, code-owned |
 
 - Declare platform services in code beside `fleet.py`, deployed by the runner as a `platform` Compose project.
-- Products declare needs in the bundle (`requires`: `postgres`, `valkey`, `broker`).
+- Products declare needs in their descriptor (`needs`: `postgres`, `valkey`, `broker`).
 - The runner provisions each need idempotently (database, role, vhost) before replacing containers.
 - The runner writes the connection into the target settings, or refuses when a declared need has no binding.
 
-## Hosts and placement
+## Environments on one host
 
-Placement is already data: `Target.server_id` binds an environment to a host, so it can change without a bundle change.
+- `<product>-dev`, `<product>-test` and `<product>-prod` are three Compose projects on the same host.
+- Containers of different environments never collide: each project has its own names, network and volumes.
+- Every container listens on its usual internal port (8080 for .NET); nothing publishes a host port.
+- The ingress tells environments apart by hostname, so one host fits any number of environments.
+- Each environment has its own database and role, settings files, vault namespace and provider keys.
+- Dev and test use provider test keys (Stripe test mode); prod uses live keys.
+- Memory limits come from the bundle; a runaway dev container stays inside its limit instead of starving prod.
 
-| Option | Hosts | Fit |
-|---|---|---|
-| A | One VPS: prod always on, test on demand; dev in the local rig | Cheapest; matches the pilot's single budget VPS |
-| B | Prod VPS + nonprod VPS (dev and test); the rig mirrors both | Stable shared dev URLs; one more host |
-| C | One VPS per product | Isolation nobody needs at this scale; cost grows linearly |
+## Routing and hostnames
 
-Recommendation: A now; move to B when a product needs a reachable dev URL (device tests, webhooks) or RAM runs out.
-Wheelhouse itself stays private (Tailscale or an SSH tunnel) and never shares a host with dev workloads,
-because it holds the SSH keys for every host.
+```text
+crm.findhaven.io                  ─┐
+crm-haven.test.<preview-domain>   ─┼─ Traefik (80/443) ── Host rule ──► haven-<env>-edge:80
+crm-haven.dev.<preview-domain>    ─┘
+```
+
+- The runner writes one Traefik route file per target (`ingress/<product>-<env>.yml`); Traefik reloads on change.
+- A route maps each site hostname to `<product>-<env>-<service>:<port>` on the `platform` network.
+- Prod hostnames come from the target: the product's own domains.
+- Dev and test hostnames are generated: `<site>-<product>.<env>.<preview-domain>`.
+- One wildcard DNS record per environment (`*.dev.<preview-domain>`) points at the host; no per-product DNS work.
+- The flat `<site>-<product>` label keeps a later wildcard certificate possible (`*.dev.<preview-domain>`).
+- Until then, Let's Encrypt HTTP-01 issues one certificate per hostname when its route appears.
+- Dev and test links are unlisted but public; a product that needs a gate adds ingress basic auth per environment.
+- Routes also produce settings: the runner hands each service its sites' URLs and hosts (`Sites__crm__Url`, `AllowedHosts`).
+- Operators then fill only secrets; public URLs, callback origins and allowed hosts follow the target.
+
+## Product deployment descriptor
+
+One file per product repo, `engineering/deployment/deploy.yml`, is the single source that CI, the release generator
+and Wheelhouse read. It declares the services, how each one builds, which paths change it, its sites and its needs.
+
+```yaml
+product: haven
+shared:                                  # a change here rebuilds every service
+  - codebase/haven.backend-services/Directory.*.props
+  - deployment/backend.Dockerfile
+services:
+  auth:
+    build: { dockerfile: deployment/backend.Dockerfile, args: { SERVICE: Auth } }
+    paths: [codebase/haven.backend-services/Haven.Auth/**]
+    health: /api/system/status
+    needs: [postgres]
+  supply:
+    build: { dockerfile: deployment/backend.Dockerfile, args: { SERVICE: Supply } }
+    paths: [codebase/haven.backend-services/Haven.Supply/**]
+    health: /api/system/status
+    needs: [postgres]
+  edge:
+    build: { dockerfile: deployment/edge.Dockerfile, contexts: { deployment: deployment } }
+    paths: [codebase/haven.frontend-services/**, deployment/edge/**]
+    health: /healthz                     # not in the Caddyfile yet
+    sites:
+      landing: { port: 80 }
+      crm: { port: 80 }
+```
+
+- `sites` answers which ports are public: a named site on a container port; every other port stays internal.
+- A service may carry several sites on one port (Haven's edge answers `landing` and `crm` by host).
+- A product may make several services public (ForeverPin: `management` → `app`, `redirect` → `go`).
+- `exposure: private` puts a site only on the Tailscale entrypoint (a vault console, an admin tool).
+- The target maps site names to hostnames; the descriptor never holds a domain.
+- `build` gives each service its own Dockerfile, target, arguments and build contexts.
+- `paths` plus `shared` tell CI which services a commit changes.
+- The release generator turns the descriptor into `compose.json` and `release.json`; products stop hand-writing them.
+- Wheelhouse keys on this file the way it keys on `publish-docker-image.yml` today.
+- Haven's edge needs a health route first: the runner refuses a service without a health gate.
+
+## Service builds and versions
+
+A service carries the product version in which it last changed. An old version on a service means it has not changed
+since that release.
+
+| Release | auth | supply | location | edge |
+|---|---|---|---|---|
+| `v1.1.0` (first) | 1.1.0 | 1.1.0 | 1.1.0 | 1.1.0 |
+| `v1.2.0` (supply changed) | 1.1.0 | 1.2.0 | 1.1.0 | 1.1.0 |
+| `v1.3.0` (auth and edge changed) | 1.3.0 | 1.2.0 | 1.1.0 | 1.3.0 |
+
+- On a version tag, CI diffs the tag against the previous release tag through each service's `paths` and `shared`.
+- Changed services build and publish `ghcr.io/<owner>/<repo>/<service>:<version>`.
+- Unchanged services reuse the previous release's digest and version; nothing rebuilds them.
+- The bundle pins every service: version, digest and the release it last changed in.
+- Wheelhouse shows each environment's service versions and, before a deploy, which services will change.
+- Compose recreates only services whose image or settings changed, so a deploy touches only changed services.
+- The product version stream stays the version track (`vX.Y.Z`); no per-service tag namespace is needed.
+- `repo-structure.md` §13 moves from one image per repo to one image per service.
+
+## Builds from any commit or branch
+
+- Every push, to `main` or any branch, builds candidate images for the services it changed.
+- Candidate images are tagged `sha-<commit>`; unchanged services point at the last release's digests.
+- A candidate is shown as `v1.3.0+<commit>`: built from that commit, changed since `v1.3.0`.
+- The candidate bundle is uploaded as an Actions artifact with a 14-day retention.
+- A scheduled cleanup deletes candidate images older than 14 days; release images stay.
+- Any other commit builds on demand: `workflow_dispatch` with a `commit` input, started from Wheelhouse.
+- Wheelhouse needs a fine-grained token with Actions write on product repositories for that dispatch.
+- This reverses "Wheelhouse never triggers builds"; it still never builds on a target host.
+- The catalog lists Releases (tags) and Candidates (per branch, newest first, with commit, author and time).
+- Branch builds run with the repository's own `GITHUB_TOKEN` and need no product secrets.
+
+## Branch deployments and sharing
+
+- Now, with work on `main` only: any candidate deploys to dev in one click, and Wheelhouse copies the dev link.
+- A product may let dev follow `main`: each successful `main` candidate deploys to dev automatically.
+- Test takes release candidates (`vX.Y.Z-rc.N`); prod takes stable tags after a successful test deploy.
+- Later, a branch gets its own ephemeral dev target: `<product>-dev-<branch>`, from a code-owned dev template.
+- Its hostnames: `<branch>--<site>-<product>.dev.<preview-domain>`; its database is seeded or copied from dev.
+- It stops after a quiet period and is deleted with the branch.
+- PR previews reuse branch targets; the pull-request event creates and deletes them.
+- Templates keep the rule that code defines every executable target; instances live in the inventory.
 
 ## Databases
 
-- PostgreSQL: one cluster per host, one database and one least-privilege role per product-environment
-  (`foreverpin_prod`, `foreverpin_test`).
-- A cluster per product would cost shared memory, a backup job and an upgrade per instance: about 150 at 50 products.
+- PostgreSQL: one cluster per host; one database and one least-privilege role per product-environment
+  (`haven_prod`, `haven_test`, `haven_dev`).
+- A cluster per product-environment would cost shared memory, a backup job and an upgrade each: about 150 at 50 products.
 - The cluster publishes no port; administration goes through an SSH tunnel.
 - Pin the major version per cluster; upgrade a whole cluster through dump and restore.
 - Products keep migrating on startup through the SDK's bespoke migrator.
@@ -95,20 +209,12 @@ because it holds the SSH keys for every host.
 
 ## Networks
 
-```text
-host
-├── edge            ingress + public product services (aliases <product>-<env>-<service>)
-├── data-prod       internal: Postgres/Valkey/broker + prod services that need them
-├── data-test       internal: the same for test
-├── data-dev        internal: the same for dev
-└── <product>-<env>_default   per project: service-to-service traffic inside one product
-```
-
+- Keep one `platform` network per host: the ingress, platform data services and product services join it.
+- Product services join it with their `<product>-<env>-<service>` alias; the ingress routes to those aliases.
+- Each project keeps its default network for traffic inside the product.
 - Only the ingress publishes ports (80/443). SSH is reachable over Tailscale or a firewall allowlist.
-- Data networks are `internal: true`: no route out, and dev containers cannot reach prod data on a shared host.
-- Bundles attach logical networks: `edge` for public services, `data` for data clients.
-- The runner maps `data` to `data-<env>` and replaces today's single `platform` variable.
-- A later multi-host tier uses the provider's private network or WireGuard between hosts.
+- Environments stay apart through credentials and aliases, which point 1 accepts as enough.
+- Hardening, if ever needed: internal `data-<env>` networks, so dev containers cannot reach prod services.
 
 ## Volumes and backups
 
@@ -121,52 +227,16 @@ host
 - Wheelhouse reports backup age per target; the pilot's alert list already expects it.
 - Teardown takes a final backup and deletes volumes only on an explicit, typed confirmation.
 
-## Ingress, domains and site links
+## Local server
 
-- Traefik with its file provider: the runner writes one route file per target (`ingress/<product>-<env>.yml`).
-- Traefik reloads on file change, so it needs no Docker socket.
-- TLS uses Let's Encrypt HTTP-01 per hostname; Cloudflare DNS-01 adds wildcards when previews need them.
-- The bundle declares public services, product-owned: `public: {management: {port: 8080}, redirect: {port: 8080}}`.
-- The target declares hostnames, environment-owned: `routes=(("management", "app.<domain>"), ("redirect", "<short domain>"))`.
-- Wheelhouse returns `urls` per target; the UI shows Open site on the target, the workspace and deploy success.
-- After cutover a smoke probe can call the public URL once, proving DNS, TLS and routing together.
-- Prod uses each product's own domain; dev and test use a shared preview domain:
-  `<product>.test.<preview-domain>`, `<product>.dev.<preview-domain>`, one wildcard certificate per environment.
-
-## Environments
-
-| | dev | test | prod |
-|---|---|---|---|
-| Purpose | Latest `main`, integration | Acceptance of a candidate | Customers |
-| Releases | Candidate bundle per `main` push | `vX.Y.Z-rc.N` tags | `vX.Y.Z` tags |
-| Runs | On demand | During acceptance | Always |
-| Data | Disposable, seeded | Copy or seed | Real, backed up |
-| Providers | Test keys (Stripe test mode) | Test keys | Live keys |
-
-- `DeploymentEnvironment` becomes `dev`, `test`, `prod`; the local rig becomes a server (`VpsProvider.LOCAL`).
-- Target ids stay `<product>-<env>`, so aliases, projects and roots keep their shape.
-- Promotion moves the same bundle and digests upward; only settings differ between environments.
-- Prod accepts a release only after it succeeded on test; an override needs a typed confirmation.
-- Each environment has its own settings files, database and role, OAuth client, vault namespace and resource limits.
-- The dev channel needs the CI policy's candidate-per-`main` option: short-retention bundles named by commit.
-- Wheelhouse gains start and stop per target (`compose stop/start` under the same lock) to keep test and dev off when idle.
-
-## Local environments
-
-- The rig becomes a local server hosting `dev`, `test` and `prod` targets for every product with a local image.
-- A rig Traefik on `127.0.0.1:18080` reads the same route files from the rig's deployment root.
-- Local hostnames: `<service>.<product>.<env>.localhost`, e.g. `http://management.foreverpin.dev.localhost:18080`.
+- The rig becomes the local server (`VpsProvider.LOCAL`), hosting targets for every product with a local image.
+- It runs dev by default; test and prod start on demand.
+- Deploying prod to the local server asks for a strict typed confirmation.
+- A local Traefik on `127.0.0.1:18080` reads the same route files as a VPS ingress.
+- Local hostnames: `<site>-<product>.<env>.localhost`, e.g. `http://crm-haven.dev.localhost:18080`.
 - Chromium and Firefox resolve `*.localhost` to loopback without DNS setup; verify Safari before relying on it.
-- The rig's Postgres gets one database and role per product-environment through the same provisioning code as a VPS.
-- Local targets stay behind the existing `Deployment:Rehearsal` switch, so a deployed control plane never lists them.
-- Open site then works locally as on a VPS, and a local candidate bundle can be promoted dev → test → prod.
-
-## PR previews (later)
-
-- An ephemeral `<product>-pr-<n>` target on the nonprod host, built from a pull-request candidate bundle.
-- Hostname `pr-<n>.<product>.dev.<preview-domain>`; stopped and deleted when the pull request closes.
-- Needs CI preview bundles, wildcard DNS-01 and targets derived from a code-owned template.
-- The template keeps the rule that code defines every executable target.
+- The local Postgres gets a database and role per product-environment through the same provisioning code.
+- Local targets stay behind the `Deployment:Rehearsal` switch, so a deployed control plane never lists them.
 
 ---
 
@@ -174,20 +244,29 @@ host
 
 Decide top to bottom; a parent settles before its children.
 
-1. [ ] Placement: one VPS now (prod always on, test on demand), dev in the local rig; a nonprod VPS later.
-2. [ ] Environment set: `dev`, `test`, `prod` replace `staging`, `production`, `rehearsal`; the rig becomes a server.
-3. [ ] Release channels: dev ← `main` candidates, test ← rc tags, prod ← stable tags; promotion reuses digests.
+1. [x] Placement: all environments run at the same time on one host, without hardware isolation.
+2. [x] Environment set: `dev`, `test`, `prod` replace `staging`, `production`, `rehearsal`; the rig becomes the local server.
+3. [ ] Release channels: dev ← candidates from any commit, test ← rc tags, prod ← stable tags; promotion reuses digests.
 4. [ ] Prod gate: a release must succeed on test first; overriding needs a typed confirmation.
 5. [ ] PostgreSQL: one cluster per host, a database and role per product-environment, provisioned by the runner.
 6. [ ] SQLite stays the default for single-replica products, with nightly `.backup`.
 7. [ ] Cache: in-process first; Valkey per product when needed; shared only for backplanes.
 8. [ ] Broker: none by default; RabbitMQ or NATS when two services exchange events; Kafka excluded.
-9. [ ] Networks: `edge`, internal `data-<env>` and the project default; only the ingress publishes ports.
+9. [ ] Networks: one `platform` network per host plus project networks; only the ingress publishes ports.
 10. [ ] Volumes: project-scoped named volumes; platform data on a dedicated block volume.
 11. [ ] Backups: restic to off-provider storage (B2 or R2), 7/4/6 retention, monthly restore drill.
 12. [ ] Ingress: Traefik file provider, route files written by the runner.
-13. [ ] Site links: bundles declare public services, targets declare hostnames, Wheelhouse shows Open site.
-14. [ ] Domains: each product's domain for prod; one shared wildcard preview domain for dev and test.
-15. [ ] Lifecycle: start and stop per target from Wheelhouse; prod always on.
-16. [ ] Local environments: rig targets per environment behind a local Traefik on `*.localhost:18080`.
-17. [ ] PR previews: ephemeral nonprod targets from pull-request bundles, after the points above.
+13. [x] Site links: products declare public services, targets declare hostnames, Wheelhouse shows Open site.
+14. [ ] Hostnames: prod uses the product's own domains; dev and test use `<site>-<product>.<env>.<preview-domain>`.
+15. [ ] Lifecycle: start and stop per target from Wheelhouse; all environments may run at once.
+16. [ ] Local server: dev by default; test and prod on demand; prod needs a typed confirmation.
+17. [ ] Branch and PR environments: ephemeral dev targets from code-owned templates, after the points above.
+18. [ ] Descriptor: one `deploy.yml` per product declares services, builds, change paths, sites and needs.
+19. [ ] Service versions: a service carries the product version in which it last changed.
+20. [ ] Builds: CI builds only changed services; candidates on every push; any commit on demand.
+21. [ ] Build trigger: Wheelhouse may dispatch CI builds of any branch or commit.
+22. [ ] Candidate storage: images tagged `sha-<commit>` in GHCR; bundles as 14-day Actions artifacts.
+23. [ ] Derived settings: routes produce public URLs and allowed hosts; operators supply only secrets.
+24. [ ] Site exposure: `public` sites route on 80/443; `private` sites only on the Tailscale entrypoint.
+25. [ ] Preview domain: one domain for dev and test hostnames; which one.
+26. [ ] `repo-structure.md` §13: one image per service at `ghcr.io/<owner>/<repo>/<service>`.
