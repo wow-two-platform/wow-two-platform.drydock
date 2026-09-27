@@ -12,6 +12,7 @@ or a version track.
 
 - [x] Current model read: fleet, bundle contract, runner, rehearsal rig, pilot plan, CI policy, product stacks, Haven delivery.
 - [x] Placement, environment names and site links decided (points 1, 2, 13).
+- [x] Builds, versions, descriptor and build trigger decided and built (points 3, 17-22, 24, 26).
 - [ ] Remaining points decided.
 
 ---
@@ -42,6 +43,11 @@ or a version track.
 | 1 | All environments of a product may run at the same time on one host. They need no hardware isolation; separate projects, data and hostnames are enough. Dev on the prod host exists so a collaborator can open a feature from one click | 2026-09-27 |
 | 2 | Environments are `dev`, `test` and `prod`. The rehearsal rig becomes the local server | 2026-09-27 |
 | 13 | Products declare public services; targets declare hostnames; Wheelhouse shows Open site | 2026-09-27 |
+| 3 | Dev takes a build of any commit or branch; test and prod take published releases | 2026-09-27 |
+| 17 | Branches and pull requests get their own environments later; until then branch builds land in dev | 2026-09-27 |
+| 18 | One custom `deploy.yml` per product, kept as a wow-two convention for every new product | 2026-09-27 |
+| 19 | A service carries the release it last changed in; Haven already shows it beside the logo | 2026-09-27 |
+| 21 | Wheelhouse starts a build only for a commit that has none; images carry no environment values | 2026-09-27 |
 
 ---
 
@@ -246,7 +252,7 @@ Decide top to bottom; a parent settles before its children.
 
 1. [x] Placement: all environments run at the same time on one host, without hardware isolation.
 2. [x] Environment set: `dev`, `test`, `prod` replace `staging`, `production`, `rehearsal`; the rig becomes the local server.
-3. [ ] Release channels: dev ← candidates from any commit, test ← rc tags, prod ← stable tags; promotion reuses digests.
+3. [x] Release channels: dev ← a build of any commit or branch; test and prod ← published releases; promotion reuses digests.
 4. [ ] Prod gate: a release must succeed on test first; overriding needs a typed confirmation.
 5. [ ] PostgreSQL: one cluster per host, a database and role per product-environment, provisioned by the runner.
 6. [ ] SQLite stays the default for single-replica products, with nightly `.backup`.
@@ -255,18 +261,18 @@ Decide top to bottom; a parent settles before its children.
 9. [ ] Networks: one `platform` network per host plus project networks; only the ingress publishes ports.
 10. [ ] Volumes: project-scoped named volumes; platform data on a dedicated block volume.
 11. [ ] Backups: restic to off-provider storage (B2 or R2), 7/4/6 retention, monthly restore drill.
-12. [ ] Ingress: Traefik file provider, route files written by the runner.
+12. [x] Ingress: Traefik file provider, route files written by the runner.
 13. [x] Site links: products declare public services, targets declare hostnames, Wheelhouse shows Open site.
-14. [ ] Hostnames: prod uses the product's own domains; dev and test use `<site>-<product>.<env>.<preview-domain>`.
+14. [x] Hostnames: prod uses the product's own domains; dev and test use `<site>-<product>.<env>.<preview-domain>`.
 15. [ ] Lifecycle: start and stop per target from Wheelhouse; all environments may run at once.
-16. [ ] Local server: dev by default; test and prod on demand; prod needs a typed confirmation.
-17. [ ] Branch and PR environments: ephemeral dev targets from code-owned templates, after the points above.
-18. [ ] Descriptor: one `deploy.yml` per product declares services, builds, change paths, sites and needs.
-19. [ ] Service versions: a service carries the product version in which it last changed.
-20. [ ] Builds: CI builds only changed services; candidates on every push; any commit on demand.
-21. [ ] Build trigger: Wheelhouse may dispatch CI builds of any branch or commit.
-22. [ ] Candidate storage: images tagged `sha-<commit>` in GHCR; bundles as 14-day Actions artifacts.
+16. [x] Local server: dev by default; test and prod on demand; prod needs a typed confirmation.
+17. [x] Branch and PR environments: later, as ephemeral dev targets from code-owned templates; branch builds land in dev now.
+18. [x] Descriptor: one `deploy.yml` per product declares services, builds, change paths, sites and needs.
+19. [x] Service versions: a service carries the product version in which it last changed.
+20. [x] Builds: CI builds only changed services; candidates on every push; any commit on demand.
+21. [x] Build trigger: Wheelhouse starts a build only for a commit that has none.
+22. [x] Candidate storage: images tagged `sha-<commit>` in GHCR; bundles as 14-day Actions artifacts.
 23. [ ] Derived settings: routes produce public URLs and allowed hosts; operators supply only secrets.
-24. [ ] Site exposure: `public` sites route on 80/443; `private` sites only on the Tailscale entrypoint.
+24. [x] Site exposure: `public` sites route on 80/443; `private` sites only on the Tailscale entrypoint.
 25. [ ] Preview domain: one domain for dev and test hostnames; which one.
-26. [ ] `repo-structure.md` §13: one image per service at `ghcr.io/<owner>/<repo>/<service>`.
+26. [x] `repo-structure.md` §13: one image per service at `ghcr.io/<owner>/<repo>/<service>`.

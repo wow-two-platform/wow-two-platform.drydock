@@ -109,5 +109,7 @@ Auth/multi-tenant/billing (single-user — bind to Tailscale).
 
 Providers and individual VPS bindings are defined in `engineering/codebase/wheelhouse.runner-services/fleet.py`.
 Provider/environment choices use enums; no dynamic provider plugins or Add VPS UI/API.
-`artifacts.py` owns approved release sources. Wheelhouse consumes published bundles and never triggers builds.
+`artifacts.py` owns approved release sources. Wheelhouse deploys published releases and per-commit builds; it starts a
+product's build workflow only for a commit that has no build, and never builds on a target host.
+Environments are `dev`, `test` and `prod`; dev takes any build, test and prod take releases.
 The detailed Git/CI/registry policy lives in `engineering/planning/ci-artifact-policy.md`.

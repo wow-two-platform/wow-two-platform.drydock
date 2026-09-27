@@ -1,6 +1,6 @@
 # Wheelhouse — Backlog
 
-*Last updated: 2026-09-26*
+*Last updated: 2026-09-27*
 
 Deferred work; top of each group = next. Version docs hold only the active version.
 
@@ -8,7 +8,9 @@ Deferred work; top of each group = next. Version docs hold only the active versi
 
 | Item | Type | Notes |
 |---|---|---|
-| Prepare a VPS for deployments with one command | feature | Ingress, PostgreSQL, `platform` network, deploy account, protected root, firewall |
+| Prepare a VPS for deployments with one command | feature | Traefik (file provider on `/srv/wheelhouse/ingress`), PostgreSQL, `platform` network, deploy account, protected root, firewall |
+| Choose the shared preview domain for dev and test hosts | check | Topology point 25; one wildcard DNS record per environment |
+| Start and stop an environment from Wheelhouse | feature | Topology point 15; `compose stop/start` under the target lock |
 | Encrypted off-provider backups with a restore drill | feature | Product databases, key volumes, Wheelhouse state; decryption keys held off-host |
 | Keep 30 days of vitals history | feature | A sampler beside the on-demand read; feeds trends and alerts |
 | Uptime, backup-age and disk alerts | feature | Needs the history sampler; external probe of a real redirect; channel alerts |
@@ -32,6 +34,10 @@ Deferred work; top of each group = next. Version docs hold only the active versi
 
 | Item | Type | Notes |
 |---|---|---|
+| ForeverPin adopts `deploy.yml` and the candidate workflow | feature | Local server holds its descriptor today; per-service image names via `image` |
+| Haven adopts `deploy.yml`, per-service versions and an edge health route | feature | Its Caddy edge has no health route; the runner requires one |
+| Show each service's version inside every product | feature | Haven shows its build version beside the logo; adopt across products |
+| Deploy a branch to its own temporary dev environment | feature | Topology point 17; from a code-owned template; later PR previews |
 | Browse releases older than the recent catalog | feature | The target journal already retains deployed bundles |
 | Signed provenance for release bundles | feature | Attestation check before selection |
 | Private release-asset download | feature | Token-authenticated catalog for private repositories |

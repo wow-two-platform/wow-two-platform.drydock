@@ -1,17 +1,20 @@
 # Git, CI and deployment artifacts
 
-*Last updated: 2026-09-19*
+*Last updated: 2026-09-27*
 
 ## Decision
 
 Use `main` for development and explicit version tags for deployable releases.
-A main push verifies the code and builds disposable images; it does not publish a deployment candidate.
-A version tag on a commit already in `main` verifies, publishes and smoke-tests both service images,
-then publishes one complete release bundle. Wheelhouse lists that bundle and deploys its recorded digests.
+Every push, to `main` or any branch, builds a candidate of the services it changed: images tagged `sha-<commit>`
+and the Actions artifact `bundle-<commit>`, kept 14 days. Dev deploys any candidate; test and prod deploy releases.
+A version tag on a commit already in `main` verifies, publishes and smoke-tests the changed service images,
+then publishes one complete release bundle. Wheelhouse lists releases and candidates and deploys their recorded digests.
 
-This is the recommended cadence, implemented locally for review. No workflow, tag, image or release was published by this task.
-The user can instead choose a deployable candidate for every successful main push; that changes publishing frequency,
-retention and promotion labels, but not the bundle or target execution contract.
+Wheelhouse starts the build workflow for a commit that has no build, and never for one that has.
+Images carry no environment values, so a settings change is a new commit and a new build.
+Each product declares its services, build recipes and change paths in `engineering/deployment/deploy.yml`
+([convention](../../../../../conventions/deployment/descriptor/deploy-descriptor.md)).
+Decided 2026-09-27; products adopt the candidate workflow one by one.
 
 ## Current evidence
 
@@ -27,21 +30,20 @@ Unrelated product work can stay local; required uncommitted runtime fixes cannot
 | Event | Verification and build | Persistent deployment artifact | Wheelhouse visibility |
 |---|---|---|---|
 | Local edit or local commit | Local verifier when requested | None | None |
-| Push to `main` | Backend/frontend checks, both Linux images, real smoke, replacement/persistence check | None; runner-local images expire with the job | None |
+| Push to `main` or a branch | Backend/frontend checks, changed service images, real smoke | `sha-<commit>` images and the `bundle-<commit>` artifact, 14 days | Candidate, dev only |
+| Wheelhouse requests a build of a commit without one | Same pipeline at that commit | Same as a push | Candidate, dev only |
 | Push a version tag such as `v0.9.0-rc.1` | Repeat verification at the exact tagged source; publish and exercise both image outputs | GHCR images plus a complete GitHub release bundle | Published prerelease, explicitly labelled |
 | Push a version tag such as `v0.9.0` | Same pipeline and gates | Stable release bundle | Published stable release |
 | Failed or cancelled build | Failure remains in GitHub Actions | No published release bundle; an unused image may remain | None |
-| Deploy to staging or production | Pull the selected digests and apply target configuration | Same release bytes | Deployment outcome |
+| Deploy to dev, test or prod | Pull the selected digests and apply target configuration | Same release bytes | Deployment outcome |
 
 Tags identify snapshots; they do not require release branches. `main` can advance after tagging an older known-good commit.
 The workflow checks that the tag commit belongs to `main`; it does not silently build the newest head of `main`.
 Never move or reuse a release tag. Use another patch or prerelease version for changed source.
 The first private pilot can use a prerelease; that label is not evidence that unfinished product features are ready for public use.
 
-A tag build must finish before the operator selects its artifact. Wheelhouse has no pending-build row or Build button.
-Normal commits remain cheap; a deployable release is an intentional cut. If frequent staging deployments become the norm,
-an explicit candidate-per-main policy can be added, using commit/run IDs and short retention for candidates.
-It is not required to deploy ForeverPin today.
+A build must finish before the operator selects it. Wheelhouse's Build action only starts the workflow;
+the candidate appears once its artifact uploads. A deployable release stays an intentional cut.
 
 ## Publication sequence and failure boundaries
 

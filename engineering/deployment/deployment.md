@@ -1,12 +1,38 @@
 # Deployment operations
 
-*Last updated: 2026-09-26*
+*Last updated: 2026-09-27*
 
 ## Ownership and current boundary
 
 GitHub Actions builds immutable images. Wheelhouse submits reviewed release bundles over pinned SSH.
 The target-side Python runner owns locks, durable intent, health gates and recovery. The same runner works without the dashboard.
 Git triggers, artifact publication and retention are defined in the [CI policy](../planning/ci-artifact-policy.md).
+A product declares its services, builds and sites in `engineering/deployment/deploy.yml`
+([convention](../../../../../conventions/deployment/descriptor/deploy-descriptor.md));
+`wheelhouse.runner-services/release.py` turns it into the bundle Wheelhouse deploys.
+
+## Environments
+
+Every product runs `dev`, `test` and `prod` targets, all on one host at once, told apart by Compose project,
+platform-network alias, database, settings files and hostnames. No hardware separates them.
+
+| Environment | Takes | Runs |
+|---|---|---|
+| `dev` | A build of any commit or branch, or a release | For work in progress and sharing a feature |
+| `test` | Published releases | For acceptance |
+| `prod` | Published releases | For customers |
+
+- The transport refuses a commit build on test or prod, before any file reaches the target.
+- On the local server, prod deploys only after the operator types the target ID (`--confirm foreverpin-prod`).
+
+## Sites
+
+- A release declares its sites: a named entry point on one service's port, optionally a path prefix, public or private.
+- A target names each site's host; dev and test may follow the server's pattern, prod names every host itself.
+- After a verified rollout the runner writes `<root>/ingress/<product>-<environment>.yml`, a Traefik file-provider route.
+- The route maps the host to `<product>-<environment>-<service>:<port>` on the platform network.
+- The target records each site's URL; Wheelhouse shows Open site links on the target and after a deploy.
+- A release without sites removes the project's route file; a private site routes only on private entry points.
 
 The [pilot plan](../planning/deployment-pilot.md) owns scope, future VPS wiring and launch gates.
 Local image builds use the current working tree; publishing requires all intended source/dependency changes committed together.
@@ -55,11 +81,11 @@ For example only (these are not enabled hosts):
 ```python
 SERVERS = (Server("pilot-host", "Pilot host", VpsProvider.HETZNER,
                   "vps.example.net", "hel1"),)
-TARGETS = (Target("foreverpin-staging", "pilot-host", "foreverpin",
-                  DeploymentEnvironment.STAGING,
-                  (("management", "/srv/secrets/foreverpin-staging/management.json"),
-                   ("redirect", "/srv/secrets/foreverpin-staging/redirect.json")),
-                  "platform"),)
+TARGETS = (Target("foreverpin-prod", "pilot-host", "foreverpin",
+                  DeploymentEnvironment.PROD,
+                  (("management", "/srv/secrets/foreverpin-prod/management.json"),
+                   ("redirect", "/srv/secrets/foreverpin-prod/redirect.json")),
+                  "platform", sites=(("app", "app.example.net"), ("go", "go.example.net"))),)
 ```
 
 Add a real redirect smoke probe to the target after the stable pilot code exists.
@@ -106,18 +132,28 @@ From the repository root, using the same inventory as the dashboard:
 R=engineering/codebase/wheelhouse.runner-services/transport.py
 python3 $R targets  --root /path/to/inventory
 python3 $R releases --root /path/to/inventory
-python3 $R check    --root /path/to/inventory --target foreverpin-staging --bundle <artifact-id>
-python3 $R submit   --root /path/to/inventory --target foreverpin-staging --bundle <artifact-id> --actor operator
+python3 $R check    --root /path/to/inventory --target foreverpin-test --bundle <artifact-id>
+python3 $R submit   --root /path/to/inventory --target foreverpin-test --bundle <artifact-id> --actor operator
 python3 $R status   --root /path/to/inventory --job <returned-id>
 python3 $R jobs     --root /path/to/inventory
-python3 $R state    --root /path/to/inventory --target foreverpin-staging
-python3 $R topology --root /path/to/inventory --target foreverpin-staging
-python3 $R reconcile --root /path/to/inventory --target foreverpin-staging --job <active-id> --actor operator
-python3 $R vitals   --root /path/to/inventory [--target foreverpin-staging]
+python3 $R state    --root /path/to/inventory --target foreverpin-test
+python3 $R topology --root /path/to/inventory --target foreverpin-test
+python3 $R reconcile --root /path/to/inventory --target foreverpin-test --job <active-id> --actor operator
+python3 $R vitals   --root /path/to/inventory [--target foreverpin-test]
 python3 $R stats    --root /path/to/inventory --days 30
 ```
 
 `check`, `state`, `topology` and `vitals` stream the runner over SSH stdin and leave no files on the target.
+`submit --confirm <target>` carries the typed confirmation that prod on the local server requires.
+
+```sh
+python3 $R branches --root /path/to/inventory --product foreverpin
+python3 $R commits  --root /path/to/inventory --product foreverpin --branch main
+python3 $R build    --root /path/to/inventory --product foreverpin --commit <full sha>
+```
+
+`commits` marks each commit that has a build. `build` starts the product's build workflow only for a commit without one;
+it needs `WHEELHOUSE_GITHUB_TOKEN_FILE` with Actions write access on the product repository.
 `check` probes SSH, the deployment root, Docker architecture, Compose, disk, the shared network,
 every settings file and the target's lock state; each failure names the rule or key it broke.
 
@@ -125,13 +161,16 @@ every settings file and the target's lock state; each failure names the rule or 
 |---|---|
 | `GET /api/deployments` | Recent submissions with their last observed outcome and reason |
 | `GET /api/deployments/targets` | Configured target bindings |
-| `GET /api/deployments/targets/{id}/state` | Verified release and `ready` / `running` / `needs_reconciliation` |
+| `GET /api/deployments/targets/{id}/state` | Verified release with its sites and service versions, and `ready` / `running` / `needs_reconciliation` |
 | `GET /api/deployments/targets/{id}/topology` | Saved Compose services, startup dependencies, logical networks and named volumes from the last successful release |
 | `GET /api/deployments/targets/{id}/check?release=` | Read-only readiness, optionally against one release |
 | `POST /api/deployments/targets/{id}/reconcile` | `{"job":"<active-id>"}` with `X-Wheelhouse-Action: reconcile` |
 | `GET /api/servers` | Hosts defined in code; registration and deletion return `405` |
-| `GET /api/deployments/releases` | Published artifacts from approved release sources |
-| `POST /api/deployments` | `{"target":"…","release":"…"}` with `X-Wheelhouse-Action: deploy`; `202` means queued |
+| `GET /api/deployments/releases` | Published releases and per-commit builds (`kind`: `release` \| `candidate`) from approved sources |
+| `GET /api/deployments/products/{product}/branches` | The product repository's branches |
+| `GET /api/deployments/products/{product}/commits?branch=` | A branch's recent commits, each with its build when one exists |
+| `POST /api/deployments/products/{product}/builds` | `{"commit":"<sha>"}` with `X-Wheelhouse-Action: build`; `202` means the workflow was started |
+| `POST /api/deployments` | `{"target":"…","release":"…","confirm":"…"}` with `X-Wheelhouse-Action: deploy`; `202` means queued |
 | `GET /api/deployments/{id}` | The target-owned outcome |
 | `GET /api/deployments/vitals` | Every target's host load, memory, disks, uptime and containers, read in parallel |
 | `GET /api/deployments/stats?days=30` | Outcomes, success rate, median rollout and recovery, deploys per UTC day (1–90 days) |
@@ -161,42 +200,52 @@ Wheelhouse logs the operator, vault and change for every write; values and token
 Reach a vault on Wheelhouse's own private network, or through an SSH tunnel when Wheelhouse runs on a workstation.
 Vault-side audit records show Wheelhouse's administrator identity; Wheelhouse's log names the human operator.
 
-## Local rehearsal
+## Local server
 
-`engineering/deployment/rehearsal/` runs a disposable SSH target, a registry, a product database and,
-when a `secrets-vault:local` image exists, a vault. `WHEELHOUSE_REHEARSAL=1` exposes the rehearsal target, vault and
-imported bundles; a deployed control plane never sets it.
+`engineering/deployment/rehearsal/` runs the local server: a disposable SSH target, a Traefik ingress, a registry,
+a product database and, when a `secrets-vault:local` image exists, a vault. It hosts ForeverPin's `dev`, `test` and
+`prod` at once. Dev is the default; test and prod deploy on demand. `WHEELHOUSE_REHEARSAL=1` exposes the local
+targets, vault and imported bundles; a deployed control plane never sets it.
 
 ```sh
 cd engineering/deployment/rehearsal
-python3 rehearse.py run                                  # rig, bundle, settings, check, deploy
-python3 rehearse.py bundle --release rehearsal-broken --broken   # a release that fails after replacement
-python3 rehearse.py deploy --release rehearsal-broken
-python3 rehearse.py state
+python3 rehearse.py run                                       # server, dev candidate, settings, check, deploy to dev
+python3 rehearse.py bundle --tag v0.0.1-local.1               # a release, which test and prod also take
+python3 rehearse.py settings --env test --tag v0.0.1-local.1
+python3 rehearse.py deploy --env test --tag v0.0.1-local.1
+python3 rehearse.py deploy --env prod --tag v0.0.1-local.1 --confirm foreverpin-prod
+python3 rehearse.py bundle --tag v0.0.1-broken.1 --broken     # a release that fails after replacement
+python3 rehearse.py state --env dev
 python3 rehearse.py down --volumes
 ```
 
-The rig generates its own SSH and vault keys under `rehearsal/state/` (ignored by Git) and pins the host key it generated.
-It needs local `foreverpin-{management,redirect}:local` images and the ForeverPin release generator in the workspace.
-Point a local API at the rehearsal inventory with `WHEELHOUSE_REHEARSAL=1`, `Deployment__Root` and `Deployment__TransportPath`.
+- Sites answer at `http://<site>-foreverpin.<environment>.localhost:18080` (`app` and `go`).
+- Chromium and Firefox resolve `*.localhost` to loopback; verify Safari before relying on it.
+- Bundles come from `release.py` with the local `foreverpin-{management,redirect}:local` images; a candidate keeps the
+  services unchanged since the newest imported release.
+- ForeverPin carries no `deploy.yml` yet, so the local server holds `foreverpin.deploy.yml` for it.
+- The generator needs PyYAML; `rehearse.py` uses the system Python when the current one lacks it.
+- The server generates its own SSH and vault keys under `rehearsal/state/` (ignored by Git) and pins the host key it generated.
+- Each environment gets its own database (`foreverpin_<environment>`) and settings folder (`state/secrets/<environment>/`).
+- Point a local API at the inventory with `WHEELHOUSE_REHEARSAL=1`, `Deployment__Root` and `Deployment__TransportPath`.
 
 ### From an IDE
 
-`python3 rehearse.py dev` starts the rig plus a loopback database (`127.0.0.1:15432`) that
+`python3 rehearse.py dev` starts the server plus a loopback database (`127.0.0.1:15432`) that
 `appsettings.Development.json` points at, with `Deployment:Rehearsal` = `host` and the runner paths resolved from the
 project folder. Run `Wheelhouse.Api` with the `https` launch profile and open `https://localhost:8210`; the header's
-`Local rig` badge marks an instance that deploys to the rehearsal target, not real hosts. Sign-in uses the API
+`Local server` badge marks an instance that deploys to the local server, not real hosts. Sign-in uses the API
 project's user-secrets (`Identity:GitHub`, callback `https://localhost:8210/api/identity/callback`).
 The build compiles the SPA with the Node pinned in `wheelhouse.frontend-services/.nvmrc` when nvm has it, so a Rider
 launched from the Dock builds even when its PATH holds an older system Node.
 
 `Deployment:Rehearsal` is the only switch: the API sets `WHEELHOUSE_REHEARSAL` for the runner from it and drops any
-inherited value, so a deployed control plane cannot be pointed at the rig by environment alone.
+inherited value, so a deployed control plane cannot be pointed at the local server by environment alone.
 
 ### Local console — the whole system before a VPS
 
-`python3 rehearse.py console` adds Wheelhouse itself to the rig: the production image (`wheelhouse:local`), its own
-PostgreSQL, and the rehearsal inventory mounted at `/data/deployments`. It runs as `Production` at
+`python3 rehearse.py console` adds Wheelhouse itself: the production image (`wheelhouse:local`), its own
+PostgreSQL, and the local inventory mounted at `/data/deployments`. It runs as `Production` at
 `http://localhost:18210` and drives the target over SSH (`target:22`) and the vault (`http://vault:8080`) by service
 name, the way it will drive a VPS; `Deployment:Rehearsal` = `network` selects that view and `Deployment:RehearsalState`
 carries the host path for settings files. A transport run by hand inside the console needs
@@ -212,9 +261,9 @@ One-time sign-in setup, on the GitHub account that will operate Wheelhouse:
 Use a Chromium-based browser: it accepts the `Secure` session cookie on `http://localhost`.
 A separate OAuth app with the production callback serves the VPS; the local one stays local.
 
-With `rehearse.py bundle` and `settings` run, the console lists `rehearsal-1` and `rehearsal-broken` for
-`foreverpin-rehearsal`. The `v0.3` Verification iteration is the test plan. `rehearse.py down` stops everything;
-`--volumes` also drops the console's database, the vault's data and the target's state.
+With a bundle and each environment's settings written, the console lists them for `foreverpin-dev`, `-test` and
+`-prod`. The `v0.3` Verification iteration is the test plan. `rehearse.py down` stops everything; `--volumes` also
+drops the console's database, the vault's data and the target's state.
 
 ## Target state and recovery
 
@@ -222,9 +271,10 @@ With `rehearse.py bundle` and `settings` run, the console lists `rehearsal-1` an
 /srv/wheelhouse/<product>-<environment>/
   lock
   active.json
-  current.json
+  current.json                  release, service versions and site URLs of the verified rollout
   jobs/<job-id>.json
   releases/<job-id>/{release,compose}.json
+/srv/wheelhouse/ingress/<product>-<environment>.yml   Traefik routes for the verified release's sites
 ```
 
 Pulls finish before replacement. Success requires healthy containers with the exact image references and configured smoke responses.
@@ -257,14 +307,13 @@ Inspect detailed container logs privately on the target. Runtime Docker logs rot
 2. Verify the SSH fingerprint through the provider console; install the pinned known-hosts file.
 3. Install Docker/Compose and Python using the chosen OS's official instructions.
 4. Configure private administration and firewall; expose only intended ingress on 80/443.
-5. Start one ingress and PostgreSQL on the private platform network.
+5. Start Traefik and PostgreSQL on the private platform network; Traefik's file provider reads `/srv/wheelhouse/ingress`.
 6. Create distinct least-privilege databases/users for every product/environment.
 7. Write protected runtime settings and registry credentials.
-8. Route management/redirect domains to `foreverpin-<environment>-management:8080` and
-   `foreverpin-<environment>-redirect:8080`.
+8. Name each prod site's host on its target in `fleet.py`; the runner routes it after a verified rollout.
 9. Add the ingress IP to `Deployment:TrustedProxies` in both app settings; no trust-all proxy setting.
 10. Bootstrap Wheelhouse privately or use the operator command from a workstation.
-11. Deploy staging, verify real URLs and provider callbacks, restore a backup, promote the same image digests.
+11. Deploy test, verify real URLs and provider callbacks, restore a backup, promote the same image digests to prod.
 
 Existing product containers keep serving without Wheelhouse. A new VPS requires a reviewed fleet code change and Wheelhouse rebuild; it uses the same product release.
 Data relocation remains a separately planned copy/restore/cutover operation.
