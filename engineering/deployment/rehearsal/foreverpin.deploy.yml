@@ -1,0 +1,50 @@
+# ForeverPin's deployment descriptor, held by the local server until the product carries its own
+# engineering/deployment/deploy.yml. Paths are relative to the product's engineering/ folder.
+descriptor: 1
+product: foreverpin
+shared:
+  - codebase/forever-pin.backend-services/Directory.*.props
+  - codebase/forever-pin.backend-services/global.json
+services:
+  management:
+    build: { dockerfile: deployment/Dockerfile, target: management }
+    paths:
+      - codebase/forever-pin.backend-services/**
+      - codebase/forever-pin.frontend-services/**
+    health: /health
+    memory: 768m
+    stopGrace: 45s
+    settings:
+      required:
+        - DatabaseOptions:ConnectionString
+        - ApiSettings:RedirectBaseUrl
+        - Auth:Google:ClientId
+        - Billing:SecretKey
+        - Billing:WebhookSecret
+        - Billing:Prices:Solo
+        - Billing:Prices:Pro
+        - Billing:Prices:Agency
+        - Billing:SuccessUrl
+        - Billing:CancelUrl
+        - AllowedHosts
+        - Deployment:TrustedProxies
+    volumes:
+      keys: /data/keys
+    sites:
+      app: {}
+    needs: [postgres]
+  redirect:
+    build: { dockerfile: deployment/Dockerfile, target: redirect }
+    paths:
+      - codebase/forever-pin.backend-services/**
+    health: /health
+    memory: 384m
+    stopGrace: 45s
+    settings:
+      required:
+        - DatabaseOptions:ConnectionString
+        - AllowedHosts
+        - Deployment:TrustedProxies
+    sites:
+      go: {}
+    needs: [postgres]

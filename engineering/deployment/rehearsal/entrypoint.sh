@@ -13,4 +13,6 @@ group=$(getent group "$gid" | cut -d: -f1 || true)
 [ -n "$group" ] || { addgroup -g "$gid" dockerhost; group=dockerhost; }
 addgroup deploy "$group"
 chown deploy:deploy /srv/wheelhouse
+# The ingress watches this folder from its first start; the runner writes one route file per project.
+install -d -m 755 -o deploy -g deploy /srv/wheelhouse/ingress
 exec /usr/sbin/sshd -D -e -f /etc/ssh/sshd_rehearsal_config

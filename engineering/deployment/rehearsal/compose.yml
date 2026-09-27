@@ -1,4 +1,4 @@
-# Local rehearsal rig: an SSH target driving the host Docker daemon, a registry, a product database,
+# The local server: an SSH target driving the host Docker daemon, an ingress, a registry, a product database,
 # an optional vault, and the Wheelhouse console itself (`rehearse.py console`).
 # Settings live at the same absolute path inside the target and on the host, so bind sources resolve.
 name: wheelhouse-rehearsal
@@ -12,6 +12,24 @@ services:
       - ${REHEARSAL_STATE:?Set REHEARSAL_STATE}/keys:/rehearsal-keys
       - ${REHEARSAL_STATE}/secrets:${REHEARSAL_STATE}/secrets:ro
       - deployments:/srv/wheelhouse
+    restart: unless-stopped
+  # The local server's ingress: Traefik reads the runner's route files, as on a VPS, and answers every
+  # environment's sites at <site>-<product>.<environment>.localhost:18080.
+  ingress:
+    image: traefik:v3.5
+    command:
+      - --providers.file.directory=/srv/wheelhouse/ingress
+      - --providers.file.watch=true
+      - --entryPoints.web.address=:80
+      - --log.level=ERROR
+    ports:
+      - "127.0.0.1:18080:80"
+    volumes:
+      - deployments:/srv/wheelhouse:ro
+    networks:
+      default: {}
+      platform: {}
+    depends_on: [target]
     restart: unless-stopped
   registry:
     image: registry:2
