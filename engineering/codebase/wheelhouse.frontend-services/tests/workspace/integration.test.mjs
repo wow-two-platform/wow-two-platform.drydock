@@ -116,6 +116,92 @@ test("preserves explicit deployment, reconciliation, and vault action headers", 
   assert.deepEqual(JSON.parse(requests[1].options.body), { job: "job" });
 });
 
+test("sends a typed prod confirmation and an explicit build action", async () => {
+  const requests = [];
+  globalThis.fetch = async (url, options) => {
+    requests.push({ url, options });
+    return json({
+      data: url.includes("/builds")
+        ? { product: "foreverpin", commit: "e".repeat(40), status: "requested" }
+        : { id: "job", status: "queued" },
+    });
+  };
+  assert.equal(
+    (
+      await deploymentsApi.startDeployment(
+        "foreverpin-prod",
+        "release",
+        "foreverpin-prod",
+      )
+    ).ok,
+    true,
+  );
+  const build = await deploymentsApi.requestBuild("foreverpin", "e".repeat(40));
+  assert.equal(build.ok, true);
+  assert.deepEqual(JSON.parse(requests[0].options.body), {
+    target: "foreverpin-prod",
+    release: "release",
+    confirm: "foreverpin-prod",
+  });
+  assert.equal(
+    requests[1].url,
+    "/api/deployments/products/foreverpin/builds",
+  );
+  assert.equal(requests[1].options.headers.get("X-Wheelhouse-Action"), "build");
+  assert.deepEqual(JSON.parse(requests[1].options.body), {
+    commit: "e".repeat(40),
+  });
+});
+
+test("decodes environment rules, commit builds, and only http site links", async () => {
+  globalThis.fetch = async (url) => {
+    if (url.endsWith("/targets"))
+      return json({
+        data: [
+          { id: "foreverpin-dev", product: "foreverpin", environment: "dev",
+            serverId: "local", provider: "Local", host: "127.0.0.1",
+            acceptsCandidates: true, needsConfirmation: false },
+          { id: "legacy", product: "foreverpin", environment: "test",
+            serverId: "local", provider: "Local", host: "127.0.0.1" },
+        ],
+      });
+    if (url.endsWith("/releases"))
+      return json({
+        data: [
+          { id: "foreverpin-ci-7", product: "foreverpin", release: "sha-ccccccc",
+            kind: "candidate", commit: "c".repeat(40), branch: "main",
+            prerelease: true, publishedAt: "2026-09-27T10:00:00Z", provider: "GitHubActions" },
+          { id: "foreverpin-gh-1", product: "foreverpin", release: "v0.9.0",
+            prerelease: false, publishedAt: "2026-09-19T00:00:00Z", provider: "GitHubReleases" },
+        ],
+      });
+    if (url.includes("/commits?branch=feature%2Fpins"))
+      return json({ data: [{ sha: "c".repeat(40), message: "feat: pins", author: "Max", buildId: null }] });
+    const site = url.includes("unsafe") ? "javascript:alert(1)" : "http://app-foreverpin.dev.localhost:18080";
+    return json({
+      data: { targetId: "foreverpin-dev", project: "foreverpin-dev", condition: "ready", active: null,
+        current: { id: "job", release: "sha-ccccccc", kind: "candidate",
+          versions: { management: { version: "1.2.0+ccccccc", changedIn: "sha-ccccccc" } },
+          sites: [{ name: "app", service: "management", exposure: "public", url: site }] } },
+    });
+  };
+  const targets = await deploymentsApi.listTargets();
+  assert.deepEqual(
+    targets.value.map((item) => [item.acceptsCandidates, item.needsConfirmation]),
+    [[true, false], [false, false]],
+  );
+  const releases = await deploymentsApi.listReleases();
+  assert.deepEqual(releases.value.map((item) => item.kind), ["candidate", "release"]);
+  const commits = await deploymentsApi.listCommits("foreverpin", "feature/pins");
+  assert.equal(commits.value[0].buildId, null);
+  const state = await deploymentsApi.getTargetState("foreverpin-dev");
+  assert.equal(state.value.current.sites[0].url, "http://app-foreverpin.dev.localhost:18080");
+  assert.equal(state.value.current.versions.management.version, "1.2.0+ccccccc");
+  const unsafe = await deploymentsApi.getTargetState("unsafe");
+  assert.equal(unsafe.ok, false);
+  assert.equal(unsafe.failure.code, "protocol");
+});
+
 test("accepts explicit empty logout and deletion successes", async () => {
   globalThis.fetch = async () => new Response(null, { status: 204 });
   assert.deepEqual(await authApi.signOut(), { ok: true, value: undefined });

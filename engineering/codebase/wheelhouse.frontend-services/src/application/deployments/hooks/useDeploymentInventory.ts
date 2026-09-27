@@ -47,3 +47,33 @@ export function useTargetState(target: MaybeRefOrGetter<string | null>) {
     meta: { suppressGlobalError: true },
   });
 }
+
+/** A product's branches, for choosing a commit to build or deploy to dev. */
+export function useProductBranches(product: MaybeRefOrGetter<string | null>) {
+  return useAppQuery({
+    key: () => DeploymentKeys.branches(toValue(product) ?? ""),
+    queryFn: ({ signal }) =>
+      deploymentsApi.listBranches(toValue(product) ?? "", signal),
+    enabled: () => Boolean(toValue(product)),
+    meta: { suppressGlobalError: true },
+  });
+}
+
+/** A branch's recent commits, each with its build when one exists. */
+export function useProductCommits(
+  product: MaybeRefOrGetter<string | null>,
+  branch: MaybeRefOrGetter<string | null>,
+) {
+  return useAppQuery({
+    key: () =>
+      DeploymentKeys.commits(toValue(product) ?? "", toValue(branch) ?? ""),
+    queryFn: ({ signal }) =>
+      deploymentsApi.listCommits(
+        toValue(product) ?? "",
+        toValue(branch) ?? "",
+        signal,
+      ),
+    enabled: () => Boolean(toValue(product) && toValue(branch)),
+    meta: { suppressGlobalError: true },
+  });
+}

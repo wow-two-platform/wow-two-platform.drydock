@@ -64,6 +64,7 @@ import { AttentionRules } from "@/domain/overview";
 import {
   DeployModal,
   ReconcileModal,
+  TargetSites,
   useDeployModal,
 } from "@/presentation/deployments";
 import LoadState from "@/presentation/common/components/LoadState.vue";
@@ -623,6 +624,10 @@ function openDeploy(job?: DeploymentJob): void {
                   >
                 </button>
               </div>
+              <TargetSites
+                :sites="state.data.value?.current?.sites"
+                :versions="state.data.value?.current?.versions"
+              />
               <section
                 class="wh-glass rounded-2xl border border-border p-5"
                 aria-label="Environment services"

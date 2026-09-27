@@ -64,8 +64,8 @@ const current = computed(() => AppPlaces.find((place) => place.path === route.pa
           >
         </nav>
         <div class="ml-auto flex items-center gap-3">
-          <Badge v-if="system.localRig.value" variant="warning" title="Deployments go to the local rehearsal rig"
-            >Local rig</Badge
+          <Badge v-if="system.localRig.value" variant="warning" title="Deployments go to the local server"
+            >Local server</Badge
           >
           <ProfileMenu
             :user="props.user"

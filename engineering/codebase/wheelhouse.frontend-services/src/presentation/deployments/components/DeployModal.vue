@@ -16,7 +16,7 @@ export interface DeployModalProps {
 
 <script setup lang="ts">
 import { computed, ref, shallowRef, watch } from "vue";
-import { ArrowLeft, Rocket, ShieldCheck } from "lucide-vue-next";
+import { ArrowLeft, Hammer, Rocket, ShieldCheck } from "lucide-vue-next";
 
 import { Button } from "@wow-two-beta/ui-vue/presentation/actions";
 import { Alert, Spinner } from "@wow-two-beta/ui-vue/presentation/feedback";
@@ -27,6 +27,7 @@ import {
   SelectPickerItem,
   SelectPickerTrigger,
   SelectPickerValue,
+  TextInput,
 } from "@wow-two-beta/ui-vue/presentation/forms";
 import {
   Modal,
@@ -41,9 +42,13 @@ import {
 import {
   useDeploymentOutcome,
   useDeploymentTargets,
+  useProductBranches,
+  useProductCommits,
   useReleaseArtifacts,
+  useRequestBuild,
   useStartDeployment,
   useTargetCheck,
+  useTargetState,
 } from "@/application/deployments";
 import {
   JobStatus,
@@ -54,6 +59,7 @@ import {
 
 import CheckResultList from "./CheckResultList.vue";
 import JobStatusBadge from "./JobStatusBadge.vue";
+import TargetSites from "./TargetSites.vue";
 
 /** Renders choose, confirm and follow stages for deploying one complete release bundle. */
 defineOptions({ name: "DeployModal" });
@@ -72,10 +78,33 @@ const outcome = useDeploymentOutcome(jobId);
 const selectedTarget = computed(() =>
   targets.data.value?.find((item) => item.id === target.value),
 );
+// Dev takes a build of any commit or branch; test and prod take published releases only.
+const takesBuilds = computed(
+  () => selectedTarget.value?.acceptsCandidates === true,
+);
 const available = computed(() =>
   (releases.data.value ?? []).filter(
-    (item) => item.product === selectedTarget.value?.product,
+    (item) =>
+      item.product === selectedTarget.value?.product &&
+      (takesBuilds.value || item.kind === "release"),
   ),
+);
+const typed = ref("");
+const branch = ref("main");
+const requested = ref<string | null>(null);
+const buildProduct = () =>
+  takesBuilds.value ? (selectedTarget.value?.product ?? null) : null;
+const branches = useProductBranches(buildProduct);
+const commits = useProductCommits(buildProduct, branch);
+const build = useRequestBuild();
+const confirmed = computed(
+  () => !selectedTarget.value?.needsConfirmation || typed.value === target.value,
+);
+const settled = computed(
+  () => outcome.data.value?.status === JobStatus.Succeeded,
+);
+const deployed = useTargetState(() =>
+  step.value === "follow" && settled.value ? target.value : null,
 );
 const selectedRelease = computed(() =>
   available.value.find((item) => item.id === release.value),
@@ -103,8 +132,11 @@ watch(
     release.value = props.selection?.release ?? "";
     jobId.value = null;
     readiness.value = null;
+    typed.value = "";
+    requested.value = null;
     check.reset();
     start.reset();
+    build.reset();
     void releases.refetch();
   },
   { immediate: true },
@@ -113,7 +145,13 @@ watch(
 /** Clears readiness whenever its exact target or release changes. */
 watch([target, release], () => {
   readiness.value = null;
+  typed.value = "";
   check.reset();
+});
+
+/** Reads the verified release's sites once the rollout succeeds, so the dialog can open them. */
+watch(settled, (value) => {
+  if (value) void deployed.refetch();
 });
 
 /** Formats an actual runner target for the environment picker. */
@@ -121,9 +159,28 @@ function targetLabel(item?: DeploymentTarget): string {
   return item ? `${item.product} · ${item.environment} · ${item.host}` : "";
 }
 
-/** Formats a catalog release without substituting a bundle identifier. */
+/** Formats a catalog release without substituting a bundle identifier; a commit's build names its branch. */
 function releaseLabel(item?: ReleaseArtifact): string {
-  return item ? item.release + (item.prerelease ? " (prerelease)" : "") : "";
+  if (!item) return "";
+  if (item.kind === "candidate")
+    return `${item.release} · ${item.branch ?? "commit"} build`;
+  return item.release + (item.prerelease ? " (prerelease)" : "");
+}
+
+/** Selects a commit's existing build, re-reading the catalog when the build is newer than it. */
+async function useBuild(buildId: string): Promise<void> {
+  if (!available.value.some((item) => item.id === buildId))
+    await releases.refetch();
+  release.value = buildId;
+}
+
+/** Starts a build of a commit that has none; the build joins the catalog when its workflow finishes. */
+async function requestBuild(commit: string): Promise<void> {
+  const product = selectedTarget.value?.product;
+  if (!product || build.loading.value) return;
+  requested.value = commit;
+  const result = await build.mutateAsync({ product, commit });
+  if (!result.ok) requested.value = null;
 }
 
 /** Changes targets and clears the incompatible bundle selection. */
@@ -157,9 +214,13 @@ function confirmSelection(): void {
 /** Submits the confirmed bundle and follows only an acknowledged submission. */
 async function deploy(): Promise<void> {
   if (!canChoose.value || start.loading.value) return;
+  if (!confirmed.value) return;
   const result = await start.mutateAsync({
     target: target.value,
     release: release.value,
+    ...(selectedTarget.value?.needsConfirmation
+      ? { confirm: typed.value }
+      : {}),
   });
   if (!result.ok) return;
   jobId.value = result.value.id;
@@ -279,6 +340,95 @@ function close(open: boolean): void {
                 </SelectPickerContent>
               </SelectPicker>
             </Field>
+            <details
+              v-if="takesBuilds"
+              class="rounded-xl border border-border p-4 text-sm"
+            >
+              <summary class="cursor-pointer font-medium">
+                Deploy a commit
+              </summary>
+              <div class="mt-3 flex flex-col gap-3">
+                <Field label="Branch">
+                  <SelectPicker
+                    :model-value="branch"
+                    :get-option-label="(key: string) => key"
+                    @update:model-value="
+                      (value: string | null) => (branch = value ?? 'main')
+                    "
+                  >
+                    <SelectPickerTrigger aria-label="Branch">
+                      <SelectPickerValue placeholder="Select a branch" />
+                    </SelectPickerTrigger>
+                    <SelectPickerContent>
+                      <SelectPickerItem
+                        v-for="name in branches.data.value ?? [branch]"
+                        :key="name"
+                        :item-key="name"
+                        :label="name"
+                      />
+                    </SelectPickerContent>
+                  </SelectPicker>
+                </Field>
+                <Alert
+                  v-if="commits.error.value || branches.error.value"
+                  severity="warning"
+                  title="Couldn't read commits"
+                  :description="
+                    (commits.error.value ?? branches.error.value)?.message ?? ''
+                  "
+                />
+                <div v-else-if="commits.loading.value" class="py-2">
+                  <Spinner size="sm" label="Reading commits" />
+                </div>
+                <ul
+                  v-else
+                  class="flex flex-col divide-y divide-border"
+                  aria-label="Commits"
+                >
+                  <li
+                    v-for="entry in (commits.data.value ?? []).slice(0, 10)"
+                    :key="entry.sha"
+                    class="flex items-center justify-between gap-3 py-2"
+                  >
+                    <span class="min-w-0 truncate"
+                      ><span class="font-mono">{{ entry.sha.slice(0, 7) }}</span>
+                      <span class="text-muted-foreground">
+                        {{ entry.message }}</span
+                      ></span
+                    >
+                    <Button
+                      v-if="entry.buildId"
+                      size="sm"
+                      variant="outline"
+                      tone="neutral"
+                      @click="useBuild(entry.buildId)"
+                      >Use build</Button
+                    >
+                    <Button
+                      v-else
+                      size="sm"
+                      variant="soft"
+                      tone="primary"
+                      :is-loading="build.loading.value && requested === entry.sha"
+                      :is-disabled="requested === entry.sha"
+                      @click="requestBuild(entry.sha)"
+                    >
+                      <template #leading><Hammer :size="14" /></template>
+                      {{ requested === entry.sha ? "Build requested" : "Build" }}
+                    </Button>
+                  </li>
+                </ul>
+                <Alert
+                  v-if="build.error.value"
+                  severity="danger"
+                  title="Build refused"
+                  :description="build.error.value.message"
+                />
+                <p v-else-if="requested" class="text-xs text-muted-foreground">
+                  The build joins the release list when its workflow finishes.
+                </p>
+              </div>
+            </details>
             <Alert
               v-if="check.error.value"
               severity="danger"
@@ -350,6 +500,16 @@ function close(open: boolean): void {
               }}
             </dd>
           </dl>
+          <Field
+            v-if="selectedTarget?.needsConfirmation"
+            :label="`Type ${target} to deploy prod to the local server`"
+          >
+            <TextInput
+              v-model="typed"
+              :disabled="start.loading.value"
+              autocomplete="off"
+            />
+          </Field>
           <Alert
             v-if="!canChoose"
             severity="warning"
@@ -375,7 +535,7 @@ function close(open: boolean): void {
             variant="solid"
             tone="primary"
             :is-loading="start.loading.value"
-            :is-disabled="!canChoose"
+            :is-disabled="!canChoose || !confirmed"
             @click="deploy"
           >
             <template #leading><Rocket :size="16" /></template>Deploy
@@ -420,6 +580,11 @@ function close(open: boolean): void {
               {{ outcome.data.value.reason }}
             </p>
           </div>
+          <TargetSites
+            v-if="settled"
+            :sites="deployed.data.value?.current?.sites"
+            :versions="deployed.data.value?.current?.versions"
+          />
           <Alert
             v-if="lockedFailure"
             severity="warning"

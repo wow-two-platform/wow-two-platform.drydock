@@ -23,6 +23,7 @@ import { DeploymentExtensions, TargetCondition } from "@/domain/deployments";
 
 import ConditionBadge from "./ConditionBadge.vue";
 import ReconcileModal from "./ReconcileModal.vue";
+import TargetSites from "./TargetSites.vue";
 
 /** Renders a target's verified release and explicit reconciliation action. */
 defineOptions({ name: "TargetRow" });
@@ -47,6 +48,11 @@ const drift = computed(() =>
         {{ props.target.product }} · {{ props.target.environment }} ·
         {{ props.target.host }}
       </p>
+      <TargetSites
+        class="mt-2"
+        :sites="state.data.value?.current?.sites"
+        :versions="state.data.value?.current?.versions"
+      />
     </div>
     <div class="flex flex-wrap items-center gap-3 text-sm">
       <Spinner

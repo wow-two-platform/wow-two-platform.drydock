@@ -1,4 +1,7 @@
+import { z } from "zod";
 import type {
+  BuildRequest,
+  CommitEntry,
   DeploymentJob,
   DeploymentStats,
   DeploymentTarget,
@@ -8,6 +11,8 @@ import type {
 } from "@/domain/deployments";
 import { requestData } from "@/integration/common";
 import {
+  BuildRequestSchema,
+  CommitEntrySchema,
   DeploymentJobSchema,
   DeploymentStatsSchema,
   DeploymentTargetSchema,
@@ -68,13 +73,41 @@ export const deploymentsApi = {
       { signal },
     ),
 
-  startDeployment: (target: string, release: string, signal?: AbortSignal) =>
+  /** `confirm` is the target ID typed out, which prod on the local server requires. */
+  startDeployment: (
+    target: string,
+    release: string,
+    confirm?: string,
+    signal?: AbortSignal,
+  ) =>
     requestData<DeploymentJob>("/api/deployments", DeploymentJobSchema, {
       signal,
       method: "POST",
       action: "deploy",
-      body: { target, release },
+      body: confirm ? { target, release, confirm } : { target, release },
     }),
+
+  listBranches: (product: string, signal?: AbortSignal) =>
+    requestData<string[]>(
+      `/api/deployments/products/${encodeURIComponent(product)}/branches`,
+      z.array(z.string()),
+      { signal },
+    ),
+
+  listCommits: (product: string, branch: string, signal?: AbortSignal) =>
+    requestData<CommitEntry[]>(
+      `/api/deployments/products/${encodeURIComponent(product)}/commits?branch=${encodeURIComponent(branch)}`,
+      CommitEntrySchema.array(),
+      { signal },
+    ),
+
+  /** Starts the product's build workflow for a commit that has no build yet. */
+  requestBuild: (product: string, commit: string, signal?: AbortSignal) =>
+    requestData<BuildRequest>(
+      `/api/deployments/products/${encodeURIComponent(product)}/builds`,
+      BuildRequestSchema,
+      { signal, method: "POST", action: "build", body: { commit } },
+    ),
 
   reconcile: (target: string, job: string, signal?: AbortSignal) =>
     requestData<DeploymentJob>(

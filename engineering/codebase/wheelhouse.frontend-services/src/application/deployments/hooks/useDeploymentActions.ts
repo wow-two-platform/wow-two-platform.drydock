@@ -19,9 +19,13 @@ export function useTargetCheck() {
 export function useStartDeployment() {
   return useAppMutation({
     mutationFn: (
-      { target, release }: { target: string; release: string },
+      {
+        target,
+        release,
+        confirm,
+      }: { target: string; release: string; confirm?: string },
       { signal },
-    ) => deploymentsApi.startDeployment(target, release, signal),
+    ) => deploymentsApi.startDeployment(target, release, confirm, signal),
     invalidates: ({ target }) => [
       DeploymentKeys.history,
       DeploymentKeys.state(target),
@@ -42,6 +46,18 @@ export function useReconcileTarget() {
       DeploymentKeys.history,
       TopologyKeys.target(target),
     ],
+    meta: { suppressGlobalError: true },
+  });
+}
+
+/** Requests a build of a commit that has none; the catalog lists it once the workflow finishes. */
+export function useRequestBuild() {
+  return useAppMutation({
+    mutationFn: (
+      { product, commit }: { product: string; commit: string },
+      { signal },
+    ) => deploymentsApi.requestBuild(product, commit, signal),
+    invalidates: () => [DeploymentKeys.releases, DeploymentKeys.commitsAll],
     meta: { suppressGlobalError: true },
   });
 }

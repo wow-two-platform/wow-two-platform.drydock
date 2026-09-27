@@ -6,4 +6,8 @@ export interface DeploymentTarget {
   serverId: string;
   provider: string;
   host: string;
+  /** Dev takes a build of any commit or branch; test and prod take published releases only. */
+  acceptsCandidates: boolean;
+  /** Prod on the local server deploys only after the operator types the target ID. */
+  needsConfirmation: boolean;
 }

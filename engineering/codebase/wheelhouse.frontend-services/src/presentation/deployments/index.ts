@@ -19,4 +19,8 @@ export {
   type ReconcileModalProps,
 } from "./components/ReconcileModal.vue";
 export { default as CheckResultList } from "./components/CheckResultList.vue";
+export {
+  default as TargetSites,
+  type TargetSitesProps,
+} from "./components/TargetSites.vue";
 export { useDeployModal } from "./hooks/useDeployModal";

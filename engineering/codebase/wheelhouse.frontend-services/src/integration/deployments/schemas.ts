@@ -24,14 +24,48 @@ export const DeploymentTargetSchema = z.object({
   serverId: z.string(),
   provider: z.string(),
   host: z.string(),
+  acceptsCandidates: z.boolean().default(false),
+  needsConfirmation: z.boolean().default(false),
 });
+const releaseKind = z.enum(["release", "candidate"]);
 export const ReleaseArtifactSchema = z.object({
   id: z.string(),
   product: z.string(),
   release: z.string(),
+  kind: releaseKind.default("release"),
   prerelease: z.boolean(),
   publishedAt: z.string(),
   provider: z.string(),
+  commit: nullableText.optional(),
+  branch: nullableText.optional(),
+  expiresAt: nullableText.optional(),
+});
+// Site links open in the operator's browser, so only http(s) URLs survive decoding.
+const siteUrl = z
+  .string()
+  .url()
+  .refine((value) => /^https?:\/\//.test(value), "Site links must be http(s)");
+const PublishedSiteSchema = z.object({
+  name: z.string(),
+  service: z.string(),
+  exposure: z.enum(["public", "private"]),
+  url: siteUrl,
+});
+const ServiceVersionSchema = z.object({
+  version: z.string(),
+  changedIn: z.string(),
+});
+export const CommitEntrySchema = z.object({
+  sha: z.string().regex(/^[a-f0-9]{40}$/),
+  message: z.string(),
+  author: z.string(),
+  date: nullableText.optional(),
+  buildId: z.string().nullable(),
+});
+export const BuildRequestSchema = z.object({
+  product: z.string(),
+  commit: z.string(),
+  status: z.literal("requested"),
 });
 const RolloutSchema = z.object({
   id: z.string(),
@@ -42,6 +76,11 @@ const RolloutSchema = z.object({
   completedAt: z.string().optional(),
   reason: z.string().optional(),
   mutationStarted: z.boolean().optional(),
+  kind: releaseKind.optional(),
+  branch: z.string().optional(),
+  sourceCommit: z.string().optional(),
+  versions: z.record(z.string(), ServiceVersionSchema).optional(),
+  sites: z.array(PublishedSiteSchema).optional(),
 });
 export const TargetStateSchema = z.object({
   targetId: z.string(),

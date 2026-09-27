@@ -1,5 +1,8 @@
 import type { JobStatus } from '../enums/JobStatus';
 import type { TargetCondition } from '../enums/TargetCondition';
+import type { PublishedSite } from './PublishedSite';
+import type { ReleaseKind } from './ReleaseArtifact';
+import type { ServiceVersion } from './ServiceVersion';
 
 /** A rollout record held on the target. */
 export interface RolloutRecord {
@@ -11,6 +14,13 @@ export interface RolloutRecord {
   completedAt?: string;
   reason?: string;
   mutationStarted?: boolean;
+  kind?: ReleaseKind;
+  branch?: string;
+  sourceCommit?: string;
+  /** Each service's version in this release. */
+  versions?: Record<string, ServiceVersion>;
+  /** The sites a verified release answers on; recorded once the rollout succeeds. */
+  sites?: PublishedSite[];
 }
 
 /** What a target runs and whether it accepts a deployment. */
