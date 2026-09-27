@@ -23,6 +23,8 @@
 | Deployment pilot / CI policy | `engineering/planning/deployment-pilot.md` · `ci-artifact-policy.md` |
 | Studio workspace / Vue migration | `engineering/planning/ui-workspace.md` |
 | Parked UI directions (Claude boards) | `engineering/research/design-directions/design-directions.md` |
+| Deployment topology, environments, sites, builds | `engineering/research/deployment-topology.md` |
+| Feature completeness, shipping Wheelhouse, sweep | `engineering/research/feature-completeness.md` |
 
 ## Source projects (`engineering/codebase/`)
 
