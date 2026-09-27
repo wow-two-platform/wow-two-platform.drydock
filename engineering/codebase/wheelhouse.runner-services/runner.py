@@ -18,8 +18,18 @@ import uuid
 SLUG = re.compile(r"[a-z][a-z0-9-]{0,47}")
 IMAGE = re.compile(r"[a-z0-9][a-z0-9./:_-]*@sha256:[a-f0-9]{64}")
 SHA = re.compile(r"[a-f0-9]{40}")
+RELEASE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,95}")
+VERSION = re.compile(r"[0-9A-Za-z][0-9A-Za-z.+-]{0,63}")
+BRANCH = re.compile(r"[A-Za-z0-9._/-]{1,200}")
+HOST = re.compile(r"(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+")
+SITE_PATH = re.compile(r"/(?:[A-Za-z0-9._~-]+/)*(?:[A-Za-z0-9._~-]+)?")
+ENTRY_POINT = re.compile(r"[a-z][a-z0-9-]{0,31}")
+KINDS = ("release", "candidate")
+EXPOSURES = ("public", "private")
 TERMINAL = {"succeeded", "failed", "rolled_back", "rollback_failed", "interrupted", "rejected"}
 PROXIES = "Deployment:TrustedProxies"
+# What a target remembers about its verified release: identity, service versions and published sites.
+CURRENT = ("id", "release", "kind", "branch", "sourceCommit", "versions", "sites")
 
 
 class Rejected(ValueError):
@@ -80,7 +90,9 @@ def validate_bundle(bundle):
     compose = read_json(compose_path)
     require(manifest.get("schemaVersion") == 1, "Unsupported release schema")
     require(SLUG.fullmatch(manifest.get("product", "")), "Invalid product")
-    require(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,95}", manifest.get("release", "")), "Invalid release")
+    require(RELEASE.fullmatch(manifest.get("release", "")), "Invalid release")
+    require(manifest.get("kind", "release") in KINDS, "Unsupported release kind")
+    require(manifest.get("branch") is None or BRANCH.fullmatch(str(manifest["branch"])), "Invalid branch")
     require(SHA.fullmatch(manifest.get("sourceCommit", "")), "A full source commit is required")
     require(manifest.get("platform") in ("linux/amd64", "linux/arm64"), "Unsupported platform")
     require(type(manifest.get("rollbackCompatible")) is bool, "Declare rollback compatibility")
@@ -99,11 +111,40 @@ def validate_bundle(bundle):
         require(health["test"][0] != "NONE", "Disabled health gate")
         require(not service.get("privileged") and service.get("network_mode") != "host", "Privileged workload denied")
         require(not service.get("container_name"), "Global container names prevent environment isolation")
+    # A service without an entry takes no private settings file (a static edge, a worker configured by code).
     required = manifest.get("requiredConfiguration", {})
-    require(required.keys() == services.keys(), "Configuration contract must cover every service")
+    require(isinstance(required, dict) and set(required) <= set(services),
+            "Configuration contract names an unknown service")
     for fields in required.values():
         require(isinstance(fields, list) and all(isinstance(key, str) for key in fields), "Invalid configuration contract")
+    versions = manifest.get("versions", {})
+    require(isinstance(versions, dict) and set(versions) <= set(services), "Versions name an unknown service")
+    for entry in versions.values():
+        require(isinstance(entry, dict) and VERSION.fullmatch(str(entry.get("version", "")))
+                and RELEASE.fullmatch(str(entry.get("changedIn", ""))), "Invalid service version")
+    release_sites(manifest)
     return manifest
+
+
+def release_sites(manifest):
+    """The entry points a release declares, one row per service site: port, path prefix and exposure."""
+    declared = manifest.get("sites", {})
+    require(isinstance(declared, dict) and set(declared) <= set(manifest.get("images", {})),
+            "Sites name an unknown service")
+    result, claimed = [], set()
+    for service, sites in sorted(declared.items()):
+        require(isinstance(sites, dict), "Invalid site declaration")
+        for name, site in sorted(sites.items()):
+            require(isinstance(name, str) and SLUG.fullmatch(name) and isinstance(site, dict), "Invalid site declaration")
+            port, path, exposure = site.get("port", 8080), site.get("path", "/"), site.get("exposure", "public")
+            require(type(port) is int and 1 <= port <= 65535, "Invalid site port")
+            require(isinstance(path, str) and SITE_PATH.fullmatch(path), "Invalid site path")
+            require(exposure in EXPOSURES, "Invalid site exposure")
+            # One site may span services only by path prefix, so a request always has exactly one destination.
+            require((name, path) not in claimed, "Two services claim the same site path")
+            claimed.add((name, path))
+            result.append({"service": service, "site": name, "port": port, "path": path, "exposure": exposure})
+    return result
 
 
 def validate_target(target, manifest=None):
@@ -115,7 +156,86 @@ def validate_target(target, manifest=None):
     require(not root.is_symlink(), "Deployment root cannot be a symlink")
     if manifest:
         require(target["product"] == manifest["product"], "Target product mismatch")
+    target_ingress(target)
     return root, project
+
+
+def target_ingress(target):
+    """The code-owned ingress settings a target carries, or None for a target that publishes no sites."""
+    ingress = target.get("ingress")
+    if ingress is None:
+        return None
+    require(isinstance(ingress, dict) and ingress.get("scheme") in ("http", "https"), "Invalid ingress")
+    port = ingress.get("port")
+    require(port is None or (type(port) is int and 1 <= port <= 65535), "Invalid ingress port")
+    for key in ("entryPoints", "privateEntryPoints"):
+        points = ingress.get(key, [])
+        require(isinstance(points, list) and all(isinstance(point, str) and ENTRY_POINT.fullmatch(point)
+                                                  for point in points), "Invalid ingress entry point")
+    resolver = ingress.get("certResolver")
+    require(resolver is None or (isinstance(resolver, str) and ENTRY_POINT.fullmatch(resolver)),
+            "Invalid certificate resolver")
+    pattern = ingress.get("pattern")
+    require(pattern is None or (isinstance(pattern, str) and "{site}" in pattern), "Invalid site host pattern")
+    hosts = ingress.get("hosts", {})
+    require(isinstance(hosts, dict) and all(isinstance(name, str) and SLUG.fullmatch(name) and isinstance(host, str)
+                                            and HOST.fullmatch(host) for name, host in hosts.items()), "Invalid site host")
+    return ingress
+
+
+def site_host(target, ingress, site):
+    host = ingress.get("hosts", {}).get(site)
+    if host is None and ingress.get("pattern"):
+        host = (ingress["pattern"].replace("{site}", site).replace("{product}", target["product"])
+                .replace("{environment}", target["environment"]))
+        require(HOST.fullmatch(host), "Site host pattern produced an invalid host")
+    return host
+
+
+def ingress_routes(target, project, manifest):
+    """Traefik dynamic configuration for a release's sites on this target, and the URL of each routed site."""
+    ingress = target_ingress(target)
+    if ingress is None:
+        return None, []
+    default_port = {"http": 80, "https": 443}[ingress["scheme"]]
+    port = ingress.get("port")
+    origin_port = ":" + str(port) if port and port != default_port else ""
+    routers, upstreams, published = {}, {}, []
+    for site in release_sites(manifest):
+        host = site_host(target, ingress, site["site"])
+        points = ingress.get("entryPoints" if site["exposure"] == "public" else "privateEntryPoints", [])
+        if not host or not points:
+            continue  # a site without a host or an entry point stays internal
+        # Every service answers on the platform network under <product>-<environment>-<service>.
+        upstream = project + "-" + site["service"] + "-" + str(site["port"])
+        upstreams[upstream] = {"loadBalancer": {"servers": [
+            {"url": "http://" + project + "-" + site["service"] + ":" + str(site["port"])}]}}
+        rule = "Host(`" + host + "`)" + ("" if site["path"] == "/" else " && PathPrefix(`" + site["path"] + "`)")
+        router = {"rule": rule, "service": upstream, "entryPoints": points}
+        if ingress["scheme"] == "https" and ingress.get("certResolver"):
+            router["tls"] = {"certResolver": ingress["certResolver"]}
+        routers[project + "-" + site["site"] + "-" + site["service"]] = router
+        published.append({"name": site["site"], "service": site["service"], "exposure": site["exposure"],
+                          "url": ingress["scheme"] + "://" + host + origin_port + ("" if site["path"] == "/" else site["path"])})
+    return {"http": {"routers": routers, "services": upstreams}}, published
+
+
+def publish_routes(root, project, routes):
+    """Replaces the project's route file in the file-provider ingress folder; an empty route set removes it."""
+    config, published = routes
+    if config is None:
+        return []
+    destination = root / "ingress" / (project + ".yml")
+    if not published:
+        with contextlib.suppress(FileNotFoundError):
+            destination.unlink()
+        return []
+    # JSON is valid YAML. Staging outside the watched folder keeps the ingress from reading a partial file.
+    staging = root / "ingress-staging" / (project + ".yml")
+    write_json(staging, config)
+    destination.parent.mkdir(parents=True, exist_ok=True, mode=0o755)
+    os.replace(staging, destination)
+    return published
 
 
 def configuration_value(value, field):
@@ -166,8 +286,9 @@ def validate_settings(target, service, required):
 
 def environment_for(target, manifest):
     environment = base_environment(target)
-    require(target.get("settings", {}).keys() == manifest["images"].keys(), "Provide settings for every service")
-    for service, required in manifest["requiredConfiguration"].items():
+    require(target.get("settings", {}).keys() == manifest["requiredConfiguration"].keys(),
+            "Provide settings for every service that takes them")
+    for service, required in manifest.get("requiredConfiguration", {}).items():
         environment[service.upper().replace("-", "_") + "_SETTINGS"] = str(validate_settings(target, service, required))
     return environment
 
@@ -265,6 +386,7 @@ def apply(bundle, target, actor, job_id=None, docker_factory=Docker):
         require(not active or not (active.get("mutationStarted") and active["status"] in ("failed", "rollback_failed")),
                 "Failed mutation requires reconciliation")
         environment = environment_for(target, manifest)
+        routes = ingress_routes(target, project, manifest)
         require(shutil.disk_usage(root).free >= target.get("minimumFreeBytes", 1024 ** 3), "Insufficient free disk")
         docker = docker_factory(target, environment)
         docker.preflight(manifest)
@@ -277,8 +399,12 @@ def apply(bundle, target, actor, job_id=None, docker_factory=Docker):
         previous_path = root / "current.json"
         previous = read_json(previous_path) if previous_path.exists() else None
         record = {"id": job_id, "project": project, "release": manifest["release"],
-                  "sourceCommit": manifest["sourceCommit"], "actor": actor, "status": "running",
-                  "startedAt": now(), "previous": previous.get("id") if previous else None}
+                  "sourceCommit": manifest["sourceCommit"], "kind": manifest.get("kind", "release"),
+                  "actor": actor, "status": "running", "startedAt": now(),
+                  "previous": previous.get("id") if previous else None}
+        for key in ("branch", "versions"):
+            if manifest.get(key):
+                record[key] = manifest[key]
         def save():
             write_json(root / "jobs" / (job_id + ".json"), record)
             write_json(active_path, record)
@@ -291,8 +417,9 @@ def apply(bundle, target, actor, job_id=None, docker_factory=Docker):
             save()
             docker.up(destination)
             docker.verify(destination, manifest)
+            record["sites"] = publish_routes(root.parent, project, routes)
             record["status"] = "succeeded"
-            write_json(previous_path, {"id": job_id, "release": manifest["release"]})
+            write_json(previous_path, {key: record[key] for key in CURRENT if key in record})
         except (Exception, KeyboardInterrupt) as error:
             record["status"] = "failed"
             # Only safe diagnostic categories; exception messages may include input/credential values.
@@ -376,8 +503,8 @@ def lock_held(base):
 
 
 def summary(record):
-    fields = ("id", "release", "sourceCommit", "status", "actor", "startedAt", "completedAt",
-              "failure", "reason", "mutationStarted", "previous")
+    fields = ("id", "release", "sourceCommit", "kind", "branch", "versions", "sites", "status", "actor", "startedAt",
+              "completedAt", "failure", "reason", "mutationStarted", "previous")
     return None if record is None else {key: record[key] for key in fields if key in record}
 
 

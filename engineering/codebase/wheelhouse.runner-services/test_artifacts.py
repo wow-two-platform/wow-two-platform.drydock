@@ -5,10 +5,12 @@ from pathlib import Path
 import tarfile
 import tempfile
 import unittest
+import zipfile
 from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import Request
 import artifacts
+import runner
 import transport
 
 
@@ -134,3 +136,117 @@ class ArtifactTests(unittest.TestCase):
         self.assertFalse(redirected.has_header('Authorization'))
         with self.assertRaisesRegex(ValueError, 'Insecure'):
             artifacts.ApiRedirect().redirect_request(request, None, 302, 'Found', {}, 'http://example.net/asset')
+
+
+class CandidateTests(unittest.TestCase):
+    """Per-commit builds published as `bundle-<sha>` Actions artifacts."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name)
+        self.commit = 'c' * 40
+        base = artifacts.SOURCES[0]
+        self.source = artifacts.Source(base.product, base.repository, base.asset_name, base.images,
+                                       workflow='publish-docker-image.yml')
+        images = {service: image + '@sha256:' + 'a' * 64 for service, image in self.source.images}
+        compose = {'services': {name: {'image': image, 'platform': 'linux/amd64',
+                    'healthcheck': {'test': ['CMD', 'true']}} for name, image in images.items()}}
+        self.compose_bytes = json.dumps(compose).encode()
+        self.manifest = {'schemaVersion': 1, 'product': 'foreverpin', 'release': 'sha-ccccccc', 'kind': 'candidate',
+                         'branch': 'main', 'sourceCommit': self.commit, 'platform': 'linux/amd64',
+                         'rollbackCompatible': False, 'composeSha256': hashlib.sha256(self.compose_bytes).hexdigest(),
+                         'images': images, 'requiredConfiguration': {}}
+        self.artifacts = {'artifacts': [
+            {'id': 7, 'name': 'bundle-' + self.commit, 'expired': False, 'size_in_bytes': 900,
+             'created_at': '2026-09-27T10:00:00Z', 'expires_at': '2026-10-11T10:00:00Z',
+             'workflow_run': {'head_branch': 'main'}},
+            {'id': 6, 'name': 'bundle-' + self.commit, 'expired': False, 'size_in_bytes': 900},
+            {'id': 5, 'name': 'bundle-' + 'd' * 40, 'expired': True, 'size_in_bytes': 900},
+            {'id': 4, 'name': 'coverage', 'expired': False, 'size_in_bytes': 900}]}
+        self.posts = []
+        self.sources = patch.object(artifacts, 'SOURCES', (self.source,))
+        self.sources.start()
+
+    def tearDown(self):
+        self.sources.stop()
+        self.temp.cleanup()
+
+    def zipped(self, extra=None):
+        data = io.BytesIO()
+        with zipfile.ZipFile(data, 'w') as package:
+            package.writestr('release.json', json.dumps(self.manifest))
+            package.writestr('compose.json', self.compose_bytes)
+            if extra:
+                package.writestr(extra, b'x')
+        return data.getvalue()
+
+    def fetch(self, url):
+        if '/releases?' in url:
+            return b'[]'
+        if url.endswith('/actions/artifacts?per_page=100'):
+            return json.dumps(self.artifacts).encode()
+        if url.endswith('/actions/artifacts/7/zip'):
+            return self.zipped()
+        if '/commits?' in url:
+            return json.dumps([{'sha': self.commit, 'commit': {'message': 'feat: pins\n\nbody',
+                                                              'author': {'name': 'Max', 'date': '2026-09-27T09:00:00Z'}}},
+                               {'sha': 'e' * 40, 'commit': {'message': 'fix: other', 'author': {'name': 'Max'}}}]).encode()
+        if '/commits/' in url:
+            return json.dumps({'sha': url.rsplit('/', 1)[1]}).encode()
+        raise AssertionError(url)
+
+    def test_one_live_build_per_commit_is_listed_newest_first(self):
+        with patch.object(artifacts, 'fetch', side_effect=self.fetch):
+            listed = artifacts.available()
+        self.assertEqual([('foreverpin-ci-7', 'candidate', self.commit, 'main', 'sha-ccccccc')],
+                         [(item['id'], item['kind'], item['commit'], item['branch'], item['release']) for item in listed])
+
+    def test_a_candidate_is_imported_from_its_artifact_and_checked_against_its_commit(self):
+        with patch.object(artifacts, 'fetch', side_effect=self.fetch):
+            bundle = artifacts.prepare(self.root, 'foreverpin-ci-7', transport.import_bundle)
+        self.assertEqual('candidate', runner.read_json(bundle / 'release.json')['kind'])
+        self.manifest['sourceCommit'] = 'f' * 40
+        with patch.object(artifacts, 'fetch', side_effect=self.fetch), \
+                self.assertRaisesRegex(ValueError, 'Candidate source commit mismatch'):
+            artifacts.prepare(Path(self.temp.name) / 'other', 'foreverpin-ci-7', transport.import_bundle)
+
+    def test_a_candidate_artifact_holds_only_the_bundle(self):
+        with self.assertRaisesRegex(ValueError, 'only release.json and compose.json'):
+            artifacts.candidate_archive(self.zipped(extra='notes.txt'))
+
+    def test_a_build_is_requested_only_for_a_commit_without_one(self):
+        with patch.object(artifacts, 'fetch', side_effect=self.fetch), \
+                patch.object(artifacts, 'post', side_effect=lambda url, body: self.posts.append((url, body))):
+            with self.assertRaisesRegex(ValueError, 'already exists'):
+                artifacts.request_build('foreverpin', self.commit)
+            result = artifacts.request_build('foreverpin', 'e' * 40)
+        self.assertEqual('requested', result['status'])
+        self.assertEqual([('https://api.github.com/repos/' + self.source.repository
+                           + '/actions/workflows/publish-docker-image.yml/dispatches',
+                           {'ref': 'main', 'inputs': {'commit': 'e' * 40}})], self.posts)
+
+    def test_a_product_without_a_workflow_cannot_build(self):
+        with patch.object(artifacts, 'SOURCES', (artifacts.Source('foreverpin', 'o/r', 'a.tar.gz', ()),)):
+            with self.assertRaisesRegex(ValueError, 'no build workflow'):
+                artifacts.request_build('foreverpin', self.commit)
+
+    def test_starting_a_build_needs_a_token(self):
+        with patch.dict('os.environ', {}, clear=False):
+            import os
+            os.environ.pop('WHEELHOUSE_GITHUB_TOKEN_FILE', None)
+            with self.assertRaisesRegex(ValueError, 'Actions write access'):
+                artifacts.post('https://api.github.com/repos/o/r/actions/workflows/w.yml/dispatches', {})
+
+    def test_commits_show_which_ones_are_built(self):
+        with patch.object(artifacts, 'fetch', side_effect=self.fetch):
+            listed = artifacts.commits('foreverpin', 'main')
+        self.assertEqual([(self.commit, 'feat: pins', 'foreverpin-ci-7'), ('e' * 40, 'fix: other', None)],
+                         [(item['sha'], item['message'], item['buildId']) for item in listed])
+
+    def test_an_unreachable_build_listing_leaves_releases_usable(self):
+        def flaky(url):
+            if 'actions' in url:
+                raise artifacts.CommandFailed('GitHub request failed (HTTP 502)')
+            return self.fetch(url)
+        with patch.object(artifacts, 'fetch', side_effect=flaky):
+            self.assertEqual([], artifacts.available())

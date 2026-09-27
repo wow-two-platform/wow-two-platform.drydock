@@ -1,5 +1,6 @@
 """Reviewed fleet definitions. Adding a provider, VPS or binding requires a code change."""
-from dataclasses import dataclass
+from __future__ import annotations
+from dataclasses import dataclass, field
 from enum import Enum
 import os
 from pathlib import Path
@@ -7,6 +8,7 @@ import re
 from runner import SLUG, require
 
 VAULT_URL = re.compile(r"https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?")
+HOST = re.compile(r"(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+")
 
 
 class VpsProvider(str, Enum):
@@ -15,9 +17,21 @@ class VpsProvider(str, Enum):
 
 
 class DeploymentEnvironment(str, Enum):
-    STAGING = "staging"
-    PRODUCTION = "production"
-    REHEARSAL = "rehearsal"
+    DEV = "dev"
+    TEST = "test"
+    PROD = "prod"
+
+
+@dataclass(frozen=True)
+class Ingress:
+    """How a server's ingress publishes sites: URL scheme and port, Traefik entry points and a host pattern."""
+    scheme: str = "https"
+    port: int | None = None
+    entry_points: tuple[str, ...] = ("websecure",)
+    private_entry_points: tuple[str, ...] = ()
+    cert_resolver: str | None = "letsencrypt"
+    # Hosts for sites a target leaves unnamed, e.g. "{site}-{product}.{environment}.preview.example"; prod names its own.
+    pattern: str | None = None
 
 
 @dataclass(frozen=True)
@@ -29,6 +43,7 @@ class Server:
     region: str
     ssh_user: str = "deploy"
     ssh_port: int = 22
+    ingress: Ingress = field(default_factory=Ingress)
 
 
 @dataclass(frozen=True)
@@ -41,6 +56,8 @@ class Target:
     network: str
     root: str = "/srv/wheelhouse"
     smoke: tuple[dict, ...] = ()
+    # Site name -> host, for sites the server's pattern does not cover (every prod site).
+    sites: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -59,40 +76,43 @@ TARGETS: tuple[Target, ...] = ()
 # Administrator credentials live under <inventory>/vaults/<vault-id>/password.
 VAULTS: tuple[Vault, ...] = ()
 
-# The local SSH target from engineering/deployment/rehearsal. Its settings paths are identical inside the
-# target container and on the Docker host, so the daemon resolves the same bind-mount sources. The console
-# container runs from /app, so the rig passes the host path in REHEARSAL_STATE.
-REHEARSAL_STATE = Path(os.environ.get("REHEARSAL_STATE")
-                       or Path(__file__).resolve().parents[2] / "deployment" / "rehearsal" / "state")
+# The local server from engineering/deployment/rehearsal. Its settings paths are identical inside the target
+# container and on the Docker host, so the daemon resolves the same bind-mount sources. The console container
+# runs from /app, so the rig passes the host path in REHEARSAL_STATE.
+LOCAL_STATE = Path(os.environ.get("REHEARSAL_STATE")
+                   or Path(__file__).resolve().parents[2] / "deployment" / "rehearsal" / "state")
 # `network`: Wheelhouse runs inside the rig and reaches the target and vault by service name, as it would a VPS.
 IN_RIG = os.environ.get("WHEELHOUSE_REHEARSAL") == "network"
-REHEARSAL_SERVERS = (Server("rehearsal", "Local rehearsal target", VpsProvider.LOCAL,
-                            "target" if IN_RIG else "127.0.0.1", "local", ssh_port=22 if IN_RIG else 2222),)
-REHEARSAL_TARGETS = (Target("foreverpin-rehearsal", "rehearsal", "foreverpin", DeploymentEnvironment.REHEARSAL,
-                            (("management", str(REHEARSAL_STATE / "secrets" / "management.json")),
-                             ("redirect", str(REHEARSAL_STATE / "secrets" / "redirect.json"))),
-                            "wheelhouse-rehearsal",
-                            smoke=({"service": "management", "path": "/api/runtime-config", "status": 200},
-                                   {"service": "redirect", "path": "/health", "status": 200})),)
-REHEARSAL_VAULTS = (Vault("rehearsal-vault", "Rehearsal vault", "rehearsal",
-                          "http://vault:8080" if IN_RIG else "http://127.0.0.1:18201"),)
+LOCAL_INGRESS = Ingress(scheme="http", port=18080, entry_points=("web",), private_entry_points=("web",),
+                        cert_resolver=None, pattern="{site}-{product}.{environment}.localhost")
+LOCAL_SERVERS = (Server("local", "Local server", VpsProvider.LOCAL, "target" if IN_RIG else "127.0.0.1", "local",
+                        ssh_port=22 if IN_RIG else 2222, ingress=LOCAL_INGRESS),)
+LOCAL_TARGETS = tuple(
+    Target("foreverpin-" + environment.value, "local", "foreverpin", environment,
+           (("management", str(LOCAL_STATE / "secrets" / environment.value / "management.json")),
+            ("redirect", str(LOCAL_STATE / "secrets" / environment.value / "redirect.json"))),
+           "wheelhouse-rehearsal",
+           smoke=({"service": "management", "path": "/api/runtime-config", "status": 200},
+                  {"service": "redirect", "path": "/health", "status": 200}))
+    for environment in DeploymentEnvironment)
+LOCAL_VAULTS = (Vault("local-vault", "Local vault", "local", "http://vault:8080" if IN_RIG else "http://127.0.0.1:18201"),)
 
 
 def rehearsal():
-    # An explicit operator switch for local rehearsal; never set in a deployed control plane.
+    # An explicit operator switch for the local server; never set in a deployed control plane.
     return os.environ.get("WHEELHOUSE_REHEARSAL") in ("1", "network")
 
 
 def active_servers():
-    return SERVERS + (REHEARSAL_SERVERS if rehearsal() else ())
+    return SERVERS + (LOCAL_SERVERS if rehearsal() else ())
 
 
 def active_targets():
-    return TARGETS + (REHEARSAL_TARGETS if rehearsal() else ())
+    return TARGETS + (LOCAL_TARGETS if rehearsal() else ())
 
 
 def active_vaults():
-    return VAULTS + (REHEARSAL_VAULTS if rehearsal() else ())
+    return VAULTS + (LOCAL_VAULTS if rehearsal() else ())
 
 
 def vaults():
@@ -118,6 +138,29 @@ def servers():
     return result
 
 
+def accepts_candidates(target):
+    """Dev takes a build of any commit or branch; test and prod take published releases only."""
+    return target.environment is DeploymentEnvironment.DEV
+
+
+def needs_confirmation(server, target):
+    """Prod on the local server runs only after the operator types the target's ID."""
+    return server.provider is VpsProvider.LOCAL and target.environment is DeploymentEnvironment.PROD
+
+
+def ingress_of(server, target):
+    ingress = server.ingress
+    hosts = dict(target.sites)
+    require(len(hosts) == len(target.sites), "Duplicate site host")
+    require(all(SLUG.fullmatch(name) and HOST.fullmatch(host) for name, host in hosts.items()), "Invalid site host")
+    # Prod on a VPS names every host itself; a shared preview pattern would publish it under the wrong domain.
+    pattern = ingress.pattern if (target.environment is not DeploymentEnvironment.PROD
+                                  or server.provider is VpsProvider.LOCAL) else None
+    return {"scheme": ingress.scheme, "port": ingress.port, "entryPoints": list(ingress.entry_points),
+            "privateEntryPoints": list(ingress.private_entry_points), "certResolver": ingress.cert_resolver,
+            "pattern": pattern, "hosts": hosts}
+
+
 def resolve_target(root, identifier):
     servers()
     catalog = active_targets()
@@ -129,8 +172,10 @@ def resolve_target(root, identifier):
     require(server is not None, "Server is not defined in code")
     identity = Path(root) / "ssh" / server.id
     return {"serverId": server.id, "provider": server.provider.value,
+            "acceptsCandidates": accepts_candidates(target), "needsConfirmation": needs_confirmation(server, target),
             "ssh": {"host": server.host, "user": server.ssh_user, "port": server.ssh_port,
                     "keyFile": str(identity / "identity"), "knownHostsFile": str(identity / "known_hosts")},
             "target": {"product": target.product, "environment": target.environment.value,
                        "root": target.root, "settings": dict(target.settings),
-                       "variables": {"PLATFORM_NETWORK": target.network}, "smoke": list(target.smoke)}}
+                       "variables": {"PLATFORM_NETWORK": target.network}, "smoke": list(target.smoke),
+                       "ingress": ingress_of(server, target)}}

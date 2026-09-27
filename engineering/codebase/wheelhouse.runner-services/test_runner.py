@@ -449,5 +449,111 @@ class RunnerTests(unittest.TestCase):
                                                         runner.size_bytes("12 parsecs")))
         self.assertEqual((0.25, None), (runner.percent("0.25%"), runner.percent("--")))
 
+    def local_ingress(self, **overrides):
+        return {"scheme": "http", "port": 18080, "entryPoints": ["web"], "privateEntryPoints": ["web"],
+                "certResolver": None, "pattern": "{site}-{product}.{environment}.localhost", "hosts": {}, **overrides}
+
+    def test_success_publishes_routes_and_remembers_sites_and_versions(self):
+        self.target["ingress"] = self.local_ingress()
+        self.manifest.update(kind="candidate", branch="main", release="sha-aaaaaaa",
+                             versions={"api": {"version": "1.2.0+aaaaaaa", "changedIn": "sha-aaaaaaa"}},
+                             sites={"api": {"app": {"port": 8080}}})
+        self.save()
+        result = self.apply()
+        self.assertEqual("succeeded", result["status"])
+        route = runner.read_json(self.root / "state/ingress/pilot-test.yml")
+        self.assertEqual({"pilot-test-app-api": {"rule": "Host(`app-pilot.test.localhost`)",
+                                                 "service": "pilot-test-api-8080", "entryPoints": ["web"]}},
+                         route["http"]["routers"])
+        self.assertEqual("http://pilot-test-api:8080",
+                         route["http"]["services"]["pilot-test-api-8080"]["loadBalancer"]["servers"][0]["url"])
+        current = runner.state(self.target)["current"]
+        self.assertEqual([{"name": "app", "service": "api", "exposure": "public",
+                           "url": "http://app-pilot.test.localhost:18080"}], current["sites"])
+        self.assertEqual(("candidate", "main", "1.2.0+aaaaaaa"),
+                         (current["kind"], current["branch"], current["versions"]["api"]["version"]))
+
+    def test_https_routes_carry_the_resolver_and_named_hosts_win_over_the_pattern(self):
+        self.target["ingress"] = self.local_ingress(scheme="https", port=None, entryPoints=["websecure"],
+                                                    certResolver="letsencrypt", hosts={"app": "app.pilot.example"})
+        self.manifest["sites"] = {"api": {"app": {"path": "/api"}}}
+        self.save()
+        self.apply()
+        route = runner.read_json(self.root / "state/ingress/pilot-test.yml")["http"]["routers"]["pilot-test-app-api"]
+        self.assertEqual(("Host(`app.pilot.example`) && PathPrefix(`/api`)", {"certResolver": "letsencrypt"}),
+                         (route["rule"], route["tls"]))
+        self.assertEqual("https://app.pilot.example/api", runner.state(self.target)["current"]["sites"][0]["url"])
+
+    def test_private_sites_route_only_on_private_entry_points(self):
+        self.target["ingress"] = self.local_ingress(privateEntryPoints=[])
+        self.manifest["sites"] = {"api": {"admin": {"exposure": "private"}}}
+        self.save()
+        self.assertEqual([], self.apply()["sites"])
+        self.assertFalse((self.root / "state/ingress/pilot-test.yml").exists())
+
+    def test_a_release_without_sites_removes_the_previous_routes(self):
+        self.target["ingress"] = self.local_ingress()
+        self.manifest["sites"] = {"api": {"app": {}}}
+        self.save()
+        self.apply()
+        del self.manifest["sites"]
+        self.manifest["release"] = "v2"
+        self.save()
+        self.assertEqual("succeeded", self.apply()["status"])
+        self.assertFalse((self.root / "state/ingress/pilot-test.yml").exists())
+
+    def test_invalid_sites_are_refused_before_docker(self):
+        for sites, message in (({"worker": {"app": {}}}, "unknown service"), ({"api": {"App": {}}}, "site declaration"),
+                               ({"api": {"app": {"port": 0}}}, "site port"), ({"api": {"app": {"path": "api"}}}, "site path"),
+                               ({"api": {"app": {"exposure": "world"}}}, "site exposure")):
+            with self.subTest(message=message):
+                self.manifest["sites"] = sites
+                self.save()
+                with self.assertRaisesRegex(ValueError, message):
+                    self.apply()
+                self.assertEqual([], FakeDocker.events)
+
+    def test_two_services_may_share_a_site_only_by_path(self):
+        self.manifest["images"]["web"] = "ghcr.io/owner/web@sha256:" + "b" * 64
+        self.compose["services"]["web"] = {**self.compose["services"]["api"], "image": self.manifest["images"]["web"]}
+        self.manifest["sites"] = {"web": {"app": {}}, "api": {"app": {}}}
+        self.save()
+        with self.assertRaisesRegex(ValueError, "same site path"):
+            runner.validate_bundle(self.bundle)
+        self.manifest["sites"]["api"]["app"] = {"path": "/api"}
+        self.save()
+        self.assertEqual(["api", "web"], [site["service"] for site in runner.release_sites(runner.validate_bundle(self.bundle))])
+
+    def test_a_host_pattern_producing_an_invalid_host_refuses_before_docker(self):
+        self.target["ingress"] = self.local_ingress(pattern="{site}_{product}.localhost")
+        self.manifest["sites"] = {"api": {"app": {}}}
+        self.save()
+        with self.assertRaisesRegex(ValueError, "invalid host"):
+            self.apply()
+        self.assertEqual([], FakeDocker.events)
+
+    def test_a_service_without_settings_needs_no_settings_file(self):
+        self.manifest["images"]["edge"] = "ghcr.io/owner/edge@sha256:" + "c" * 64
+        self.compose["services"]["edge"] = {**self.compose["services"]["api"], "image": self.manifest["images"]["edge"]}
+        self.save()
+        self.assertEqual("succeeded", self.apply()["status"])
+        self.manifest["requiredConfiguration"]["ghost"] = []
+        self.save()
+        with self.assertRaisesRegex(ValueError, "unknown service"):
+            runner.validate_bundle(self.bundle)
+
+    def test_versions_and_kind_are_validated(self):
+        for field, value, message in (("kind", "nightly", "release kind"),
+                                      ("versions", {"api": {"version": "1.0", "changedIn": "no spaces"}}, "service version"),
+                                      ("versions", {"worker": {"version": "1.0", "changedIn": "v1"}}, "unknown service"),
+                                      ("branch", "feature x", "Invalid branch")):
+            with self.subTest(field=field, message=message):
+                manifest = copy.deepcopy(self.manifest)
+                self.manifest[field] = value
+                self.save()
+                with self.assertRaisesRegex(ValueError, message):
+                    runner.validate_bundle(self.bundle)
+                self.manifest = manifest
+
 if __name__ == "__main__":
     unittest.main()

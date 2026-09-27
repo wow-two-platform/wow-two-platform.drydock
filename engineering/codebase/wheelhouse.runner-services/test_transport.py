@@ -249,7 +249,7 @@ class TransportTests(unittest.TestCase):
             transport.stats(self.root, 0)
 
     def test_vitals_reads_every_target_and_names_a_failing_one(self):
-        bindings = [transport.fleet.Target(name, "pilot", "pilot", transport.fleet.DeploymentEnvironment.STAGING,
+        bindings = [transport.fleet.Target(name, "pilot", "pilot", transport.fleet.DeploymentEnvironment.TEST,
                                            (), "platform") for name in ("pilot-staging", "pilot-broken")]
         config = {"serverId": "pilot", "provider": "Hetzner", "ssh": self.config,
                   "target": {"product": "pilot", "environment": "staging", "root": "/srv/wheelhouse"}}
@@ -272,6 +272,53 @@ class TransportTests(unittest.TestCase):
         with patch.object(transport.fleet, "active_targets", return_value=bindings):
             with self.assertRaisesRegex(ValueError, "not defined in code"):
                 transport.vitals(self.root, "missing")
+
+    def policy_config(self, environment, candidates, confirmation):
+        return {"serverId": "local", "provider": "Local", "ssh": self.config,
+                "acceptsCandidates": candidates, "needsConfirmation": confirmation,
+                "target": {"product": "pilot", "environment": environment, "root": "/srv/wheelhouse"}}
+
+    def candidate_bundle(self):
+        bundle = self.root / "bundles" / "pilot-ci-1"
+        bundle.mkdir(parents=True)
+        compose = json.dumps({"services": {"api": {"image": "ghcr.io/o/api@sha256:" + "a" * 64, "platform": "linux/amd64",
+                                                   "healthcheck": {"test": ["CMD", "true"]}}}}).encode()
+        (bundle / "compose.json").write_bytes(compose)
+        (bundle / "release.json").write_text(json.dumps({
+            "schemaVersion": 1, "product": "pilot", "release": "sha-aaaaaaa", "kind": "candidate",
+            "sourceCommit": "a" * 40, "platform": "linux/amd64", "rollbackCompatible": False,
+            "composeSha256": hashlib.sha256(compose).hexdigest(), "images": {"api": "ghcr.io/o/api@sha256:" + "a" * 64}}))
+        return bundle
+
+    def test_local_prod_deploys_only_after_the_target_id_is_typed(self):
+        config = self.policy_config("prod", False, True)
+        with patch.object(transport.fleet, "resolve_target", return_value=config), \
+                patch.object(transport.artifacts, "prepare") as prepare:
+            for typed in (None, "pilot-dev", "PILOT-PROD"):
+                with self.subTest(typed=typed), self.assertRaisesRegex(ValueError, "Type the target ID"):
+                    transport.submit(self.root, "pilot-prod", "pilot-ci-1", "max", typed)
+        prepare.assert_not_called()
+
+    def test_test_and_prod_refuse_a_build_that_is_not_a_release(self):
+        bundle = self.candidate_bundle()
+        for environment in ("test", "prod"):
+            config = self.policy_config(environment, False, False)
+            with self.subTest(environment=environment), \
+                    patch.object(transport.fleet, "resolve_target", return_value=config), \
+                    patch.object(transport.artifacts, "prepare", return_value=bundle), \
+                    patch.object(transport, "Ssh") as ssh:
+                with self.assertRaisesRegex(ValueError, "Only dev takes a build"):
+                    transport.submit(self.root, "pilot-" + environment, "pilot-ci-1", "max", "pilot-" + environment)
+                result = transport.check(self.root, "pilot-" + environment, "pilot-ci-1")
+                self.assertEqual((False, "Release kind"), (result["ok"], result["checks"][0]["name"]))
+                ssh.assert_not_called()
+
+    def test_targets_carry_their_environment_rules(self):
+        with patch.dict("os.environ", {"WHEELHOUSE_REHEARSAL": "1"}):
+            listed = {item["id"]: (item["environment"], item["acceptsCandidates"], item["needsConfirmation"])
+                      for item in transport.targets(self.root)}
+        self.assertEqual({"foreverpin-dev": ("dev", True, False), "foreverpin-test": ("test", False, False),
+                          "foreverpin-prod": ("prod", False, True)}, listed)
 
     def test_cli_rejection_carries_a_safe_reason(self):
         argv = ["transport.py", "template", "--root", str(self.root), "--bundle", "../escape"]

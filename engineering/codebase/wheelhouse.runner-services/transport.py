@@ -100,8 +100,16 @@ def targets(root):
         validate_target(config["target"])
         result.append({"id": binding.id, "product": config["target"]["product"],
                        "environment": config["target"]["environment"],
-                       "serverId": config["serverId"], "provider": config["provider"], "host": config["ssh"]["host"]})
+                       "serverId": config["serverId"], "provider": config["provider"], "host": config["ssh"]["host"],
+                       "acceptsCandidates": config["acceptsCandidates"],
+                       "needsConfirmation": config["needsConfirmation"]})
     return result
+
+
+def admits(config, manifest):
+    """Dev takes a build of any commit or branch; test and prod take published releases only."""
+    require(config["acceptsCandidates"] or manifest.get("kind", "release") == "release",
+            "Only dev takes a build that is not a release")
 
 
 def releases(root):
@@ -153,10 +161,13 @@ def template(root, bundle_id, service=None):
     return result[service]
 
 
-def submit(root, target_id, bundle_id, actor):
+def submit(root, target_id, bundle_id, actor, confirm=None):
     config = fleet.resolve_target(root, target_id)
+    require(not config["needsConfirmation"] or confirm == target_id,
+            "Type the target ID to deploy prod to the local server")
     bundle = artifacts.prepare(root, bundle_id, import_bundle)
     manifest = validate_bundle(bundle)
+    admits(config, manifest)
     target_root, _ = validate_target(config["target"], manifest)
     require(re.fullmatch(r"/[A-Za-z0-9/_-]+", str(target_root)), "SSH root requires a simple absolute path")
     require(isinstance(actor, str) and 0 < len(actor) <= 160 and "\n" not in actor, "Invalid actor")
@@ -248,6 +259,12 @@ def check(root, target_id, bundle_id=None):
     config = fleet.resolve_target(root, target_id)
     manifest = validate_bundle(artifacts.prepare(root, bundle_id, import_bundle)) if bundle_id else None
     validate_target(config["target"], manifest)
+    if manifest is not None:
+        try:
+            admits(config, manifest)
+        except Rejected as error:
+            return {"targetId": target_id, "ok": False, "checks": [{"name": "Release kind", "ok": False,
+                                                                     "detail": str(error)}]}
     try:
         ssh = Ssh(config["ssh"])
     except Rejected as error:
@@ -397,7 +414,8 @@ def summary_of(record):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=["import", "servers", "targets", "vaults", "releases", "template", "submit",
-                                           "status", "jobs", "state", "check", "reconcile", "vitals", "stats", "topology"])
+                                           "status", "jobs", "state", "check", "reconcile", "vitals", "stats", "topology",
+                                           "branches", "commits", "build"])
     parser.add_argument("--root", required=True)
     parser.add_argument("--target")
     parser.add_argument("--bundle")
@@ -406,6 +424,10 @@ def main():
     parser.add_argument("--job")
     parser.add_argument("--archive")
     parser.add_argument("--days", type=int, default=30)
+    parser.add_argument("--product")
+    parser.add_argument("--branch")
+    parser.add_argument("--commit")
+    parser.add_argument("--confirm", help="submit: the target ID, typed, for prod on the local server")
     args = parser.parse_args()
     root = Path(args.root).resolve()
     try:
@@ -423,7 +445,13 @@ def main():
             print(json.dumps(template(root, args.bundle, args.service), indent=2))
             return 0
         elif args.action == "submit":
-            result = submit(root, args.target, args.bundle, args.actor)
+            result = submit(root, args.target, args.bundle, args.actor, args.confirm)
+        elif args.action == "branches":
+            result = artifacts.branches(args.product)
+        elif args.action == "commits":
+            result = artifacts.commits(args.product, args.branch)
+        elif args.action == "build":
+            result = artifacts.request_build(args.product, args.commit)
         elif args.action == "jobs":
             result = jobs(root)
         elif args.action == "state":
