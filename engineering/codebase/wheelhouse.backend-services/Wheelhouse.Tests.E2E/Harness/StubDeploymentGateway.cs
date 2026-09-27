@@ -12,6 +12,7 @@ public sealed class StubDeploymentGateway : IDeploymentGateway
     public string? LastJob { get; private set; }
     public string? LastActor { get; private set; }
     public string? LastConfirm { get; private set; }
+    public bool LastSkipTestPass { get; private set; }
     public (string Product, string Value)? LastBuild { get; private set; }
     public (string Product, string Branch)? LastCommits { get; private set; }
 
@@ -44,11 +45,12 @@ public sealed class StubDeploymentGateway : IDeploymentGateway
             new { targetId = target, ok = false, checks = new[] { new { name = "Settings: management", ok = false, detail = "Missing required setting: management:Billing:SecretKey" } } })));
     }
 
-    public Task<AppResult<JsonElement>> StartAsync(string target, string release, string actor, string? confirm, CancellationToken ct)
+    public Task<AppResult<JsonElement>> StartAsync(string target, string release, string actor, string? confirm, bool skipTestPass, CancellationToken ct)
     {
         LastTarget = target;
         LastRelease = release;
         LastConfirm = confirm;
+        LastSkipTestPass = skipTestPass;
         return Task.FromResult(AppResult<JsonElement>.Ok(JsonSerializer.SerializeToElement(
             new { id = Guid.NewGuid(), status = "queued" })));
     }

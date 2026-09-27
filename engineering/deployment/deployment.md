@@ -20,9 +20,12 @@ platform-network alias, database, settings files and hostnames. No hardware sepa
 |---|---|---|
 | `dev` | A build of any commit or branch, or a release | For work in progress and sharing a feature |
 | `test` | Published releases | For acceptance |
-| `prod` | Published releases | For customers |
+| `prod` | Published releases that succeeded on test | For customers |
 
 - The transport refuses a commit build on test or prod, before any file reaches the target.
+- Prod takes a release only after it succeeded on one of the product's test targets.
+- The test pass comes from the local deployment records, else from each test target's verified release.
+- `--skip-test-pass` overrides the gate only with the typed target ID (`--confirm <target>`).
 - On the local server, prod deploys only after the operator types the target ID (`--confirm foreverpin-prod`).
 
 ## Sites

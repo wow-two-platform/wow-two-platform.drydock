@@ -31,10 +31,16 @@ public sealed class DeploymentGateway(DeploymentSettings settings, RunnerFailure
         RunAsync(release is null ? ["check", "--target", target] : ["check", "--target", target, "--bundle", release], ct);
 
     /// <inheritdoc />
-    public Task<AppResult<JsonElement>> StartAsync(string target, string release, string actor, string? confirm, CancellationToken ct) =>
-        RunAsync(confirm is null
-            ? ["submit", "--target", target, "--bundle", release, "--actor", actor]
-            : ["submit", "--target", target, "--bundle", release, "--actor", actor, "--confirm", confirm], ct);
+    public Task<AppResult<JsonElement>> StartAsync(
+        string target, string release, string actor, string? confirm, bool skipTestPass, CancellationToken ct)
+    {
+        List<string> arguments = ["submit", "--target", target, "--bundle", release, "--actor", actor];
+        if (confirm is not null)
+            arguments.AddRange(["--confirm", confirm]);
+        if (skipTestPass)
+            arguments.Add("--skip-test-pass");
+        return RunAsync([.. arguments], ct);
+    }
 
     /// <inheritdoc />
     public Task<AppResult<JsonElement>> ReconcileAsync(string target, string job, string actor, CancellationToken ct) =>

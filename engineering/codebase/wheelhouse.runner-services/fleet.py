@@ -143,6 +143,11 @@ def accepts_candidates(target):
     return target.environment is DeploymentEnvironment.DEV
 
 
+def requires_test_pass(target):
+    """Prod takes a release only after it succeeded on one of the product's test targets."""
+    return target.environment is DeploymentEnvironment.PROD
+
+
 def needs_confirmation(server, target):
     """Prod on the local server runs only after the operator types the target's ID."""
     return server.provider is VpsProvider.LOCAL and target.environment is DeploymentEnvironment.PROD
@@ -173,6 +178,7 @@ def resolve_target(root, identifier):
     identity = Path(root) / "ssh" / server.id
     return {"serverId": server.id, "provider": server.provider.value,
             "acceptsCandidates": accepts_candidates(target), "needsConfirmation": needs_confirmation(server, target),
+            "requiresTestPass": requires_test_pass(target),
             "ssh": {"host": server.host, "user": server.ssh_user, "port": server.ssh_port,
                     "keyFile": str(identity / "identity"), "knownHostsFile": str(identity / "known_hosts")},
             "target": {"product": target.product, "environment": target.environment.value,

@@ -26,6 +26,7 @@ export const DeploymentTargetSchema = z.object({
   host: z.string(),
   acceptsCandidates: z.boolean().default(false),
   needsConfirmation: z.boolean().default(false),
+  requiresTestPass: z.boolean().default(false),
 });
 const releaseKind = z.enum(["release", "candidate"]);
 export const ReleaseArtifactSchema = z.object({

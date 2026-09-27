@@ -27,6 +27,7 @@ import {
   SelectPickerItem,
   SelectPickerTrigger,
   SelectPickerValue,
+  CheckboxField,
   TextInput,
 } from "@wow-two-beta/ui-vue/presentation/forms";
 import {
@@ -90,6 +91,7 @@ const available = computed(() =>
   ),
 );
 const typed = ref("");
+const skipTest = ref(false);
 const branch = ref("main");
 const requested = ref<string | null>(null);
 const buildProduct = () =>
@@ -97,8 +99,19 @@ const buildProduct = () =>
 const branches = useProductBranches(buildProduct);
 const commits = useProductCommits(buildProduct, branch);
 const build = useRequestBuild();
+// Local prod always needs the typed target ID; any prod needs it to skip the test pass.
+const typedNeeded = computed(
+  () => Boolean(selectedTarget.value?.needsConfirmation) || skipTest.value,
+);
 const confirmed = computed(
-  () => !selectedTarget.value?.needsConfirmation || typed.value === target.value,
+  () => !typedNeeded.value || typed.value === target.value,
+);
+const typedLabel = computed(() =>
+  selectedTarget.value?.needsConfirmation && skipTest.value
+    ? `Type ${target.value} to confirm`
+    : selectedTarget.value?.needsConfirmation
+      ? `Type ${target.value} to deploy prod to the local server`
+      : `Type ${target.value} to deploy without a test pass`,
 );
 const settled = computed(
   () => outcome.data.value?.status === JobStatus.Succeeded,
@@ -133,6 +146,7 @@ watch(
     jobId.value = null;
     readiness.value = null;
     typed.value = "";
+    skipTest.value = false;
     requested.value = null;
     check.reset();
     start.reset();
@@ -146,6 +160,7 @@ watch(
 watch([target, release], () => {
   readiness.value = null;
   typed.value = "";
+  skipTest.value = false;
   check.reset();
 });
 
@@ -218,9 +233,8 @@ async function deploy(): Promise<void> {
   const result = await start.mutateAsync({
     target: target.value,
     release: release.value,
-    ...(selectedTarget.value?.needsConfirmation
-      ? { confirm: typed.value }
-      : {}),
+    ...(typedNeeded.value ? { confirm: typed.value } : {}),
+    ...(skipTest.value ? { skipTestPass: true } : {}),
   });
   if (!result.ok) return;
   jobId.value = result.value.id;
@@ -500,10 +514,18 @@ function close(open: boolean): void {
               }}
             </dd>
           </dl>
-          <Field
-            v-if="selectedTarget?.needsConfirmation"
-            :label="`Type ${target} to deploy prod to the local server`"
-          >
+          <template v-if="selectedTarget?.requiresTestPass">
+            <p class="text-sm text-muted-foreground">
+              Prod takes a release only after it succeeded on test. Check
+              readiness to see whether this one has.
+            </p>
+            <CheckboxField
+              v-model="skipTest"
+              label="Deploy without a test pass"
+              :disabled="start.loading.value"
+            />
+          </template>
+          <Field v-if="typedNeeded" :label="typedLabel">
             <TextInput
               v-model="typed"
               :disabled="start.loading.value"

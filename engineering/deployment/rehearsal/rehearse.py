@@ -2,7 +2,8 @@
 """Runs the local server: Wheelhouse deploys to a local SSH target, as to a VPS. Never points at a real host.
 
 The local server hosts ForeverPin's dev, test and prod environments at once. Dev is the default; test and prod
-deploy on demand, and prod asks for its target ID typed out. Each environment's sites answer through the local
+deploy on demand, and prod asks for its target ID typed out.
+Prod takes a release only after it succeeded on test, unless --skip-test-pass comes with the typed ID. Each environment's sites answer through the local
 ingress at http://<site>-foreverpin.<environment>.localhost:18080.
 """
 import argparse
@@ -272,11 +273,13 @@ def settings(bundle_id, name):
     print("Wrote " + name + " settings for " + bundle_id)
 
 
-def deploy(bundle_id, name, confirm=None, timeout=420):
+def deploy(bundle_id, name, confirm=None, skip_test_pass=False, timeout=420):
     """Submits the bundle through the same transport the dashboard uses and waits for the outcome."""
     arguments = ["submit", "--target", target_of(name), "--bundle", bundle_id, "--actor", "local-server"]
     if confirm:
         arguments += ["--confirm", confirm]
+    if skip_test_pass:
+        arguments.append("--skip-test-pass")
     job = transport(*arguments)
     print("Submitted " + job["id"] + " to " + target_of(name))
     deadline = time.monotonic() + timeout
@@ -309,6 +312,8 @@ def main():
     parser.add_argument("--tag", help="bundle: a release tag such as v0.0.1-local.1; without it, a dev candidate")
     parser.add_argument("--bundle", help="the bundle ID to use; defaults to the checkout's candidate")
     parser.add_argument("--confirm", help="deploy: the target ID typed out, required for prod")
+    parser.add_argument("--skip-test-pass", action="store_true",
+                        help="deploy: prod takes a release that never succeeded on test (needs --confirm)")
     parser.add_argument("--volumes", action="store_true")
     parser.add_argument("--broken", action="store_true", help="bundle: build a release that fails after replacement")
     args = parser.parse_args()
@@ -333,7 +338,7 @@ def main():
     elif args.action == "check":
         print(json.dumps(transport("check", "--target", target_of(args.env), "--bundle", chosen()), indent=2))
     elif args.action == "deploy":
-        deploy(chosen(), args.env, args.confirm)
+        deploy(chosen(), args.env, args.confirm, args.skip_test_pass)
     elif args.action == "state":
         print(json.dumps(transport("state", "--target", target_of(args.env)), indent=2))
     elif args.action == "run":

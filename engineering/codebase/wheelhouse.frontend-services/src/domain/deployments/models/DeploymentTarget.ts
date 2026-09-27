@@ -10,4 +10,6 @@ export interface DeploymentTarget {
   acceptsCandidates: boolean;
   /** Prod on the local server deploys only after the operator types the target ID. */
   needsConfirmation: boolean;
+  /** Prod takes a release only after it succeeded on test; typing the target ID skips the pass. */
+  requiresTestPass: boolean;
 }

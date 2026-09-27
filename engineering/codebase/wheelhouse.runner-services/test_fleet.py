@@ -55,10 +55,11 @@ class FleetTests(unittest.TestCase):
 
     def test_local_prod_needs_typed_confirmation_and_only_dev_takes_candidates(self):
         with patch.dict('os.environ', {'WHEELHOUSE_REHEARSAL': '1'}):
-            policy = {environment: (config['acceptsCandidates'], config['needsConfirmation'])
+            policy = {environment: (config['acceptsCandidates'], config['needsConfirmation'], config['requiresTestPass'])
                       for environment in ('dev', 'test', 'prod')
                       for config in [fleet.resolve_target(Path('/data'), 'foreverpin-' + environment)]}
-            self.assertEqual({'dev': (True, False), 'test': (False, False), 'prod': (False, True)}, policy)
+            self.assertEqual({'dev': (True, False, False), 'test': (False, False, False), 'prod': (False, True, True)},
+                             policy)
 
     def test_local_sites_follow_the_localhost_pattern_on_every_environment(self):
         with patch.dict('os.environ', {'WHEELHOUSE_REHEARSAL': '1'}):

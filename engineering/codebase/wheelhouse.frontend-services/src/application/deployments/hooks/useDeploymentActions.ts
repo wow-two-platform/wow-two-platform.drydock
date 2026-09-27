@@ -23,9 +23,22 @@ export function useStartDeployment() {
         target,
         release,
         confirm,
-      }: { target: string; release: string; confirm?: string },
+        skipTestPass,
+      }: {
+        target: string;
+        release: string;
+        confirm?: string;
+        skipTestPass?: boolean;
+      },
       { signal },
-    ) => deploymentsApi.startDeployment(target, release, confirm, signal),
+    ) =>
+      deploymentsApi.startDeployment(
+        target,
+        release,
+        confirm,
+        skipTestPass,
+        signal,
+      ),
     invalidates: ({ target }) => [
       DeploymentKeys.history,
       DeploymentKeys.state(target),

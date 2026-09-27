@@ -280,7 +280,7 @@ class TransportTests(unittest.TestCase):
 
     def candidate_bundle(self):
         bundle = self.root / "bundles" / "pilot-ci-1"
-        bundle.mkdir(parents=True)
+        bundle.mkdir(parents=True, exist_ok=True)
         compose = json.dumps({"services": {"api": {"image": "ghcr.io/o/api@sha256:" + "a" * 64, "platform": "linux/amd64",
                                                    "healthcheck": {"test": ["CMD", "true"]}}}}).encode()
         (bundle / "compose.json").write_bytes(compose)
@@ -313,12 +313,69 @@ class TransportTests(unittest.TestCase):
                 self.assertEqual((False, "Release kind"), (result["ok"], result["checks"][0]["name"]))
                 ssh.assert_not_called()
 
+    def release_bundle(self, release="v1.0.0"):
+        bundle = self.candidate_bundle()
+        manifest = json.loads((bundle / "release.json").read_text())
+        manifest.update(kind="release", release=release)
+        (bundle / "release.json").write_text(json.dumps(manifest))
+        return bundle
+
+    def gated(self, test_state=None, skip=False, confirm=None):
+        """Submits a release to pilot-prod with pilot-test as its only test target; SSH marks passing the gate."""
+        config = self.policy_config("prod", False, False)
+        config["requiresTestPass"] = True
+        test = transport.fleet.Target("pilot-test", "pilot", "pilot", transport.fleet.DeploymentEnvironment.TEST,
+                                      (), "platform")
+
+        class Reached(Exception):
+            pass
+
+        def state(root, target_id):
+            if test_state is None:
+                raise transport.CommandFailed("SSH connection refused")
+            return {"current": test_state}
+
+        with patch.object(transport.fleet, "resolve_target", return_value=config), \
+                patch.object(transport.fleet, "active_targets", return_value=(test,)), \
+                patch.object(transport.artifacts, "prepare", return_value=self.release_bundle()), \
+                patch.object(transport, "target_state", side_effect=state), \
+                patch.object(transport, "Ssh", side_effect=Reached):
+            try:
+                transport.submit(self.root, "pilot-prod", "pilot-gh-1", "max", confirm, skip)
+            except Reached:
+                return "passed the gate"
+
+    def test_prod_refuses_a_release_that_never_succeeded_on_test(self):
+        with self.assertRaisesRegex(ValueError, "Deploy this release to test first"):
+            self.gated()
+        with self.assertRaisesRegex(ValueError, "Deploy this release to test first"):
+            self.gated(test_state={"release": "v0.9.0"})
+
+    def test_prod_takes_a_release_its_test_target_verified(self):
+        self.assertEqual("passed the gate", self.gated(test_state={"release": "v1.0.0"}))
+
+    def test_prod_takes_a_release_that_succeeded_on_test_in_local_records(self):
+        job = "00000000-0000-4000-8000-000000000001"
+        transport.write_json(self.root / "jobs" / (job + ".json"),
+                             {"id": job, "targetId": "pilot-test", "release": "v1.0.0", "status": "running",
+                              "submittedAt": "2026-09-27T10:00:00+00:00"})
+        transport.write_json(self.root / "observed" / (job + ".json"),
+                             {"status": "succeeded", "completedAt": "2026-09-27T10:05:00+00:00"})
+        self.assertEqual("passed the gate", self.gated())
+
+    def test_skipping_the_test_pass_needs_the_typed_target_id(self):
+        with self.assertRaisesRegex(ValueError, "Type the target ID to deploy without a test pass"):
+            self.gated(skip=True)
+        self.assertEqual("passed the gate", self.gated(skip=True, confirm="pilot-prod"))
+
     def test_targets_carry_their_environment_rules(self):
         with patch.dict("os.environ", {"WHEELHOUSE_REHEARSAL": "1"}):
             listed = {item["id"]: (item["environment"], item["acceptsCandidates"], item["needsConfirmation"])
                       for item in transport.targets(self.root)}
         self.assertEqual({"foreverpin-dev": ("dev", True, False), "foreverpin-test": ("test", False, False),
                           "foreverpin-prod": ("prod", False, True)}, listed)
+        with patch.dict("os.environ", {"WHEELHOUSE_REHEARSAL": "1"}):
+            self.assertEqual([False, False, True], [item["requiresTestPass"] for item in transport.targets(self.root)])
 
     def test_cli_rejection_carries_a_safe_reason(self):
         argv = ["transport.py", "template", "--root", str(self.root), "--bundle", "../escape"]

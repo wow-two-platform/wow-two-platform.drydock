@@ -102,8 +102,27 @@ def targets(root):
                        "environment": config["target"]["environment"],
                        "serverId": config["serverId"], "provider": config["provider"], "host": config["ssh"]["host"],
                        "acceptsCandidates": config["acceptsCandidates"],
-                       "needsConfirmation": config["needsConfirmation"]})
+                       "needsConfirmation": config["needsConfirmation"],
+                       "requiresTestPass": config["requiresTestPass"]})
     return result
+
+
+def test_pass(root, product, release):
+    """Where this release succeeded on one of the product's test targets: local records first, then each test
+    target's verified release. None when it never has."""
+    tests = [binding.id for binding in fleet.active_targets()
+             if binding.product == product and binding.environment is fleet.DeploymentEnvironment.TEST]
+    for job in jobs(root, limit=None):
+        if job.get("targetId") in tests and job.get("release") == release and job.get("status") == "succeeded":
+            return {"targetId": job["targetId"], "at": job.get("completedAt") or job["submittedAt"]}
+    for target_id in tests:
+        try:
+            current = target_state(root, target_id).get("current") or {}
+        except (Rejected, CommandFailed, ValueError, OSError):
+            continue  # an unreachable test target proves nothing
+        if current.get("release") == release:
+            return {"targetId": target_id, "at": current.get("completedAt")}
+    return None
 
 
 def admits(config, manifest):
@@ -161,13 +180,17 @@ def template(root, bundle_id, service=None):
     return result[service]
 
 
-def submit(root, target_id, bundle_id, actor, confirm=None):
+def submit(root, target_id, bundle_id, actor, confirm=None, skip_test_pass=False):
     config = fleet.resolve_target(root, target_id)
     require(not config["needsConfirmation"] or confirm == target_id,
             "Type the target ID to deploy prod to the local server")
+    require(not skip_test_pass or confirm == target_id, "Type the target ID to deploy without a test pass")
     bundle = artifacts.prepare(root, bundle_id, import_bundle)
     manifest = validate_bundle(bundle)
     admits(config, manifest)
+    if config["requiresTestPass"] and not skip_test_pass:
+        require(test_pass(root, config["target"]["product"], manifest["release"]),
+                "Deploy this release to test first, or type the target ID to skip the test pass")
     target_root, _ = validate_target(config["target"], manifest)
     require(re.fullmatch(r"/[A-Za-z0-9/_-]+", str(target_root)), "SSH root requires a simple absolute path")
     require(isinstance(actor, str) and 0 < len(actor) <= 160 and "\n" not in actor, "Invalid actor")
@@ -280,6 +303,12 @@ def check(root, target_id, bundle_id=None):
         return {"targetId": target_id, "ok": False, "checks": checks}
     result["checks"] = checks + [{"name": "SSH connection", "ok": True,
                                   "detail": config["ssh"]["user"] + "@" + config["ssh"]["host"]}] + result["checks"]
+    if manifest is not None and config.get("requiresTestPass"):
+        passed = test_pass(root, config["target"]["product"], manifest["release"])
+        result["checks"].append({"name": "Test pass", "ok": passed is not None,
+                                 "detail": "succeeded on " + passed["targetId"] if passed
+                                 else "not deployed to test yet; deploy it there first or skip by typing the target ID"})
+        result["ok"] = result.get("ok", False) and passed is not None
     result["targetId"] = target_id
     return result
 
@@ -428,6 +457,8 @@ def main():
     parser.add_argument("--branch")
     parser.add_argument("--commit")
     parser.add_argument("--confirm", help="submit: the target ID, typed, for prod on the local server")
+    parser.add_argument("--skip-test-pass", action="store_true",
+                        help="submit: deploy to prod without a test pass; needs --confirm with the target ID")
     args = parser.parse_args()
     root = Path(args.root).resolve()
     try:
@@ -445,7 +476,7 @@ def main():
             print(json.dumps(template(root, args.bundle, args.service), indent=2))
             return 0
         elif args.action == "submit":
-            result = submit(root, args.target, args.bundle, args.actor, args.confirm)
+            result = submit(root, args.target, args.bundle, args.actor, args.confirm, args.skip_test_pass)
         elif args.action == "branches":
             result = artifacts.branches(args.product)
         elif args.action == "commits":

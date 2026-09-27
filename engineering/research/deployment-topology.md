@@ -13,6 +13,7 @@ or a version track.
 - [x] Current model read: fleet, bundle contract, runner, rehearsal rig, pilot plan, CI policy, product stacks, Haven delivery.
 - [x] Placement, environment names and site links decided (points 1, 2, 13).
 - [x] Builds, versions, descriptor and build trigger decided and built (points 3, 17-22, 24, 26).
+- [x] Prod gate decided and built (point 4).
 - [ ] Remaining points decided.
 
 ---
@@ -44,6 +45,7 @@ or a version track.
 | 2 | Environments are `dev`, `test` and `prod`. The rehearsal rig becomes the local server | 2026-09-27 |
 | 13 | Products declare public services; targets declare hostnames; Wheelhouse shows Open site | 2026-09-27 |
 | 3 | Dev takes a build of any commit or branch; test and prod take published releases | 2026-09-27 |
+| 4 | Prod takes a release only after it succeeded on test; a typed target ID skips the pass | 2026-09-27 |
 | 17 | Branches and pull requests get their own environments later; until then branch builds land in dev | 2026-09-27 |
 | 18 | One custom `deploy.yml` per product, kept as a wow-two convention for every new product | 2026-09-27 |
 | 19 | A service carries the release it last changed in; Haven already shows it beside the logo | 2026-09-27 |
@@ -253,7 +255,7 @@ Decide top to bottom; a parent settles before its children.
 1. [x] Placement: all environments run at the same time on one host, without hardware isolation.
 2. [x] Environment set: `dev`, `test`, `prod` replace `staging`, `production`, `rehearsal`; the rig becomes the local server.
 3. [x] Release channels: dev ← a build of any commit or branch; test and prod ← published releases; promotion reuses digests.
-4. [ ] Prod gate: a release must succeed on test first; overriding needs a typed confirmation.
+4. [x] Prod gate: a release must succeed on test first; overriding needs a typed confirmation.
 5. [ ] PostgreSQL: one cluster per host, a database and role per product-environment, provisioned by the runner.
 6. [ ] SQLite stays the default for single-replica products, with nightly `.backup`.
 7. [ ] Cache: in-process first; Valkey per product when needed; shared only for backplanes.

@@ -136,6 +136,17 @@ test("sends a typed prod confirmation and an explicit build action", async () =>
     ).ok,
     true,
   );
+  assert.equal(
+    (
+      await deploymentsApi.startDeployment(
+        "foreverpin-prod",
+        "release",
+        "foreverpin-prod",
+        true,
+      )
+    ).ok,
+    true,
+  );
   const build = await deploymentsApi.requestBuild("foreverpin", "e".repeat(40));
   assert.equal(build.ok, true);
   assert.deepEqual(JSON.parse(requests[0].options.body), {
@@ -143,12 +154,18 @@ test("sends a typed prod confirmation and an explicit build action", async () =>
     release: "release",
     confirm: "foreverpin-prod",
   });
+  assert.deepEqual(JSON.parse(requests[1].options.body), {
+    target: "foreverpin-prod",
+    release: "release",
+    confirm: "foreverpin-prod",
+    skipTestPass: true,
+  });
   assert.equal(
-    requests[1].url,
+    requests[2].url,
     "/api/deployments/products/foreverpin/builds",
   );
-  assert.equal(requests[1].options.headers.get("X-Wheelhouse-Action"), "build");
-  assert.deepEqual(JSON.parse(requests[1].options.body), {
+  assert.equal(requests[2].options.headers.get("X-Wheelhouse-Action"), "build");
+  assert.deepEqual(JSON.parse(requests[2].options.body), {
     commit: "e".repeat(40),
   });
 });

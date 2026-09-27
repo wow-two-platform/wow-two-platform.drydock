@@ -73,18 +73,24 @@ export const deploymentsApi = {
       { signal },
     ),
 
-  /** `confirm` is the target ID typed out, which prod on the local server requires. */
+  /** `confirm` is the typed target ID that local prod and a skipped test pass require. */
   startDeployment: (
     target: string,
     release: string,
     confirm?: string,
+    skipTestPass?: boolean,
     signal?: AbortSignal,
   ) =>
     requestData<DeploymentJob>("/api/deployments", DeploymentJobSchema, {
       signal,
       method: "POST",
       action: "deploy",
-      body: confirm ? { target, release, confirm } : { target, release },
+      body: {
+        target,
+        release,
+        ...(confirm ? { confirm } : {}),
+        ...(skipTestPass ? { skipTestPass: true } : {}),
+      },
     }),
 
   listBranches: (product: string, signal?: AbortSignal) =>

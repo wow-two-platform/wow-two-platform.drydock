@@ -109,7 +109,7 @@ public sealed class DeploymentsController(ISender sender, IErrorHttpStatusCodeMa
         if (Request.Headers["X-Wheelhouse-Action"] != "deploy")
             return Problem(statusCode: 400, detail: "An explicit deployment action is required.");
         var result = await sender.SendAsync(
-            new DeploymentStartCommand(request.Target, request.Release, Actor(), request.Confirm), ct);
+            new DeploymentStartCommand(request.Target, request.Release, Actor(), request.Confirm, request.SkipTestPass), ct);
         return result.Match<IActionResult>(
             ok => AcceptedAtAction(nameof(Status), new { id = ok.Data.GetProperty("id").GetString() },
                 ApiResponse<JsonElement>.Ok(ok.Data)),
