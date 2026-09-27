@@ -18,6 +18,7 @@ public sealed class DeploymentsController(ISender sender, IErrorHttpStatusCodeMa
 {
     // Route regex constraints ignore case; a validated parameter keeps catalog ids exact.
     private const string Slug = "^[a-z][a-z0-9-]{0,47}$";
+    private const string Branch = "^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$";
 
     /// <summary>Lists recent deployments with their last observed outcome.</summary>
     [HttpGet]
@@ -66,10 +67,34 @@ public sealed class DeploymentsController(ISender sender, IErrorHttpStatusCodeMa
     public async Task<IActionResult> Vitals(CancellationToken ct) =>
         Render(await sender.SendAsync(new DeploymentReadQuery("vitals"), ct));
 
-    /// <summary>Lists published deployment artifacts from approved repositories.</summary>
+    /// <summary>Lists published releases and per-commit builds from approved repositories.</summary>
     [HttpGet("releases")]
     public async Task<IActionResult> Releases(CancellationToken ct) =>
         Render(await sender.SendAsync(new DeploymentReadQuery("releases"), ct));
+
+    /// <summary>Lists a product's branches, to choose which commits to build or deploy to dev.</summary>
+    [HttpGet("products/{product}/branches")]
+    public async Task<IActionResult> Branches([RegularExpression(Slug)] string product, CancellationToken ct) =>
+        Render(await sender.SendAsync(new DeploymentReadQuery("branches", product), ct));
+
+    /// <summary>Lists a branch's recent commits, each with its build when one exists.</summary>
+    [HttpGet("products/{product}/commits")]
+    public async Task<IActionResult> Commits(
+        [RegularExpression(Slug)] string product, [FromQuery, Required, RegularExpression(Branch)] string branch, CancellationToken ct) =>
+        Render(await sender.SendAsync(new DeploymentCommitsQuery(product, branch), ct));
+
+    /// <summary>Starts a build of a commit that has none; the build appears in the catalog once its workflow finishes.</summary>
+    [HttpPost("products/{product}/builds")]
+    public async Task<IActionResult> Build(
+        [RegularExpression(Slug)] string product, DeploymentBuildRequest request, CancellationToken ct)
+    {
+        if (Request.Headers["X-Wheelhouse-Action"] != "build")
+            return Problem(statusCode: 400, detail: "An explicit build action is required.");
+        var result = await sender.SendAsync(new DeploymentBuildCommand(product, request.Commit, Actor()), ct);
+        return result.Match<IActionResult>(
+            ok => Accepted(ApiResponse<JsonElement>.Ok(ok.Data)),
+            fail => Problem(statusCode: errors.ToStatusCode(fail.Error), detail: fail.Error.Message));
+    }
 
     /// <summary>Reads the authoritative outcome from the target.</summary>
     [HttpGet("{id:guid}")]
@@ -83,7 +108,8 @@ public sealed class DeploymentsController(ISender sender, IErrorHttpStatusCodeMa
         // A non-simple custom header blocks cross-origin cookie writes without trusting a body token.
         if (Request.Headers["X-Wheelhouse-Action"] != "deploy")
             return Problem(statusCode: 400, detail: "An explicit deployment action is required.");
-        var result = await sender.SendAsync(new DeploymentStartCommand(request.Target, request.Release, Actor()), ct);
+        var result = await sender.SendAsync(
+            new DeploymentStartCommand(request.Target, request.Release, Actor(), request.Confirm), ct);
         return result.Match<IActionResult>(
             ok => AcceptedAtAction(nameof(Status), new { id = ok.Data.GetProperty("id").GetString() },
                 ApiResponse<JsonElement>.Ok(ok.Data)),

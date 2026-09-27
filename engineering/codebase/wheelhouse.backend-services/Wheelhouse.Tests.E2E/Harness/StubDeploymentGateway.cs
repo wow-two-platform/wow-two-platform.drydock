@@ -11,6 +11,9 @@ public sealed class StubDeploymentGateway : IDeploymentGateway
     public string? LastRelease { get; private set; }
     public string? LastJob { get; private set; }
     public string? LastActor { get; private set; }
+    public string? LastConfirm { get; private set; }
+    public (string Product, string Value)? LastBuild { get; private set; }
+    public (string Product, string Branch)? LastCommits { get; private set; }
 
     public (string Resource, string? Id)? LastRead { get; private set; }
 
@@ -28,7 +31,8 @@ public sealed class StubDeploymentGateway : IDeploymentGateway
                 dependencies = Array.Empty<object>(), warnings = Array.Empty<string>() },
             "stats" => new { windowDays = int.Parse(id!), deploys = 1, succeeded = 0, failed = 1, refused = 0, pending = 0 },
             "vitals" => new { collectedAt = "2026-09-26T12:00:00+00:00", targets = new[] { new { targetId = "pilot", serverId = "pilot-host", ok = true } } },
-            _ => new object[] { new { id = "pilot", product = "foreverpin", environment = "staging" } }
+            "branches" => new[] { "main", "feature/pins" },
+            _ => new object[] { new { id = "pilot", product = "foreverpin", environment = "dev", acceptsCandidates = true, needsConfirmation = false } }
         })));
     }
 
@@ -40,12 +44,30 @@ public sealed class StubDeploymentGateway : IDeploymentGateway
             new { targetId = target, ok = false, checks = new[] { new { name = "Settings: management", ok = false, detail = "Missing required setting: management:Billing:SecretKey" } } })));
     }
 
-    public Task<AppResult<JsonElement>> StartAsync(string target, string release, string actor, CancellationToken ct)
+    public Task<AppResult<JsonElement>> StartAsync(string target, string release, string actor, string? confirm, CancellationToken ct)
     {
         LastTarget = target;
         LastRelease = release;
+        LastConfirm = confirm;
         return Task.FromResult(AppResult<JsonElement>.Ok(JsonSerializer.SerializeToElement(
             new { id = Guid.NewGuid(), status = "queued" })));
+    }
+
+    public Task<AppResult<JsonElement>> CommitsAsync(string product, string branch, CancellationToken ct)
+    {
+        LastCommits = (product, branch);
+        return Task.FromResult(AppResult<JsonElement>.Ok(JsonSerializer.SerializeToElement(new[]
+        {
+            new { sha = new string('c', 40), message = "feat: pins", author = "Max", date = "2026-09-27T09:00:00Z", buildId = (string?)"foreverpin-ci-7" },
+            new { sha = new string('e', 40), message = "fix: other", author = "Max", date = "2026-09-27T08:00:00Z", buildId = (string?)null }
+        })));
+    }
+
+    public Task<AppResult<JsonElement>> RequestBuildAsync(string product, string commit, CancellationToken ct)
+    {
+        LastBuild = (product, commit);
+        return Task.FromResult(AppResult<JsonElement>.Ok(JsonSerializer.SerializeToElement(
+            new { product, commit, status = "requested" })));
     }
 
     public Task<AppResult<JsonElement>> ReconcileAsync(string target, string job, string actor, CancellationToken ct)

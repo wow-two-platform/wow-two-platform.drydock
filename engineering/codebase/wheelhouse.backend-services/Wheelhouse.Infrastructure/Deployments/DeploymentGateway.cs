@@ -20,6 +20,7 @@ public sealed class DeploymentGateway(DeploymentSettings settings, RunnerFailure
             "status" when Guid.TryParse(id, out _) => RunAsync(["status", "--job", id], ct),
             "state" when id is not null => RunAsync(["state", "--target", id], ct),
             "topology" when id is not null => RunAsync(["topology", "--target", id], ct),
+            "branches" when id is not null => RunAsync(["branches", "--product", id], ct),
             "vitals" => RunAsync(id is null ? ["vitals"] : ["vitals", "--target", id], ct),
             "stats" when int.TryParse(id, out var days) => RunAsync(["stats", "--days", days.ToString(CultureInfo.InvariantCulture)], ct),
             _ => Task.FromResult(AppResult<JsonElement>.Fail(AppErrors.NotFound("Unknown deployment resource.")))
@@ -30,12 +31,22 @@ public sealed class DeploymentGateway(DeploymentSettings settings, RunnerFailure
         RunAsync(release is null ? ["check", "--target", target] : ["check", "--target", target, "--bundle", release], ct);
 
     /// <inheritdoc />
-    public Task<AppResult<JsonElement>> StartAsync(string target, string release, string actor, CancellationToken ct) =>
-        RunAsync(["submit", "--target", target, "--bundle", release, "--actor", actor], ct);
+    public Task<AppResult<JsonElement>> StartAsync(string target, string release, string actor, string? confirm, CancellationToken ct) =>
+        RunAsync(confirm is null
+            ? ["submit", "--target", target, "--bundle", release, "--actor", actor]
+            : ["submit", "--target", target, "--bundle", release, "--actor", actor, "--confirm", confirm], ct);
 
     /// <inheritdoc />
     public Task<AppResult<JsonElement>> ReconcileAsync(string target, string job, string actor, CancellationToken ct) =>
         RunAsync(["reconcile", "--target", target, "--job", job, "--actor", actor], ct);
+
+    /// <inheritdoc />
+    public Task<AppResult<JsonElement>> CommitsAsync(string product, string branch, CancellationToken ct) =>
+        RunAsync(["commits", "--product", product, "--branch", branch], ct);
+
+    /// <inheritdoc />
+    public Task<AppResult<JsonElement>> RequestBuildAsync(string product, string commit, CancellationToken ct) =>
+        RunAsync(["build", "--product", product, "--commit", commit], ct);
 
     private async Task<AppResult<JsonElement>> RunAsync(string[] arguments, CancellationToken ct)
     {

@@ -83,6 +83,66 @@ public sealed class DeploymentsE2ETests(WheelhouseAppFixture fixture) : Wheelhou
     }
 
     [Fact]
+    public async Task Start_ForwardsTheTypedConfirmation()
+    {
+        var client = AdminClient;
+        client.DefaultRequestHeaders.Add("X-Wheelhouse-Action", "deploy");
+        var response = await client.PostAsJsonAsync("/api/deployments", new { target = "foreverpin-prod", release = "v1", confirm = "foreverpin-prod" });
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        Assert.Equal("foreverpin-prod", Fixture.Deployments.LastConfirm);
+    }
+
+    [Fact]
+    public async Task Build_RequiresExplicitActionHeader()
+    {
+        var response = await AdminClient.PostAsJsonAsync("/api/deployments/products/foreverpin/builds", new { commit = new string('e', 40) });
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Build_RequestsTheCommitsBuild()
+    {
+        var client = AdminClient;
+        client.DefaultRequestHeaders.Add("X-Wheelhouse-Action", "build");
+        var commit = new string('e', 40);
+        var response = await client.PostAsJsonAsync("/api/deployments/products/foreverpin/builds", new { commit });
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        Assert.Equal(("foreverpin", commit), Fixture.Deployments.LastBuild);
+    }
+
+    [Theory]
+    [InlineData("main")]
+    [InlineData("Eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee")]
+    [InlineData("eeee;id")]
+    public async Task Build_AcceptsOnlyAFullCommitSha(string commit)
+    {
+        var client = AdminClient;
+        client.DefaultRequestHeaders.Add("X-Wheelhouse-Action", "build");
+        var response = await client.PostAsJsonAsync("/api/deployments/products/foreverpin/builds", new { commit });
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Commits_ListABranchWithEachBuild()
+    {
+        var response = await AdminClient.GetAsync("/api/deployments/products/foreverpin/commits?branch=feature/pins");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(("foreverpin", "feature/pins"), Fixture.Deployments.LastCommits);
+        var commits = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data");
+        Assert.Equal("foreverpin-ci-7", commits[0].GetProperty("buildId").GetString());
+    }
+
+    [Theory]
+    [InlineData("/api/deployments/products/foreverpin/commits")]
+    [InlineData("/api/deployments/products/foreverpin/commits?branch=-oops")]
+    [InlineData("/api/deployments/products/Foreverpin/branches")]
+    public async Task ProductRoutes_RejectBadProductsAndBranches(string path)
+    {
+        var response = await AdminClient.GetAsync(path);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Start_RejectsPathsAndShellSyntax()
     {
         var client = AdminClient;
