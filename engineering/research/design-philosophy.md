@@ -27,6 +27,8 @@ logs, vitals, audit). Three jobs, one operator, many products.
 | P7 | Consequential actions are deliberate | Production and destructive actions show their scope and need typed confirmation; every action lands in the audit trail. |
 | P8 | Dense, not crowded | Tables and compact rows for scanning; one short line of copy at most beside an action. |
 | P9 | The SDK owns every generic pattern | Shell, navigation, loading, refresh, canvas, tables, command palette come from the UI SDK; Wheelhouse composes. |
+| P10 | The window is the page | A dashboard never grows past the viewport: the frame stays put, and each block and modal owns its scroll. |
+| P11 | Every product is recognisable at a glance | Each product shows its own icon from its repository, else a monogram tinted by its name. |
 
 ---
 
@@ -42,6 +44,8 @@ Top navigation: **Workspace · Deployments · Servers · Secrets · Products · 
 | Attention list on the Workspace | No portfolio home: nothing shows fifty products' health at a glance |
 | Secrets page per vault and namespace | Secrets are organised by vault, not by product; finding a product's secrets means knowing its namespace |
 | Service map per environment | Logs, versions and vitals for a service live on three different pages |
+| Environments, services map and recent deployments stack in one column | The environment switch sits in the middle, yet it rescopes the map and the deployments below it |
+| Portfolio attention sat in the product Workspace | Portfolio-wide warnings belong to the portfolio; they now open the Servers page |
 
 ---
 
@@ -59,7 +63,10 @@ Top navigation: **Workspace · Deployments · Servers · Secrets · Products · 
 
 ### Product level (opening a product)
 
-`/products/:product/:tool` with an environment switcher (`dev · test · prod`) in the product header.
+`/products/:product/:tool`. The environments form a fixed rail on the left of the product (`dev · test · prod`, each
+with its release and health); choosing one rescopes everything to its right — the service map, recent deployments,
+logs and secrets — so the scope is always visible and one click away. The product header carries the icon, name,
+repository actions and an info popover for registry identifiers.
 
 | Tool | Holds |
 |---|---|
@@ -142,7 +149,7 @@ Steps 1 and 2 need no decision. Step 3 needs Point 1. Step 4 needs the brainstor
 - Gallery cards or a dense table as the default home view — or both with a toggle?
 - Which facts belong on a product card: per-environment health dots, version, last deploy, attention count, cost?
 - Product tools as tabs under the header, or a vertical rail?
-- Is the environment a switcher (one at a time) or are the three environments always side by side on Overview?
+- The environment rail rescopes every tool; does Overview still compare all three side by side?
 - Do Vaults stay a portfolio page, or do secrets live only under each product?
 - Lifecycle stages for grouping the portfolio: idea, building, live, paused, killed?
 - Keep the Wheelhouse name?

@@ -53,6 +53,7 @@ has it, or will once published), **extract** (build it in the SDK from Wheelhous
 | Canvas | `presentation/common/components/canvasArea/` copy | `CanvasArea` in `presentation/layout` | adopt: delete the copy |
 | Loading | `common/components/skeleton/` copies, `RefreshButton` | `SkeletonStateSlot` / `Group`, `useRefresh`, `Button` `isLoading` | adopt: delete the copies |
 | Frame | Hand-built region-scrolling `AppLayout.vue` | `AppShell` (`scroll: 'region'`) + horizontal `Navbar` | adopt |
+| Modal height | Per-modal `max-h` and scrolling-body classes | `ModalContent` capped with a scrolling `ModalBody` (in source) | adopt: drop the classes |
 | Theme choice | Plain menu items with a check | `MenuRadioGroup` / `MenuRadioItem` (in source) | adopt |
 | Trends | `fleet/components/TrendLine.vue` | `Sparkline` | adopt |
 | Resource bars | `fleet/components/ResourceMeter.vue` | `MeterBar` | adopt |
@@ -72,6 +73,7 @@ has it, or will once published), **extract** (build it in the SDK from Wheelhous
 | Re-pin | `WoW2.Sdk.Backend.Beta` `10.0.40-beta` | `10.0.59-beta` or later | adopt: 19 releases, check breaking changes |
 | Advisories | SSH.NET 2023.0.0, Snappier 1.0.0, SQLitePCLRaw 2.1.11, Datadog.Trace 3.7.0, Microsoft.OpenApi 2.0.0 | The SDK's dependency graph | extract: fix in the SDK, verify after the re-pin |
 | Status version | `SystemController` reads the informational version | A status endpoint helper | extract: TranscriptForge has the same |
+| Repository reads | `Infrastructure/Products/GitHubProductIconSource.cs` (tree + raw file) | Tree and file reads on the SDK GitHub client | extract |
 | Migration stamp | `MigrationOptions.Version` left at the SDK default `v1.0` | The product version | adopt: set it from the build |
 | Vault admin | `Infrastructure/Vaults/VaultGateway.cs` + session cache | A vault admin client in `Integrations` | extract: the backlog names it |
 | Action header | Inline checks in `DeploymentsController`, `VaultsController` | A web filter or endpoint convention | extract |
