@@ -2,7 +2,7 @@ import { computed } from "vue";
 import { useAppQuery } from "@/bootstrap/query";
 import { systemApi } from "@/integration/system";
 
-/** Whether the management API answers and whether it drives the rehearsal rig. */
+/** Whether the management API answers, which version it runs and whether it drives the rehearsal rig. */
 export function useApiConnection() {
   const { data, error } = useAppQuery({
     key: ["system", "status"],
@@ -13,5 +13,6 @@ export function useApiConnection() {
     error.value ? "offline" : data.value ? "online" : "checking",
   );
   const localRig = computed(() => data.value?.localRig === true);
-  return { connection, localRig } as const;
+  const version = computed(() => data.value?.version ?? null);
+  return { connection, localRig, version } as const;
 }

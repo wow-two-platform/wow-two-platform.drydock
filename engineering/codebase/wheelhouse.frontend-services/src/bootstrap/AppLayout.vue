@@ -70,6 +70,7 @@ const current = computed(() => AppPlaces.find((place) => place.path === route.pa
           <ProfileMenu
             :user="props.user"
             :connection="system.connection.value"
+            :api-version="system.version.value"
             :scheme="theme.scheme.value"
             @scheme="theme.setScheme"
             @sign-out="emit('signOut')"

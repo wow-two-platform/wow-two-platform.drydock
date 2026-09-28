@@ -5,6 +5,7 @@ import { request } from "@/integration/common";
 const SystemStatusSchema = z.object({
   service: z.string(),
   status: z.string(),
+  version: z.string().optional(),
   localRig: z.boolean().optional(),
 });
 

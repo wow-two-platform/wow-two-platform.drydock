@@ -9,6 +9,8 @@ export interface CurrentUser {
 export interface SystemStatus {
   service: string;
   status: string;
+  /** The API's informational version: `X.Y.Z+<commit>`. */
+  version?: string;
   /** True when this instance drives the local rehearsal rig instead of real hosts. */
   localRig?: boolean;
 }

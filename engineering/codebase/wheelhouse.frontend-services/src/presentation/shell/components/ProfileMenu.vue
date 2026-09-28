@@ -6,6 +6,8 @@ import type { ColorScheme } from '../hooks/useColorScheme';
 export interface ProfileMenuProps {
   readonly user: CurrentUser;
   readonly connection: string;
+  /** The API's informational version, once the status read answers. */
+  readonly apiVersion?: string | null;
   readonly scheme: ColorScheme;
 }
 </script>
@@ -25,6 +27,11 @@ import {
 defineOptions({ name: 'ProfileMenu' });
 const props = defineProps<ProfileMenuProps>();
 const emit = defineEmits<{ scheme: [value: ColorScheme]; signOut: [] }>();
+const consoleVersion = __APP_VERSION__;
+/** Shortens a build's `+<commit>` suffix to seven characters. @internal */
+function short(version: string): string {
+  return version.replace(/\+([0-9a-f]{7})[0-9a-f]*$/i, '+$1');
+}
 const schemes = [
   { value: 'light', label: 'Light', icon: Sun },
   { value: 'dark', label: 'Dark', icon: Moon },
@@ -50,6 +57,9 @@ const schemes = [
     <DropdownMenuContent aria-label="Account" class="w-64">
       <MenuLabel>{{ props.user.name || props.user.login }}</MenuLabel>
       <p class="px-2 pb-2 text-xs text-muted-foreground">@{{ props.user.login }} · API {{ props.connection }}</p>
+      <p class="px-2 pb-2 font-mono text-[11px] text-muted-foreground">
+        Console {{ consoleVersion }} · API {{ props.apiVersion ? short(props.apiVersion) : '—' }}
+      </p>
       <MenuSeparator />
       <MenuLabel>Appearance</MenuLabel>
       <MenuItem v-for="item in schemes" :key="item.value" @select="emit('scheme', item.value)">
