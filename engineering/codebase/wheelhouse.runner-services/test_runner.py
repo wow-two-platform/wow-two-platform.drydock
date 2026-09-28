@@ -44,6 +44,10 @@ class FakeDocker:
     def unhealthy(self, bundle):
         return ["api (unhealthy)"]
 
+    def execute(self, arguments, step, timeout=600):
+        self.events.append(" ".join(arguments[:3]) + ":" + arguments[-1].rsplit(":", 1)[-1][:4])
+        return ""
+
 
 class CheckDocker:
     architecture = "linux/amd64"
@@ -558,7 +562,8 @@ class RunnerTests(unittest.TestCase):
         self.target["smoke"] = [{"service": "api", "path": "/health"}]
         result = self.apply()
         self.assertEqual([("Check target", "succeeded"), ("Pull images", "succeeded"), ("Start containers", "succeeded"),
-                          ("Verify services", "succeeded"), ("Publish sites", "succeeded")],
+                          ("Verify services", "succeeded"), ("Publish sites", "succeeded"),
+                          ("Remove unused images", "skipped")],
                          [(step["name"], step["status"]) for step in result["steps"]])
         self.assertEqual("1 service healthy; 1 smoke check passed", result["steps"][3]["detail"])
         self.assertTrue(all(step["completedAt"] >= step["startedAt"] for step in result["steps"]))
@@ -578,6 +583,26 @@ class RunnerTests(unittest.TestCase):
         self.assertNotIn("detail", result["steps"][2])  # an unsafe exception message never becomes a detail
         self.assertNotIn("DO_NOT_LOG", json.dumps(result))
 
+    def test_a_success_removes_images_only_older_releases_used(self):
+        shared = "ghcr.io/owner/edge@sha256:" + "e" * 64
+        self.manifest["images"]["edge"] = shared
+        self.compose["services"]["edge"] = {**self.compose["services"]["api"], "image": shared}
+        for number in range(1, 6):
+            image = "ghcr.io/owner/api@sha256:" + str(number) * 64
+            self.manifest.update(release="v" + str(number), images={"api": image, "edge": shared})
+            self.compose["services"]["api"]["image"] = image
+            self.save()
+            FakeDocker.events = []
+            result = self.apply()
+            # Distinct mtimes order the releases the way their rollouts ran.
+            manifest = self.root / "state/pilot-test/releases" / result["id"] / "release.json"
+            os.utime(manifest, (number * 1000, number * 1000))
+        removed = [event for event in FakeDocker.events if event.startswith("docker image rm")]
+        # v3-v5 stay; v1's image went on the v4 rollout and v2's now; the shared edge image stays with v5.
+        self.assertEqual(["docker image rm:2222"], removed)
+        self.assertEqual(("Remove unused images", "succeeded", "1 image from older releases"),
+                         tuple(result["steps"][-1][key] for key in ("name", "status", "detail")))
+
     def test_a_site_that_does_not_answer_warns_without_failing_the_rollout(self):
         self.target["ingress"] = self.local_ingress(probe="http://ingress:80")
         self.manifest["sites"] = {"api": {"app": {}}}
@@ -589,8 +614,8 @@ class RunnerTests(unittest.TestCase):
 
         result = runner.apply(self.bundle, self.target, "test-operator", docker_factory=FakeDocker, prober=prober)
         self.assertEqual("succeeded", result["status"])
-        self.assertEqual(("Probe sites", "warning", "0 of 1 site answered"),
-                         tuple(result["steps"][-1][key] for key in ("name", "status", "detail")))
+        probe = next(step for step in result["steps"] if step["name"] == "Probe sites")
+        self.assertEqual(("warning", "0 of 1 site answered"), (probe["status"], probe["detail"]))
         self.assertEqual(["Site app did not answer through the ingress: The ingress has no route for this host"],
                          result["warnings"])
         self.assertFalse(runner.state(self.target)["current"]["sites"][0]["probe"]["ok"])
@@ -604,7 +629,8 @@ class RunnerTests(unittest.TestCase):
             raise RuntimeError("password=DO_NOT_LOG")
 
         result = runner.apply(self.bundle, self.target, "test-operator", docker_factory=FakeDocker, prober=prober)
-        self.assertEqual(("succeeded", "warning"), (result["status"], result["steps"][-1]["status"]))
+        probe = next(step for step in result["steps"] if step["name"] == "Probe sites")
+        self.assertEqual(("succeeded", "warning"), (result["status"], probe["status"]))
         self.assertNotIn("DO_NOT_LOG", json.dumps(result))
 
     def test_cli_rejection_records_a_failed_check_step(self):
@@ -751,6 +777,19 @@ class ProbeTests(unittest.TestCase):
         sites[0]["exposure"] = "private"
         self.assertEqual([], runner.probe_sites(self.target, sites, 0.1, 0.05))
         self.assertNotIn("probe", sites[0])
+
+    def test_the_target_check_reports_whether_the_ingress_answers(self):
+        def ingress_row():
+            result = runner.check(self.target, docker_factory=CheckDocker)
+            return next(item for item in result["checks"] if item["name"] == "Ingress")
+
+        row = ingress_row()
+        self.assertEqual((True, "answers at " + self.address), (row["ok"], row["detail"]))
+        self.assertEqual([("wheelhouse-check.invalid", "/")], IngressHandler.seen)
+        self.target["ingress"]["probe"] = "http://127.0.0.1:9"
+        row = ingress_row()
+        self.assertFalse(row["ok"])
+        self.assertIn("did not answer at http://127.0.0.1:9", row["detail"])
 
     def test_invalid_probe_addresses_are_refused(self):
         self.target["ingress"]["probe"] = "ftp://ingress"

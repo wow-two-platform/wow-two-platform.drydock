@@ -33,6 +33,9 @@ PROBE_ADDRESS = re.compile(r"https?://[A-Za-z0-9.-]+(?::[0-9]{1,5})?")
 # Traefik's own answer for a host it has no router for; an application's 404 carries its own body.
 NO_ROUTE = b"404 page not found"
 LOG_LINE_LIMIT = 2000
+# Releases whose images a target keeps for redeploys; older images are removed once no container uses them.
+KEEP_RELEASES = 3
+PRUNED = "images-removed"
 KINDS = ("release", "candidate")
 EXPOSURES = ("public", "private")
 TERMINAL = {"succeeded", "failed", "rolled_back", "rollback_failed", "interrupted", "rejected"}
@@ -357,6 +360,45 @@ def plural(count, noun):
     return str(count) + " " + noun + ("" if count == 1 else "s")
 
 
+def prune_images(base, record, docker, keep):
+    """Removes the images only older releases on this target used, so candidate and release pulls do not fill the
+    disk. Keeps every image of the newest `keep` releases and of the rollback target. Removal never forces: Docker
+    refuses an image a container or another project still uses. A release whose images were removed is marked, so
+    each one is handled once. Returns how many images went."""
+    def copied_at(path):
+        # The manifest is written once, when its rollout starts; the folder itself changes as markers are added.
+        try:
+            return (path / "release.json").stat().st_mtime
+        except OSError:
+            return 0.0
+
+    releases = base / "releases"
+    ordered = sorted((path for path in releases.iterdir() if path.is_dir() and not path.is_symlink()),
+                     key=copied_at, reverse=True)
+    kept_ids = {path.name for path in ordered[:keep]} | {record["id"], record.get("previous")}
+    kept, older = set(), {}
+    for path in ordered:
+        try:
+            images = set(read_json(path / "release.json").get("images", {}).values())
+        except (OSError, ValueError):
+            continue
+        if path.name in kept_ids:
+            kept.update(images)
+        elif not (path / PRUNED).exists():
+            older[path] = images
+    removed = 0
+    for path, images in older.items():
+        for image in sorted(images - kept):
+            try:
+                docker.execute(["docker", "image", "rm", image], "docker image rm", timeout=60)
+                removed += 1
+            except CommandFailed:
+                pass  # in use elsewhere or already gone
+        with contextlib.suppress(OSError):
+            (path / PRUNED).touch()
+    return removed
+
+
 def configuration_value(value, field):
     for key in field.split(":"):
         value = value.get(key) if isinstance(value, dict) else None
@@ -581,6 +623,12 @@ def apply(bundle, target, actor, job_id=None, docker_factory=Docker, prober=prob
                         step["detail"] = plural(len(probed), "site") + " answered"
             record["status"] = "succeeded"
             write_json(previous_path, {key: record[key] for key in CURRENT if key in record})
+            # Housekeeping after the release is recorded; it never changes the outcome.
+            with contextlib.suppress(Exception), steps.run("Remove unused images") as step:
+                removed = prune_images(root, record, docker, KEEP_RELEASES)
+                step.update(status="succeeded" if removed else "skipped",
+                            detail=plural(removed, "image") + " from older releases" if removed
+                            else "No image only older releases used")
         except (Exception, KeyboardInterrupt) as error:
             record["status"] = "failed"
             # Only safe diagnostic categories; exception messages may include input/credential values.
@@ -897,11 +945,23 @@ def check(target, manifest=None, docker_factory=None):
         docker.execute(["docker", "network", "inspect", "--format", "{{.Name}}", name], "docker network inspect")
         return name
 
+    def ingress():
+        address = (target_ingress(target) or {}).get("probe")
+        if not address:
+            return "no probe address; sites are not requested after a deploy"
+        # Any HTTP answer, Traefik's 404 for an unknown host included, shows the entry point is up.
+        try:
+            ingress_request(address, "wheelhouse-check.invalid", "/")
+        except (OSError, ValueError, http.client.HTTPException) as error:
+            raise CommandFailed("The ingress did not answer at " + address + " (" + type(error).__name__ + ")") from None
+        return "answers at " + address
+
     probe("Deployment root", writable_root)
     probe("Docker", architecture)
     probe("Compose", compose)
     probe("Disk", disk)
     probe("Network", network)
+    probe("Ingress", ingress)
     services = manifest["requiredConfiguration"] if manifest else {name: [] for name in target.get("settings", {})}
     for service, required in services.items():
         probe("Settings: " + service, lambda service=service, required=required:
