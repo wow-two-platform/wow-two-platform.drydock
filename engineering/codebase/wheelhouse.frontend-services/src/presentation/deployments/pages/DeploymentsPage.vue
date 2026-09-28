@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { RefreshCw, Rocket } from "lucide-vue-next";
+import { Rocket } from "lucide-vue-next";
 
 import { Button } from "@wow-two-beta/ui-vue/presentation/actions";
 
@@ -19,6 +19,7 @@ import HistoryTableSkeleton from "../components/HistoryTableSkeleton.vue";
 import ReleaseCatalogPanel from "../components/ReleaseCatalogPanel.vue";
 import TargetsPanel from "../components/TargetsPanel.vue";
 import { useDeployModal } from "../hooks/useDeployModal";
+import RefreshButton from "@/presentation/common/components/RefreshButton.vue";
 
 /** Renders portfolio deployment history, complete statistics and target operations. */
 defineOptions({ name: "DeploymentsPage" });
@@ -46,18 +47,15 @@ function redeploy(job: DeploymentJob): void {
       description="The latest 50 submissions across all products and environments."
     >
       <template #actions>
-        <Button
+        <RefreshButton
           variant="ghost"
-          tone="neutral"
-          size="sm"
-          @click="historyRefresh.refresh()"
-          :is-loading="historyRefresh.refreshing.value"
-        >
-          <template #leading><RefreshCw :size="14" /></template>Refresh
-        </Button>
+          :refreshing="historyRefresh.refreshing.value"
+          @refresh="historyRefresh.refresh()"
+        />
       </template>
       <LoadState
-        :loading="history.loading.value || historyRefresh.refreshing.value"
+        :loading="history.loading.value && !history.data.value"
+        :refreshing="historyRefresh.refreshing.value"
         :error="history.error.value"
         :has-data="Boolean(history.data.value)"
         :empty="!history.data.value?.length"

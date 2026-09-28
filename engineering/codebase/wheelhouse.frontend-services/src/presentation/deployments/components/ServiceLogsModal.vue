@@ -12,7 +12,6 @@ export interface ServiceLogsModalProps {
 
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from "vue";
-import { RefreshCw } from "lucide-vue-next";
 
 import { Button } from "@wow-two-beta/ui-vue/presentation/actions";
 import { Alert, Spinner } from "@wow-two-beta/ui-vue/presentation/feedback";
@@ -36,6 +35,7 @@ import {
 import { useRefresh } from "@/application/common";
 import { useServiceLogs } from "@/application/deployments";
 import { Measures } from "@/domain/common";
+import RefreshButton from "@/presentation/common/components/RefreshButton.vue";
 
 /** Reads one service's last container lines on demand. Nothing stores them; closing the viewer discards the view. */
 defineOptions({ name: "ServiceLogsModal" });
@@ -103,15 +103,7 @@ watch(lines, async () => {
                 ></SelectPicker
               >
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              :aria-busy="refresh.refreshing.value"
-              @click="refresh.refresh"
-              ><template #leading
-                ><RefreshCw :size="14" :class="refresh.refreshing.value ? 'animate-spin' : ''" /></template
-              >Refresh</Button
-            >
+            <RefreshButton :refreshing="refresh.refreshing.value" @refresh="refresh.refresh" />
           </div>
         </div>
         <Alert

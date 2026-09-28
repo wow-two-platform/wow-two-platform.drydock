@@ -97,6 +97,10 @@ aliases.set(
   "@/presentation/common/components/LoadState.vue",
   asModule("export default { render: () => null };"),
 );
+aliases.set(
+  "@/presentation/common/components/skeleton/SkeletonStateSlot.vue",
+  asModule("export default { render: () => null };"),
+);
 modals.TokensTable = (
   await import(
     await loadSource(

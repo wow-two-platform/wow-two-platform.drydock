@@ -25,7 +25,11 @@ import { SkeletonState } from "@wow-two-beta/ui-vue/presentation/feedback";
 import { useRefresh } from "@/application/common";
 import { useDeploymentStats } from "@/application/deployments";
 import { Measures } from "@/domain/common";
-import { LoadState, Panel } from "@/presentation/common/components";
+import {
+  LoadState,
+  Panel,
+  SkeletonStateSlot,
+} from "@/presentation/common/components";
 
 import JobStatusIndicator from "./JobStatusIndicator.vue";
 
@@ -134,7 +138,8 @@ function difference(
       </RouterLink>
     </template>
     <LoadState
-      :loading="stats.loading.value || statsRefresh.refreshing.value"
+      :loading="stats.loading.value && !stats.data.value"
+      :refreshing="statsRefresh.refreshing.value"
       :error="stats.error.value"
       :has-data="Boolean(stats.data.value)"
       :empty="!stats.data.value"
@@ -167,7 +172,7 @@ function difference(
             <template #helper>
               <p>{{ metric.helper }}</p>
               <p v-if="metric.change" class="mt-2" :class="metric.change.tone">
-                {{ metric.change.text }}
+                <SkeletonStateSlot>{{ metric.change.text }}</SkeletonStateSlot>
                 <span class="text-muted-foreground">vs prior 30 days</span>
               </p>
             </template>
@@ -181,10 +186,11 @@ function difference(
           >
             <div class="mb-3 flex items-baseline justify-between gap-3 text-sm">
               <span>{{ series.title }}</span>
-              <span class="font-medium tabular-nums">{{
+              <SkeletonStateSlot class="font-medium tabular-nums">{{
                 series.data.reduce((sum, value) => sum + value, 0)
-              }}</span>
+              }}</SkeletonStateSlot>
             </div>
+            <SkeletonStateSlot is-block shape="rect">
             <Sparkline
               :data="series.data"
               variant="bar"
@@ -195,6 +201,7 @@ function difference(
               class="w-full overflow-hidden"
               :aria-label="`${series.title}: ${series.data.join(', ')}`"
             />
+            </SkeletonStateSlot>
           </div>
         </div>
         <p v-if="recent[0]" class="text-xs text-muted-foreground">

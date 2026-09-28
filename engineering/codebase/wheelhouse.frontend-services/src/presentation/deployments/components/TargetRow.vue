@@ -24,6 +24,7 @@ import { DeploymentExtensions, TargetCondition } from "@/domain/deployments";
 import ConditionBadge from "./ConditionBadge.vue";
 import ReconcileModal from "./ReconcileModal.vue";
 import TargetSites from "./TargetSites.vue";
+import RefreshButton from "@/presentation/common/components/RefreshButton.vue";
 
 /** Renders a target's verified release and explicit reconciliation action. */
 defineOptions({ name: "TargetRow" });
@@ -62,14 +63,12 @@ const drift = computed(() =>
       />
       <template v-if="state.error.value">
         <span class="text-destructive">{{ state.error.value.message }}</span>
-        <Button
+        <RefreshButton
           variant="ghost"
-          tone="neutral"
-          size="sm"
-          @click="stateRefresh.refresh()"
-          :is-loading="stateRefresh.refreshing.value"
-          >Retry</Button
-        >
+          label="Retry"
+          :refreshing="stateRefresh.refreshing.value"
+          @refresh="stateRefresh.refresh()"
+        />
       </template>
       <template v-if="state.data.value">
         <span v-if="state.error.value" class="text-xs text-muted-foreground"

@@ -1,7 +1,10 @@
 <script lang="ts">
 /** Defines the state of an operational read, including retained data during errors. */
 export interface LoadStateProps {
+  /** The first load: nothing to show yet, so the region renders its skeleton. */
   readonly loading: boolean;
+  /** A refresh the user asked for: the content stays and only its `SkeletonStateSlot` values turn into placeholders. */
+  readonly refreshing?: boolean | undefined;
   readonly error?: { readonly message: string } | string | null;
   readonly empty?: boolean;
   readonly emptyTitle?: string;
@@ -13,10 +16,13 @@ export interface LoadStateProps {
 import { Button } from '@wow-two-beta/ui-vue/presentation/actions';
 import { EmptyState } from '@wow-two-beta/ui-vue/presentation/display';
 import { SkeletonState } from '@wow-two-beta/ui-vue/presentation/feedback';
+import SkeletonStateGroup from './skeleton/SkeletonStateGroup.vue';
 
-/** Keeps pending, failed, empty, and retained operational data distinct. */
+/** Keeps pending, failed, empty, and retained operational data distinct; a refresh never blanks the region. */
 defineOptions({ name: 'LoadState' });
-const props = defineProps<LoadStateProps>();
+/* `refreshing: undefined` is load-bearing: Vue casts an absent `Boolean` prop to `false`, and a region that
+   does not own a refresh must not open a group that hides its parent's. */
+const props = withDefaults(defineProps<LoadStateProps>(), { refreshing: undefined });
 const emit = defineEmits<{ retry: [] }>();
 defineSlots<{ default(): unknown; skeleton(): unknown; emptyActions(): unknown }>();
 </script>
@@ -38,6 +44,10 @@ defineSlots<{ default(): unknown; skeleton(): unknown; emptyActions(): unknown }
         <EmptyState :title="props.emptyTitle ?? 'Nothing here yet'" :description="props.emptyDescription ?? ''" />
         <slot name="emptyActions" />
       </div>
+      <!-- Only a region that owns its refresh opens a group; a nested read follows its region's refresh. -->
+      <SkeletonStateGroup v-else-if="props.refreshing !== undefined" class="contents" :is-loading="props.refreshing"
+        ><slot
+      /></SkeletonStateGroup>
       <slot v-else />
     </template>
   </template>

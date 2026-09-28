@@ -12,7 +12,7 @@ interface SecretEditor {
 </script>
 
 <script setup lang="ts">
-import { shallowRef, watch } from "vue";
+import { computed, shallowRef, watch } from "vue";
 import { KeyRound, Plus } from "lucide-vue-next";
 import { Button } from "@wow-two-beta/ui-vue/presentation/actions";
 import {
@@ -32,6 +32,7 @@ import { useSecretChanges, useVaultSecrets } from "@/application/secrets";
 import { Measures } from "@/domain/common";
 import { SecretState } from "@/domain/secrets";
 import LoadState from "@/presentation/common/components/LoadState.vue";
+import SkeletonStateSlot from "@/presentation/common/components/skeleton/SkeletonStateSlot.vue";
 import SetSecretModal from "./SetSecretModal.vue";
 
 /** Shows metadata and controls serving state without exposing stored values. */
@@ -39,7 +40,7 @@ defineOptions({ name: "SecretsTable" });
 const props = defineProps<SecretsTableProps>();
 defineSlots<{}>();
 
-const { data, loading, error, refetch } = useVaultSecrets(
+const { data, error, refetch } = useVaultSecrets(
   () => props.vault,
   () => props.ns,
 );
@@ -50,6 +51,15 @@ const changes = useSecretChanges(
 const changeError = changes.error;
 const changing = changes.loading;
 const editing = shallowRef<SecretEditor | null>(null);
+
+/** Rows shaped like real secrets, shown until the namespace's first read arrives. @internal */
+const PlaceholderSecrets = [
+  { key: "ConnectionStrings:Database", state: SecretState.Active, version: 1, updatedAtUtc: "" },
+  { key: "Identity:ClientSecret", state: SecretState.Active, version: 1, updatedAtUtc: "" },
+  { key: "Payments:WebhookKey", state: SecretState.Active, version: 1, updatedAtUtc: "" },
+];
+/** True until the first read: the table renders its header and placeholder rows, never gray blocks. */
+const pending = computed(() => data.value === undefined && !error.value);
 
 /** Discards an editor when its vault or namespace changes. */
 watch([() => props.vault, () => props.ns], () => {
@@ -68,7 +78,7 @@ function closeEditor(open: boolean): void {
       <p class="text-sm text-muted-foreground">
         Only metadata is readable. Rotate a key to write its next version.
       </p>
-      <Button size="sm" @click="editing = {}">
+      <Button size="sm" :is-disabled="!props.ns" @click="editing = {}">
         <template #leading><Plus :size="14" /></template>Add secret
       </Button>
     </div>
@@ -78,10 +88,10 @@ function closeEditor(open: boolean): void {
       :description="changeError.message"
     />
     <LoadState
-      :loading="loading"
+      :loading="false"
       :error="error"
       :has-data="data !== undefined"
-      :empty="!data?.length"
+      :empty="data !== undefined && !data.length"
       empty-title="No secrets yet"
       empty-description="Add the values this product environment needs."
       @retry="refetch"
@@ -103,6 +113,23 @@ function closeEditor(open: boolean): void {
           </TableRow></TableHead
         >
         <TableBody>
+          <template v-if="pending">
+            <TableRow v-for="row in PlaceholderSecrets" :key="row.key" aria-hidden="true">
+              <TableCell
+                ><SkeletonStateSlot :is-loading="true" class="font-mono text-xs">{{
+                  row.key
+                }}</SkeletonStateSlot></TableCell
+              >
+              <TableCell
+                ><SkeletonStateSlot :is-loading="true">{{ row.state }}</SkeletonStateSlot></TableCell
+              >
+              <TableCell><SkeletonStateSlot :is-loading="true">v1</SkeletonStateSlot></TableCell>
+              <TableCell class="text-xs"
+                ><SkeletonStateSlot :is-loading="true">2 days ago</SkeletonStateSlot></TableCell
+              >
+              <TableCell />
+            </TableRow>
+          </template>
           <TableRow v-for="secret in data ?? []" :key="secret.key">
             <TableCell>
               <span class="block font-mono text-xs">{{ secret.key }}</span>
@@ -113,19 +140,23 @@ function closeEditor(open: boolean): void {
               >
             </TableCell>
             <TableCell>
-              <StatusIndicator
-                :tone="
-                  secret.state === SecretState.Disabled ? 'warning' : 'success'
-                "
-                :label="secret.state"
-              />
+              <SkeletonStateSlot
+                ><StatusIndicator
+                  :tone="
+                    secret.state === SecretState.Disabled ? 'warning' : 'success'
+                  "
+                  :label="secret.state"
+              /></SkeletonStateSlot>
             </TableCell>
-            <TableCell>v{{ secret.version }}</TableCell>
+            <TableCell
+              ><SkeletonStateSlot>v{{ secret.version }}</SkeletonStateSlot></TableCell
+            >
             <TableCell class="whitespace-nowrap text-xs text-muted-foreground">
               <span class="flex flex-col items-start gap-1">
-                <span :title="new Date(secret.updatedAtUtc).toLocaleString()">{{
-                  Measures.age(secret.updatedAtUtc)
-                }}</span>
+                <SkeletonStateSlot
+                  :title="new Date(secret.updatedAtUtc).toLocaleString()"
+                  >{{ Measures.age(secret.updatedAtUtc) }}</SkeletonStateSlot
+                >
                 <Badge v-if="overdue.has(secret.key)" variant="warning"
                   >rotation due</Badge
                 >

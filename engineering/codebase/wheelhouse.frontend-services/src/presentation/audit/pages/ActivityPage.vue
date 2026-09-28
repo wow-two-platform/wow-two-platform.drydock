@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { RefreshCw, ShieldAlert, ShieldCheck } from "lucide-vue-next";
+import { ShieldAlert, ShieldCheck } from "lucide-vue-next";
 import { Button } from "@wow-two-beta/ui-vue/presentation/actions";
 import {
   Badge,
@@ -26,6 +26,7 @@ import { Measures } from "@/domain/common";
 import LoadState from "@/presentation/common/components/LoadState.vue";
 import PageActions from "@/presentation/common/components/PageActions.vue";
 import Panel from "@/presentation/common/components/Panel.vue";
+import RefreshButton from "@/presentation/common/components/RefreshButton.vue";
 
 /** Lists every operator action from the hash-chained audit trail, newest first, with the chain's verification. */
 defineOptions({ name: "ActivityPage" });
@@ -65,11 +66,8 @@ function newer(): void {
 <template>
   <div class="space-y-6">
     <PageActions
-      ><Button variant="outline" :aria-busy="refresh.refreshing.value" @click="refresh.refresh"
-        ><template #leading
-          ><RefreshCw :size="16" :class="refresh.refreshing.value ? 'animate-spin' : ''" /></template
-        >Refresh</Button
-      ></PageActions
+      ><RefreshButton size="md" :refreshing="refresh.refreshing.value" @refresh="refresh.refresh"
+    /></PageActions
     >
     <section
       class="flex flex-wrap items-start gap-3 rounded-2xl border border-border bg-card p-5"

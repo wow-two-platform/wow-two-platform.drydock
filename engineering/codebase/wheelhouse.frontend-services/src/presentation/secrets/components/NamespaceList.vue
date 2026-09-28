@@ -10,7 +10,7 @@ export interface NamespaceListProps {
 import { ref, watch } from "vue";
 import { Plus } from "lucide-vue-next";
 import { Button } from "@wow-two-beta/ui-vue/presentation/actions";
-import { SkeletonState } from "@wow-two-beta/ui-vue/presentation/feedback";
+import SkeletonStateSlot from "@/presentation/common/components/skeleton/SkeletonStateSlot.vue";
 import { useVaultNamespaces } from "@/application/secrets";
 import LoadState from "@/presentation/common/components/LoadState.vue";
 import NamespaceModal from "./NamespaceModal.vue";
@@ -21,8 +21,15 @@ const props = defineProps<NamespaceListProps>();
 const emit = defineEmits<{ select: [slug: string] }>();
 defineSlots<{}>();
 
-const { data, loading, error, refetch } = useVaultNamespaces(() => props.vault);
+const { data, error, refetch } = useVaultNamespaces(() => props.vault);
 const adding = ref(false);
+
+/** Rows shaped like real namespaces, shown until the first catalog arrives. @internal */
+const PlaceholderRows = [
+  { slug: "namespace-one", name: "Product environment" },
+  { slug: "namespace-two", name: "Product environment" },
+  { slug: "namespace-three", name: "Product environment" },
+];
 
 /** Selects an available namespace when the catalog arrives or removes the current selection. */
 watch(
@@ -54,8 +61,24 @@ watch(
         New
       </Button>
     </div>
+    <ul
+      v-if="data === undefined && !error"
+      class="flex flex-col gap-1"
+      aria-busy="true"
+      aria-label="Loading namespaces"
+    >
+      <li v-for="row in PlaceholderRows" :key="row.slug">
+        <div class="flex min-h-14 w-full flex-col justify-center gap-1 rounded-xl px-3 py-2">
+          <SkeletonStateSlot :is-loading="true" class="font-mono text-xs font-medium">{{
+            row.slug
+          }}</SkeletonStateSlot>
+          <SkeletonStateSlot :is-loading="true" class="text-xs">{{ row.name }}</SkeletonStateSlot>
+        </div>
+      </li>
+    </ul>
     <LoadState
-      :loading="loading"
+      v-else
+      :loading="false"
       :error="error"
       :has-data="data !== undefined"
       :empty="!data?.length"
@@ -63,17 +86,6 @@ watch(
       empty-description="Create one per product environment."
       @retry="refetch"
     >
-      <template #skeleton>
-        <div
-          class="flex flex-col gap-2"
-          role="status"
-          aria-label="Loading namespaces"
-        >
-          <SkeletonState class="h-12 w-full" /><SkeletonState
-            class="h-12 w-full"
-          />
-        </div>
-      </template>
       <ul class="flex flex-col gap-1">
         <li v-for="item in data ?? []" :key="item.slug">
           <button

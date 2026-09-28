@@ -9,7 +9,7 @@ export interface TokensTableProps {
 </script>
 
 <script setup lang="ts">
-import { ref, shallowRef, watch } from "vue";
+import { computed, ref, shallowRef, watch } from "vue";
 import { Plus } from "lucide-vue-next";
 import { Button } from "@wow-two-beta/ui-vue/presentation/actions";
 import {
@@ -37,6 +37,7 @@ import {
 import { useTokenChanges, useVaultTokens } from "@/application/secrets";
 import { Measures } from "@/domain/common";
 import LoadState from "@/presentation/common/components/LoadState.vue";
+import SkeletonStateSlot from "@/presentation/common/components/skeleton/SkeletonStateSlot.vue";
 import MintTokenModal from "./MintTokenModal.vue";
 
 /** Administers metadata, one-time minting, and confirmed token revocation. */
@@ -44,7 +45,7 @@ defineOptions({ name: "TokensTable" });
 const props = defineProps<TokensTableProps>();
 defineSlots<{}>();
 
-const { data, loading, error, refetch } = useVaultTokens(
+const { data, error, refetch } = useVaultTokens(
   () => props.vault,
   () => props.ns,
 );
@@ -55,6 +56,10 @@ const changes = useTokenChanges(
 const changeError = changes.error;
 const changing = changes.loading;
 const minting = ref(false);
+/** Rows shaped like real tokens, shown until the namespace's first read arrives. @internal */
+const PlaceholderTokens = ["product-api", "product-worker"];
+/** True until the first read: the table renders its header and placeholder rows, never gray blocks. */
+const pending = computed(() => data.value === undefined && !error.value);
 const revoking = shallowRef<VaultToken | null>(null);
 
 /** Closes namespace-bound dialogs before displaying a different context. */
@@ -86,15 +91,15 @@ async function revoke(): Promise<void> {
       <p class="text-sm text-muted-foreground">
         Tokens read secrets from this namespace only.
       </p>
-      <Button size="sm" @click="minting = true">
+      <Button size="sm" :is-disabled="!props.ns" @click="minting = true">
         <template #leading><Plus :size="14" /></template>Mint token
       </Button>
     </div>
     <LoadState
-      :loading="loading"
+      :loading="false"
       :error="error"
       :has-data="data !== undefined"
-      :empty="!data?.length"
+      :empty="data !== undefined && !data.length"
       empty-title="No product tokens"
       empty-description="Mint one per product that reads this namespace."
       @retry="refetch"
@@ -116,26 +121,41 @@ async function revoke(): Promise<void> {
           </TableRow></TableHead
         >
         <TableBody>
+          <template v-if="pending">
+            <TableRow v-for="name in PlaceholderTokens" :key="name" aria-hidden="true">
+              <TableCell><SkeletonStateSlot :is-loading="true">{{ name }}</SkeletonStateSlot></TableCell>
+              <TableCell class="text-xs"
+                ><SkeletonStateSlot :is-loading="true">3 days ago</SkeletonStateSlot></TableCell
+              >
+              <TableCell class="text-xs"
+                ><SkeletonStateSlot :is-loading="true">Never</SkeletonStateSlot></TableCell
+              >
+              <TableCell><SkeletonStateSlot :is-loading="true">Active</SkeletonStateSlot></TableCell>
+              <TableCell />
+            </TableRow>
+          </template>
           <TableRow v-for="token in data ?? []" :key="token.id">
             <TableCell>{{ token.name }}</TableCell>
             <TableCell class="whitespace-nowrap text-xs text-muted-foreground">
-              <span :title="new Date(token.createdAtUtc).toLocaleString()">{{
-                Measures.age(token.createdAtUtc)
-              }}</span>
+              <SkeletonStateSlot
+                :title="new Date(token.createdAtUtc).toLocaleString()"
+                >{{ Measures.age(token.createdAtUtc) }}</SkeletonStateSlot
+              >
             </TableCell>
             <TableCell class="text-xs text-muted-foreground">
-              {{
+              <SkeletonStateSlot>{{
                 token.expiresAtUtc
                   ? new Date(token.expiresAtUtc).toLocaleString()
                   : "Never"
-              }}
+              }}</SkeletonStateSlot>
             </TableCell>
             <TableCell>
               <span class="flex flex-wrap items-center gap-2">
-                <StatusIndicator
-                  :tone="token.isRevoked ? 'neutral' : 'success'"
-                  :label="token.isRevoked ? 'Revoked' : 'Active'"
-                />
+                <SkeletonStateSlot
+                  ><StatusIndicator
+                    :tone="token.isRevoked ? 'neutral' : 'success'"
+                    :label="token.isRevoked ? 'Revoked' : 'Active'"
+                /></SkeletonStateSlot>
                 <Badge
                   v-if="flags.get(token.id)"
                   :variant="

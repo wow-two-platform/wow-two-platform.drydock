@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { RefreshCw, Rocket } from "lucide-vue-next";
+import { Rocket } from "lucide-vue-next";
 
 import { Button } from "@wow-two-beta/ui-vue/presentation/actions";
 import {
@@ -24,6 +24,7 @@ import { useRefresh } from "@/application/common";
 import { useReleaseArtifacts } from "@/application/deployments";
 import { Measures } from "@/domain/common";
 import { LoadState, Panel } from "@/presentation/common/components";
+import RefreshButton from "@/presentation/common/components/RefreshButton.vue";
 
 /** Lists the deployable catalog: published releases and commit builds from approved repositories, newest first. */
 defineOptions({ name: "ReleaseCatalogPanel" });
@@ -81,14 +82,7 @@ const visible = computed(() =>
               :label="label" /></SelectPickerContent
         ></SelectPicker>
       </div>
-      <Button
-        variant="ghost"
-        tone="neutral"
-        size="sm"
-        :is-loading="refresh.refreshing.value"
-        @click="refresh.refresh()"
-        ><template #leading><RefreshCw :size="14" /></template>Refresh</Button
-      >
+      <RefreshButton variant="ghost" :refreshing="refresh.refreshing.value" @refresh="refresh.refresh()" />
     </template>
     <LoadState
       :loading="releases.loading.value && !releases.data.value"

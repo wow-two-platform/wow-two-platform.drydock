@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { KeyRound, RefreshCw } from "lucide-vue-next";
+import { KeyRound } from "lucide-vue-next";
 import { Button } from "@wow-two-beta/ui-vue/presentation/actions";
 import {
   Badge,
@@ -10,10 +10,7 @@ import {
   TabsGroupTab,
   TabsGroupPanel,
 } from "@wow-two-beta/ui-vue/presentation/display";
-import {
-  Alert,
-  SkeletonState,
-} from "@wow-two-beta/ui-vue/presentation/feedback";
+import { Alert } from "@wow-two-beta/ui-vue/presentation/feedback";
 import {
   SelectPicker,
   SelectPickerTrigger,
@@ -21,13 +18,21 @@ import {
   SelectPickerContent,
   SelectPickerItem,
 } from "@wow-two-beta/ui-vue/presentation/forms";
-import { SecretKeys, useVaultHygiene, useVaults } from "@/application/secrets";
+import {
+  SecretKeys,
+  useVaultHygiene,
+  useVaultNamespaces,
+  useVaults,
+} from "@/application/secrets";
 import { useInvalidate } from "@/bootstrap/query";
 import { useRefresh } from "@/application/common";
 import { VaultStatus } from "@/domain/secrets";
 import LoadState from "@/presentation/common/components/LoadState.vue";
 import Panel from "@/presentation/common/components/Panel.vue";
 import PageActions from "@/presentation/common/components/PageActions.vue";
+import RefreshButton from "@/presentation/common/components/RefreshButton.vue";
+import SkeletonStateGroup from "@/presentation/common/components/skeleton/SkeletonStateGroup.vue";
+import SkeletonStateSlot from "@/presentation/common/components/skeleton/SkeletonStateSlot.vue";
 import NamespaceList from "../components/NamespaceList.vue";
 import SecretsTable from "../components/SecretsTable.vue";
 import TokensTable from "../components/TokensTable.vue";
@@ -42,7 +47,7 @@ const VaultTone = {
   sealed: "warning",
   unreachable: "danger",
 } as const;
-const { data: vaults, loading, error } = useVaults();
+const { data: vaults, error } = useVaults();
 const invalidate = useInvalidate();
 const { refresh, refreshing } = useRefresh(() => invalidate(SecretKeys.vaults));
 const vault = ref("");
@@ -52,6 +57,16 @@ const selected = computed(() =>
 );
 const hygiene = useVaultHygiene(() =>
   selected.value?.status === VaultStatus.Unsealed ? vault.value : "",
+);
+/* The same query the namespace rail runs (one cache entry): the detail pane waits on it for its first shape. */
+const namespaces = useVaultNamespaces(() =>
+  selected.value?.status === VaultStatus.Unsealed ? vault.value : "",
+);
+/** True until the first vault catalog and its namespaces arrive: the frame renders with placeholder values. */
+const pending = computed(
+  () =>
+    vaults.value === undefined ||
+    (namespaces.data.value === undefined && !namespaces.error.value),
 );
 const hygieneData = hygiene.data;
 const hygieneError = hygiene.error;
@@ -106,43 +121,37 @@ function selectVault(value: unknown): void {
 
 <template>
   <PageActions>
-    <Button
-      variant="outline"
-      tone="neutral"
-      size="sm"
-      :is-loading="refreshing"
-      @click="refresh"
-    >
-      <template #leading><RefreshCw :size="14" /></template>Refresh
-    </Button>
+    <RefreshButton :refreshing="refreshing" @refresh="refresh" />
   </PageActions>
   <LoadState
-    :loading="loading || refreshing"
+    :loading="false"
     :error="error"
     :has-data="vaults !== undefined"
-    :empty="!vaults?.length"
+    :empty="vaults !== undefined && !vaults.length"
     empty-title="No vaults configured"
     empty-description="Configured vaults appear here when they are available."
     @retry="refresh"
   >
-    <template #skeleton>
-      <div class="min-h-96 space-y-5">
-        <SkeletonState class="h-8 w-48" />
-        <SkeletonState class="h-6 w-80 max-w-full" />
-        <div class="grid gap-5 lg:grid-cols-[15rem_minmax(0,1fr)]">
-          <SkeletonState class="h-64 w-full" />
-          <SkeletonState class="h-64 w-full" />
-        </div>
-      </div>
-    </template>
+    <SkeletonStateGroup
+      class="contents"
+      :is-loading="vaults === undefined || refreshing"
+      label="Loading vaults"
+    >
     <Panel
       :title="selected?.name ?? 'Vault'"
       description="Select a namespace to manage its write-only secrets and product access tokens."
     >
+      <template #title
+        ><SkeletonStateSlot :is-loading="vaults === undefined">{{
+          selected?.name ?? "Local vault"
+        }}</SkeletonStateSlot></template
+      >
       <template #actions>
-        <Badge v-if="selected" :variant="VaultTone[selected.status]">{{
-          selected.status
-        }}</Badge>
+        <SkeletonStateSlot shape="circle"
+          ><Badge :variant="selected ? VaultTone[selected.status] : 'success'">{{
+            selected?.status ?? "unsealed"
+          }}</Badge></SkeletonStateSlot
+        >
         <SelectPicker
           v-if="(vaults?.length ?? 0) > 1"
           :model-value="vault || null"
@@ -172,7 +181,7 @@ function selectVault(value: unknown): void {
       >
         <template #icon><KeyRound :size="24" /></template>
       </EmptyState>
-      <div v-else-if="vault" :key="vault" class="flex flex-col gap-5">
+      <div v-else :key="vault || 'pending'" class="flex flex-col gap-5">
         <Alert
           v-if="hygieneError"
           severity="warning"
@@ -189,29 +198,26 @@ function selectVault(value: unknown): void {
             >
           </template>
         </Alert>
-        <div
-          v-else-if="hygieneData"
+        <SkeletonStateGroup
+          v-else
           class="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"
+          :is-loading="!hygieneData || hygieneLoading || refreshing"
+          label="Checking rotation status"
         >
-          <Badge :variant="dueCount > 0 ? 'warning' : 'success'">
-            {{
-              dueCount > 0
-                ? `${dueCount} rotation issue${dueCount === 1 ? "" : "s"}`
-                : "Rotation up to date"
-            }}
-          </Badge>
-          <span
-            >{{ hygieneData.secrets }} secrets · {{ hygieneData.tokens }} tokens
-            across this vault</span
+          <SkeletonStateSlot shape="circle"
+            ><Badge :variant="dueCount > 0 ? 'warning' : 'success'">
+              {{
+                dueCount > 0
+                  ? `${dueCount} rotation issue${dueCount === 1 ? "" : "s"}`
+                  : "Rotation up to date"
+              }}
+            </Badge></SkeletonStateSlot
           >
-        </div>
-        <p
-          v-else-if="hygieneLoading"
-          class="text-xs text-muted-foreground"
-          role="status"
-        >
-          Checking rotation status…
-        </p>
+          <SkeletonStateSlot
+            >{{ hygieneData?.secrets ?? 0 }} secrets ·
+            {{ hygieneData?.tokens ?? 0 }} tokens across this vault</SkeletonStateSlot
+          >
+        </SkeletonStateGroup>
         <div
           class="grid min-h-96 overflow-hidden rounded-2xl border border-border lg:grid-cols-[15rem_minmax(0,1fr)]"
         >
@@ -225,11 +231,13 @@ function selectVault(value: unknown): void {
             />
           </aside>
           <section class="min-w-0 bg-card p-4 lg:p-5">
-            <template v-if="namespace">
+            <template v-if="namespace || pending">
               <div class="mb-5 flex flex-wrap items-center gap-2">
                 <KeyRound :size="16" class="text-primary" />
                 <h2 class="break-all font-mono text-sm font-semibold">
-                  {{ namespace }}
+                  <SkeletonStateSlot :is-loading="!namespace">{{
+                    namespace || "namespace"
+                  }}</SkeletonStateSlot>
                 </h2>
               </div>
               <TabsGroup
@@ -269,5 +277,6 @@ function selectVault(value: unknown): void {
         </div>
       </div>
     </Panel>
+    </SkeletonStateGroup>
   </LoadState>
 </template>
