@@ -13,6 +13,7 @@ and 25.
 - [x] Swept: backend, runner, frontend, docs, backlog, pilot plan and the original spec (`wow-two-ws/ideas/wheelhouse-spec.md`).
 - [x] Decision-free items built in v0.3 iterations 9-11: rollout steps, site probes, log reads, ingress check, image cleanup, audit trail, CI.
 - [x] Second sweep: runner housekeeping, write guards, test layers and contracts (S19-S25).
+- [x] Service map built in v0.3 iteration 12: sites, platform needs, versions, environments compared with promotion.
 - [ ] Points decided.
 - [ ] Version tracks written from the decided points.
 
@@ -27,7 +28,7 @@ and 25.
 | Secrets | Vault console: namespaces, write-only values, product tokens, rotation hygiene; required-key checks on settings files | Settings rendering, deploy-time tokens, SDK vault consumer, expiring tokens, Wheelhouse's own credentials at rest |
 | Domains | Site hosts per target (named or pattern); `ManagedDomain` placeholder entity | Inventory, registrar sync, DNS plan and apply, expiry tracking, preview wildcard |
 | Portfolio | Product create, edit and delete (slug, name, repository, status) in the database | One product catalog, lifecycle actions, cost, capacity, onboarding |
-| Service map | Per-target map from the deployed `compose.json`: services, networks, volumes, dependencies, container vitals | Sites, platform needs, service versions, environment compare, host view |
+| Service map | Per-target map: services, networks, volumes, dependencies, container vitals, sites, platform needs, versions; environments compared with promotion | Host view, portfolio matrix |
 | Operations | On-demand host and container vitals, 30-day deploy metrics, one attention list, service log reads, an ingress check | Vitals history, alerts, notifications, uptime probes |
 | Wheelhouse itself | Production image, CI on every push, its own `deploy.yml` and release workflow, the audit trail | A host, bootstrap, self-deploy, backups |
 
@@ -179,7 +180,7 @@ Placement options:
 
 | # | Finding | Evidence | Lands in |
 |---|---|---|---|
-| S1 | Product identity lives in three places; adding a product takes three edits and a rebuild | Database `products`, `artifacts.py` `SOURCES`, `fleet.py` targets | Point 1 |
+| S1 | Product identity lives in four places; adding a product takes four edits and a rebuild | Database `products`, `artifacts.py` `SOURCES`, `fleet.py` targets, the frontend's `WorkspaceProductBindings` | Point 1 |
 | S2 | No audit trail of operator actions | Jobs record `actor`; vault changes reach only the app log (`VaultChangeCommandHandler.cs:17`); build requests and product edits keep no actor | v0.3 ✓ |
 | S3 | A deploy shows only its outcome and reason, never its steps | The job record holds status, failure, reason and timestamps | v0.3 ✓ |
 | S4 | Nothing requests a published site through the ingress | Smoke runs `compose exec <service> curl http://localhost:8080<path>` inside the container | v0.3 ✓ |
@@ -219,7 +220,7 @@ to the SDKs, so each wave below takes the next odd version when it opens.
 | Topology | Host preparation, platform services, databases per target, derived settings, networks, lifecycle, capacity gate, backups and restore drill | Topology points 5–11, 15, 23 |
 | Secrets | Settings rendering, deploy-time tokens, SDK vault consumer, expiring tokens, required-secret preflight, credentials at rest, SSH key rotation, GitHub App | Points 2, 3, 9 |
 | Domains | Inventory and registrar sync, DNS plan and apply, preview wildcard, certificate and domain expiry, pinned domains | Points 4, 5; topology point 25 |
-| Portfolio and map | Portfolio matrix, release catalog, lifecycle actions, cost, capacity view, onboarding; service map sites, needs, versions, environment compare, host view | Point 1 |
+| Portfolio and map | Service map sites, needs and versions plus environment compare: done in v0.3. Left: portfolio matrix, release catalog, lifecycle actions, cost, capacity view, onboarding, host view | Point 1 |
 | Operations | Vitals history, alerts, notifications, an audit checkpoint, candidate image cleanup | Point 6 |
 | Live | Control host, Tailscale, OAuth app, bootstrap, self-deploy, first product host, ForeverPin live | Points 7, 8 |
 

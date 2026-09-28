@@ -11,6 +11,7 @@
 | Deployment execution | Pinned SSH, serialized rollout, health gates, prod only after a test pass, live rollout steps, durable outcomes | Deploy notifications and start/stop per environment |
 | Sites | Products declare sites; targets name hosts; the ingress routes them; each site is requested after a deploy | Preview domain and DNS records from code |
 | Recovery | Independent runner; compatible image rollback; reconcile and redeploy from the dashboard | Automated restoration drills |
+| Service map | Per environment: services, networks, volumes, startup order, sites, platform needs and versions; environments compared with one-click promotion | A host view with capacity and a portfolio matrix |
 | Diagnostics | Read-only target check (SSH, Docker, disk, network, ingress, settings); a service's recent logs on request | Live log streaming |
 | Audit | Every operator action in a hash-chained trail; the Activity page shows it and whether it verifies | An external checkpoint for the newest entries |
 | Secrets | Vault console: namespaces, write-only secrets, product tokens, rotation hygiene; mounted runtime settings | Settings rendering, deploy-time tokens and expiring tokens |
