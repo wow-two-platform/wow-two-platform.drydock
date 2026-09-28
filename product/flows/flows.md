@@ -1,13 +1,21 @@
 # Wheelhouse — Flows
 
-*Last updated: 2026-09-25*
+*Last updated: 2026-09-28*
 
-- **Publish a candidate:** commit intended source to `main` → validate in GitHub → tag the chosen commit →
-  CI publishes and smoke-tests both images → attach the digest bundle to a draft → publish the completed release.
-- **Deploy:** refresh published artifacts → choose release and configured environment → submit →
-  target lock and pull → health-gated replacement → durable outcome.
-- **Recover:** inspect the target → reconcile the locked rollout in the dashboard → redeploy a verified release,
-  or explicitly recover data → verify health. The operator runner works without the dashboard. Database restoration is never automatic.
+- **Build:** push to any branch → CI builds only the services whose paths changed → a candidate bundle
+  (`sha-<commit>`) lands as an Actions artifact. A commit without a build can be built from Wheelhouse.
+- **Release:** tag the chosen commit `vX.Y.Z` and publish the GitHub release → changed services build as `X.Y.Z`,
+  unchanged ones keep their images and versions → the bundle attaches to the release.
+- **Promote:** deploy any build to dev → deploy the release to test → deploy the same release to prod,
+  which takes only a release that succeeded on test. Typing the target ID skips the test pass.
+- **Deploy:** choose the environment and the build → confirm (prod on the local server needs the typed target ID) →
+  follow the steps: check target, pull, start, verify, publish sites, probe sites, remove unused images →
+  open each site from the result.
+- **Recover:** inspect the target and its steps → read a service's logs → reconcile the locked rollout →
+  redeploy a verified release, or explicitly recover data → verify health.
+  The operator runner works without the dashboard. Database restoration is never automatic.
+- **Account for changes:** open Activity → every deploy, build, reconcile, secret and product change with its operator
+  and outcome → the chain status shows whether an entry was edited after it was written.
 - **Manage secrets:** choose a vault → namespace per product environment → add or rotate values (write-only) →
   mint a product token, copy it once into the product's mounted settings → revoke tokens when rotating access.
 - **Integrate a VPS:** verify the provider/host → add its provider enum/integration if needed →

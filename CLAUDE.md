@@ -33,8 +33,9 @@ Backend layers: `Domain` (entities/enums/Result) → `Application` (MediatR CQRS
 
 Products · Servers · Deployments · Domains · Secrets. **Products** (create/list/update/delete) and **Servers**
 (read-only code-owned fleet) are wired end-to-end. Deployments use the independent runner and published artifact
-catalog, with history, read-only checks and reconciliation. **Secrets** are administered in code-owned vaults through
-the vault console (write-only values). Domains remain a scaffold model.
+catalog, with history, live rollout steps, site probes, read-only checks, log reads and reconciliation. **Secrets** are
+administered in code-owned vaults through the vault console (write-only values). Domains remain a scaffold model.
+Every audited command (`IAuditedCommand`) lands in the hash-chained `audit_entries` trail; never put a value in one.
 
 ## Build & run
 
@@ -114,3 +115,4 @@ product's build workflow only for a commit that has no build, and never builds o
 Environments are `dev`, `test` and `prod`; dev takes any build, test and prod take releases, and prod
 only a release that succeeded on test (a typed target ID skips that).
 The detailed Git/CI/registry policy lives in `engineering/planning/ci-artifact-policy.md`.
+Wheelhouse's own `engineering/deployment/deploy.yml` and `.github/workflows/` build and test it like any product.

@@ -1,6 +1,6 @@
 # Deployment operations
 
-*Last updated: 2026-09-27*
+*Last updated: 2026-09-28*
 
 ## Ownership and current boundary
 
@@ -36,9 +36,31 @@ platform-network alias, database, settings files and hostnames. No hardware sepa
 - The route maps the host to `<product>-<environment>-<service>:<port>` on the platform network.
 - The target records each site's URL; Wheelhouse shows Open site links on the target and after a deploy.
 - A release without sites removes the project's route file; a private site routes only on private entry points.
+- After publishing, the runner requests every site through the ingress by its host name, the way a visitor reaches it.
+- A site that does not answer within 20 seconds is a warning on the deploy and on its Open site link, not a failure.
+- Traefik's own 404 for an unknown host counts as no answer; an application's 404 or 401 counts as an answer.
+- A server's `Ingress.probe` names where the runner reaches the public entry points; it defaults to loopback on the scheme's port.
+- Private sites are probed only when the server sets `private_probe`; the local server probes `http://ingress:80`.
 
 The [pilot plan](../planning/deployment-pilot.md) owns scope, future VPS wiring and launch gates.
 Local image builds use the current working tree; publishing requires all intended source/dependency changes committed together.
+
+## Wheelhouse's own releases
+
+Wheelhouse ships like the products it deploys. `engineering/deployment/deploy.yml` declares one service, `console`,
+with its settings keys, `keys` and `deployments` volumes, a private `console` site and `needs: [postgres]`.
+
+| Workflow | Runs on | Does |
+|---|---|---|
+| `.github/workflows/ci.yml` | Every push and pull request | Backend tiers (building the SPA into `wwwroot`), runner tests, frontend tests and build |
+| `.github/workflows/publish-docker-image.yml` | Every push, a published release, or a dispatched commit | `release.py build` with the previous release as base; a candidate artifact `bundle-<sha>` or the release asset `wheelhouse-release.tar.gz` |
+
+A local build proves the path without GitHub:
+
+```sh
+python3 engineering/codebase/wheelhouse.runner-services/release.py build --repo . --checkout \
+  --platform linux/arm64 --registry 127.0.0.1:15000/wheelhouse --output /tmp/wheelhouse-bundle
+```
 
 ## Local packaging
 
@@ -144,9 +166,11 @@ python3 $R topology --root /path/to/inventory --target foreverpin-test
 python3 $R reconcile --root /path/to/inventory --target foreverpin-test --job <active-id> --actor operator
 python3 $R vitals   --root /path/to/inventory [--target foreverpin-test]
 python3 $R stats    --root /path/to/inventory --days 30
+python3 $R logs     --root /path/to/inventory --target foreverpin-test --service management --tail 200
 ```
 
-`check`, `state`, `topology` and `vitals` stream the runner over SSH stdin and leave no files on the target.
+`check`, `state`, `topology`, `vitals` and `logs` stream the runner over SSH stdin and leave no files on the target.
+`logs` returns one service's last 1-1000 container lines, timestamped; nothing stores them.
 `submit --confirm <target>` carries the typed confirmation that prod on the local server requires.
 
 ```sh
@@ -157,7 +181,7 @@ python3 $R build    --root /path/to/inventory --product foreverpin --commit <ful
 
 `commits` marks each commit that has a build. `build` starts the product's build workflow only for a commit without one;
 it needs `WHEELHOUSE_GITHUB_TOKEN_FILE` with Actions write access on the product repository.
-`check` probes SSH, the deployment root, Docker architecture, Compose, disk, the shared network,
+`check` probes SSH, the deployment root, Docker architecture, Compose, disk, the shared network, the ingress,
 every settings file and the target's lock state; each failure names the rule or key it broke.
 
 | API | Purpose |
@@ -174,7 +198,10 @@ every settings file and the target's lock state; each failure names the rule or 
 | `GET /api/deployments/products/{product}/commits?branch=` | A branch's recent commits, each with its build when one exists |
 | `POST /api/deployments/products/{product}/builds` | `{"commit":"<sha>"}` with `X-Wheelhouse-Action: build`; `202` means the workflow was started |
 | `POST /api/deployments` | `{"target":"…","release":"…","confirm":"…"}` with `X-Wheelhouse-Action: deploy`; `202` means queued |
-| `GET /api/deployments/{id}` | The target-owned outcome |
+| `GET /api/deployments/{id}` | The target-owned outcome, with each rollout step and any warning |
+| `GET /api/deployments/targets/{id}/services/{service}/logs?tail=200` | One service's last container lines (1-1000), never cached |
+| `GET /api/audit?limit=50&before=` | Operator actions, newest first; `before` pages back from a sequence number |
+| `GET /api/audit/verification` | Whether every stored audit entry and link still verifies |
 | `GET /api/deployments/vitals` | Every target's host load, memory, disks, uptime and containers, read in parallel |
 | `GET /api/deployments/stats?days=30` | Outcomes, success rate, median rollout and recovery, deploys per UTC day (1–90 days) |
 | `GET /api/vaults/{vault}/hygiene` | Secrets and product tokens due for rotation; metadata only |
@@ -185,6 +212,33 @@ every settings file and the target's lock state; each failure names the rule or 
 - Reconciling records who acknowledged the rollout under `<inventory>/reconciled/`.
 
 The API reads its runner settings from the `Deployment` section: `TransportPath`, `Root`, `Python` and `GitHubTokenFile`.
+
+## Rollout steps
+
+Each rollout records its steps in its job record as they start and end, so the dashboard follows a deploy live:
+
+| Step | Covers |
+|---|---|
+| Check target | Lock, settings files, routes, disk, Docker and the release snapshot |
+| Pull images | Every image, before any container changes |
+| Start containers | `compose up --wait` within the target's health timeout |
+| Verify services | Exact image references, health, and the target's smoke checks |
+| Publish sites | The route file for the release's sites |
+| Probe sites | Each site through the ingress; a site that does not answer is a warning |
+| Remove unused images | Images only releases older than the newest three used; skipped when there are none |
+| Roll back to … | The previous release, only for a failed rollout that declared rollback compatibility |
+
+A step's detail is operator-safe text; a failed step shows the refused rule or failed command, never command output.
+
+## Audit trail
+
+Every operator action lands in `audit_entries`: deploy, reconcile, build, vault changes and product changes.
+A pipeline behavior records each audited command's outcome, refusals included, with the operator's login.
+Entries hold the action, its subject and operator-safe detail, never a secret value or token.
+Each entry is hash-chained to the one before it; the Activity page shows whether the chain still verifies.
+The table refuses `UPDATE` and `DELETE`, so rewriting an entry needs someone who can disable its trigger.
+An intact chain proves no stored entry was edited, reordered or removed from its middle.
+It cannot prove the newest entries were kept; that needs a checkpoint held outside the database.
 
 `vitals` reads `/proc`, filesystem capacity and `docker ps`/`inspect`/`stats` for the target's Compose project;
 it never returns container environment, labels or logs. `stats` reads only the local submission records.
@@ -277,6 +331,7 @@ drops the console's database, the vault's data and the target's state.
   current.json                  release, service versions and site URLs of the verified rollout
   jobs/<job-id>.json
   releases/<job-id>/{release,compose}.json
+  releases/<job-id>/images-removed    marks an older release whose images were removed
 /srv/wheelhouse/ingress/<product>-<environment>.yml   Traefik routes for the verified release's sites
 ```
 
@@ -298,11 +353,11 @@ Acknowledgement clears the previous-success pointer rather than assuming it is s
 It changes bookkeeping only. Recover application/database state explicitly before acknowledging.
 A retry after reconciliation establishes a new known-good release.
 
-Raw Docker/SSH output is not returned to the dashboard because it may contain runtime secrets.
-Audit records keep actor, release, source SHA, timestamps, outcome and failure category.
+Raw Docker/SSH output never enters a job record because it may contain runtime secrets.
+Job records keep actor, release, source SHA, timestamps, steps, outcome and failure category.
 A `reason` names the refused rule, missing setting key, failed step or unhealthy service, never a value.
 The API returns it as ProblemDetails `detail`: `409` for a refused precondition, `503` for a failed step.
-Inspect detailed container logs privately on the target. Runtime Docker logs rotate in the release bundle.
+A service's recent container output is readable on request through `logs`; Docker rotates it on the target.
 
 ## VPS wiring checklist
 
@@ -314,6 +369,7 @@ Inspect detailed container logs privately on the target. Runtime Docker logs rot
 6. Create distinct least-privilege databases/users for every product/environment.
 7. Write protected runtime settings and registry credentials.
 8. Name each prod site's host on its target in `fleet.py`; the runner routes it after a verified rollout.
+   Set the server's `Ingress.private_probe` to the private entry point's address so private sites are probed too.
 9. Add the ingress IP to `Deployment:TrustedProxies` in both app settings; no trust-all proxy setting.
 10. Bootstrap Wheelhouse privately or use the operator command from a workstation.
 11. Deploy test, verify real URLs and provider callbacks, restore a backup, promote the same image digests to prod.

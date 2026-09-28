@@ -11,6 +11,8 @@ and 25.
 ## Status
 
 - [x] Swept: backend, runner, frontend, docs, backlog, pilot plan and the original spec (`wow-two-ws/ideas/wheelhouse-spec.md`).
+- [x] Decision-free items built in v0.3 iterations 9-11: rollout steps, site probes, log reads, ingress check, image cleanup, audit trail, CI.
+- [x] Second sweep: runner housekeeping, write guards, test layers and contracts (S19-S25).
 - [ ] Points decided.
 - [ ] Version tracks written from the decided points.
 
@@ -20,14 +22,14 @@ and 25.
 
 | Vector | Built | Missing |
 |---|---|---|
-| Deployments | `dev`/`test`/`prod` targets, releases and commit builds, prod gate, locks, health gates, rollback, reconcile, history, site routes | Step log and live progress, ingress probe, notifications, stop/start, teardown |
+| Deployments | `dev`/`test`/`prod` targets, releases and commit builds, prod gate, locks, health gates, rollback, reconcile, history, site routes, live rollout steps, site probes, image cleanup | Notifications, stop/start, teardown, a release catalog view |
 | Topology | Traefik ingress on the local server, one `platform` network, per-environment databases created by `rehearse.py` | Host preparation, platform PostgreSQL with a database and role per target, derived settings, per-target networks, backups |
 | Secrets | Vault console: namespaces, write-only values, product tokens, rotation hygiene; required-key checks on settings files | Settings rendering, deploy-time tokens, SDK vault consumer, expiring tokens, Wheelhouse's own credentials at rest |
 | Domains | Site hosts per target (named or pattern); `ManagedDomain` placeholder entity | Inventory, registrar sync, DNS plan and apply, expiry tracking, preview wildcard |
 | Portfolio | Product create, edit and delete (slug, name, repository, status) in the database | One product catalog, lifecycle actions, cost, capacity, onboarding |
 | Service map | Per-target map from the deployed `compose.json`: services, networks, volumes, dependencies, container vitals | Sites, platform needs, service versions, environment compare, host view |
-| Operations | On-demand host and container vitals, 30-day deploy metrics, one attention list | Vitals history, alerts, notifications, log tail, uptime probes |
-| Wheelhouse itself | Production image, local Compose file, `rehearse.py console` | CI, its own descriptor and releases, a host, bootstrap, backups |
+| Operations | On-demand host and container vitals, 30-day deploy metrics, one attention list, service log reads, an ingress check | Vitals history, alerts, notifications, uptime probes |
+| Wheelhouse itself | Production image, CI on every push, its own `deploy.yml` and release workflow, the audit trail | A host, bootstrap, self-deploy, backups |
 
 ---
 
@@ -42,12 +44,12 @@ Reliable means seven properties:
 | # | Property | Today |
 |---|---|---|
 | R1 | Every mutation is serialized, health-gated and recoverable without the dashboard | Built |
-| R2 | Every operator action leaves an audit record | Deploy jobs only |
-| R3 | A deploy shows its steps while it runs and verifies the path users take | Outcome and reason only |
+| R2 | Every operator action leaves an audit record | Built: hash-chained trail, no external checkpoint yet |
+| R3 | A deploy shows its steps while it runs and verifies the path users take | Built: rollout steps and site probes |
 | R4 | Desired state lives in code; Wheelhouse reports drift and repairs it on request | Release drift only |
 | R5 | Failures reach the operator without a page open | Missing |
 | R6 | Data survives a lost host: encrypted off-provider backups with a drilled restore | Runbook only |
-| R7 | Wheelhouse itself is tested in CI, backed up and replaceable from the laptop | Runner CLI only |
+| R7 | Wheelhouse itself is tested in CI, backed up and replaceable from the laptop | CI and runner CLI; no host or backups |
 
 ---
 
@@ -136,9 +138,9 @@ hand-placed settings files and a manual database. At the portfolio's target of 5
 
 | Capability | Design |
 |---|---|
-| Step log | The runner appends timestamped steps to the job record (validate, pull, apply, each health gate, smoke, routes); the UI polls it while the job runs |
-| Ingress probe | After routes publish, the runner requests every site through the ingress by host name; a failure fails the deploy |
-| Log tail | The last 200 lines of one service's logs, read-only, through the runner |
+| Step log | Built in v0.3: each step's status, detail and timing in the job record; the dialog and inspector show them |
+| Ingress probe | Built in v0.3: every site requested through the ingress by host name; a site that does not answer is a warning |
+| Log tail | Built in v0.3: one service's last 1-1000 lines, read on request, never stored |
 | Vitals history | A sampler keeps 30 days of host and container vitals |
 | Alerts | Site down, disk above 85%, backup older than 26 hours, domain or certificate expiring, failed deploy |
 | Notifications | Alerts and deploy outcomes to one channel |
@@ -157,7 +159,7 @@ Wheelhouse ships like a product: a catalog entry, a `deploy.yml`, candidate and 
 | Host | A small control VPS, Tailscale only, no public ports, separate from product hosts |
 | Access | `tailscale serve` gives HTTPS on the tailnet name; a GitHub OAuth app registered for that URL; the allowlist names the owner |
 | Image | The existing `engineering/deployment/Dockerfile`; one service `console`, volumes `keys` and `deployments`, `needs: [postgres]` |
-| CI | `ci.yml` runs the backend tiers, runner tests and frontend typecheck, tests and build; `publish-docker-image.yml` follows the descriptor convention |
+| CI | Built in v0.3: `ci.yml` runs every tier; `publish-docker-image.yml` builds candidates and releases with `release.py` (unrun on GitHub until the next push) |
 | Bootstrap | Prepare the control host, submit the first release from the laptop with `transport.py`, copy the inventory once over SSH |
 | Updates | Wheelhouse deploys its own releases; the target-side runner completes while the container is replaced |
 | Break-glass | The laptop keeps the operator CLI and an inventory copy; it deploys or rolls back Wheelhouse and every product |
@@ -178,39 +180,51 @@ Placement options:
 | # | Finding | Evidence | Lands in |
 |---|---|---|---|
 | S1 | Product identity lives in three places; adding a product takes three edits and a rebuild | Database `products`, `artifacts.py` `SOURCES`, `fleet.py` targets | Point 1 |
-| S2 | No audit trail of operator actions | Jobs record `actor`; vault changes reach only the app log (`VaultChangeCommandHandler.cs:17`); build requests and product edits keep no actor | v0.4 |
-| S3 | A deploy shows only its outcome and reason, never its steps | The job record holds status, failure, reason and timestamps | v0.4 |
-| S4 | Nothing requests a published site through the ingress | Smoke runs `compose exec <service> curl http://localhost:8080<path>` inside the container | v0.4 |
-| S5 | Smoke probes and the `AllowedHosts` check assume port 8080 | `runner.py` smoke and `validate_settings`; the descriptor allows any `port` | v0.4 |
-| S6 | No CI: tests never run on push and no image is published | No `.github/` in the repository | v0.4 |
+| S2 | No audit trail of operator actions | Jobs record `actor`; vault changes reach only the app log (`VaultChangeCommandHandler.cs:17`); build requests and product edits keep no actor | v0.3 ✓ |
+| S3 | A deploy shows only its outcome and reason, never its steps | The job record holds status, failure, reason and timestamps | v0.3 ✓ |
+| S4 | Nothing requests a published site through the ingress | Smoke runs `compose exec <service> curl http://localhost:8080<path>` inside the container | v0.3 ✓ |
+| S5 | Smoke probes and the `AllowedHosts` check assume port 8080 | `runner.py` smoke and `validate_settings`; the descriptor allows any `port` | v0.3 ✓ |
+| S6 | No CI: tests never run on push and no image is published | No `.github/` in the repository | v0.3 ✓ |
 | S7 | GitHub sign-in requests `repo` and `read:packages`; the runner holds a second token | `AuthConfigurationExtensions.cs`; `WHEELHOUSE_GITHUB_TOKEN_FILE` | Point 9 |
-| S8 | Wheelhouse's own credentials are plain files | Inventory `ssh/`, `vaults/` and the GitHub token file | v0.6 |
+| S8 | Wheelhouse's own credentials are plain files | Inventory `ssh/`, `vaults/` and the GitHub token file | Secrets |
 | S9 | The GitHub repository is public and still named `drydock` | `wow-two-platform/wow-two-platform.drydock` | Rename handed over; Point 8 |
-| S10 | Settings files on a VPS are placed by hand | Target settings are host paths | v0.6 |
-| S11 | Pausing or removing an environment needs SSH | `rehearse.py down` covers only the local server | v0.5 |
-| S12 | No log view; diagnosing a failed deploy needs SSH | No log action in the runner | v0.9 |
-| S13 | Vitals are read on demand and nothing alerts | Backlog Hosting rows | v0.9 |
-| S14 | Candidate images accumulate | The 14-day `sha-*` cleanup is specified, not built | v0.9 |
-| S15 | Placeholder tables and the single-image version query remain | Backlog Cleanup | v0.4 |
-| S16 | Product docs predate environments, sites, commit builds and the prod gate | `features.md`, `flows.md`, `context.md` | v0.4 |
-| S17 | Old local containers run beside the rig | `drydock-pilot-*`, `foreverpin-rehearsal-*`, the old console image | v0.4 |
+| S10 | Settings files on a VPS are placed by hand | Target settings are host paths | Secrets |
+| S11 | Pausing or removing an environment needs SSH | `rehearse.py down` covers only the local server | Topology |
+| S12 | No log view; diagnosing a failed deploy needs SSH | No log action in the runner | v0.3 ✓ |
+| S13 | Vitals are read on demand and nothing alerts | Backlog Hosting rows | Operations |
+| S14 | Candidate images accumulate | The 14-day `sha-*` cleanup is specified, not built | Operations |
+| S15 | Placeholder tables and the single-image version query remain | Backlog Cleanup | Foundation |
+| S16 | Product docs predate environments, sites, commit builds and the prod gate | `features.md`, `flows.md`, `context.md` | v0.3 ✓ |
+| S17 | Old local containers run beside the rig | `drydock-pilot-*`, `foreverpin-rehearsal-*`, the old console image | Foundation |
 | S18 | Local console sign-in is still open | v0.3 Iteration 5: a second OAuth app for `:18210` | v0.3 |
+| S19 | Targets never removed images, so every release and candidate pull stayed on disk | No `docker image rm` anywhere in the runner | v0.3 ✓ |
+| S20 | Product writes skip the `X-Wheelhouse-Action` guard every other write carries | `ProductsController` POST/PUT/DELETE | After Point 1 |
+| S21 | Releases and candidates are visible only inside the deploy dialog | No catalog view with per-service versions | Portfolio and map |
+| S22 | The target check never looked at the ingress, so a stopped Traefik passed | `check` covered SSH, Docker, disk, network, settings | v0.3 ✓ |
+| S23 | No browser tests: every UI flow is verified by hand | Frontend tests cover schemas and pure rules only | Adoption version |
+| S24 | Frontend schemas mirror API shapes by hand; nothing catches a drift | Zod schemas beside C# DTOs, no contract test | Adoption version |
+| S25 | The audit chain proves no middle edit, but not that the newest entries were kept | No checkpoint outside the database | Operations |
 
 ---
 
 ## Build order
 
-Local-first: each version completes on the local server. Live comes last and can move forward once v0.5 lands.
+Local-first: each wave completes on the local server. Live comes last and can move forward once Topology lands.
+The dev cycle numbers a Feature version odd and follows it with an even Adoption version that extracts its blocks
+to the SDKs, so each wave below takes the next odd version when it opens.
 
-| Version | Scope | Needs |
+| Wave | Scope | Needs |
 |---|---|---|
-| v0.4 Foundation | Product catalog, audit log, step log, ingress probe, port fix, Wheelhouse CI and descriptor, cleanup, docs | Point 1 |
-| v0.5 Topology | Host preparation, platform services, databases per target, derived settings, networks, lifecycle, capacity gate, backups and restore drill | Topology points 5–11, 15, 23 |
-| v0.6 Secrets | Settings rendering, deploy-time tokens, SDK vault consumer, expiring tokens, required-secret preflight, credentials at rest, SSH key rotation, GitHub App | Points 2, 3, 9 |
-| v0.7 Domains | Inventory and registrar sync, DNS plan and apply, preview wildcard, certificate and domain expiry, pinned domains | Points 4, 5; topology point 25 |
-| v0.8 Portfolio and map | Portfolio matrix, lifecycle actions, cost, capacity view, onboarding; service map sites, needs, versions, environment compare, host view | Point 1 |
-| v0.9 Operations | Vitals history, alerts, notifications, log tail, image cleanup | Point 6 |
-| v1.0 Live | Control host, Tailscale, OAuth app, bootstrap, self-deploy, first product host, ForeverPin live | Points 7, 8 |
+| Foundation | Rollout steps, site probes, log reads, ingress check, image cleanup, audit trail, CI: done in v0.3. Left: product catalog, placeholder cleanup | Point 1 |
+| Topology | Host preparation, platform services, databases per target, derived settings, networks, lifecycle, capacity gate, backups and restore drill | Topology points 5–11, 15, 23 |
+| Secrets | Settings rendering, deploy-time tokens, SDK vault consumer, expiring tokens, required-secret preflight, credentials at rest, SSH key rotation, GitHub App | Points 2, 3, 9 |
+| Domains | Inventory and registrar sync, DNS plan and apply, preview wildcard, certificate and domain expiry, pinned domains | Points 4, 5; topology point 25 |
+| Portfolio and map | Portfolio matrix, release catalog, lifecycle actions, cost, capacity view, onboarding; service map sites, needs, versions, environment compare, host view | Point 1 |
+| Operations | Vitals history, alerts, notifications, an audit checkpoint, candidate image cleanup | Point 6 |
+| Live | Control host, Tailscale, OAuth app, bootstrap, self-deploy, first product host, ForeverPin live | Points 7, 8 |
+
+The next version, v0.4, is the Adoption version for v0.3: its stable blocks (the vault admin client, the action-header
+guard, the audit behavior, the Vue refresh and log-viewer patterns) move to the SDKs, with browser and contract tests.
 
 ---
 
