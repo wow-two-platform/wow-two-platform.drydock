@@ -12,4 +12,6 @@ export const DeploymentKeys = {
   commits: (product: string, branch: string) =>
     ["deployments", "commits", product, branch] as const,
   commitsAll: ["deployments", "commits"] as const,
+  logs: (target: string, service: string, tail: number) =>
+    ["deployments", "logs", target, service, tail] as const,
 };

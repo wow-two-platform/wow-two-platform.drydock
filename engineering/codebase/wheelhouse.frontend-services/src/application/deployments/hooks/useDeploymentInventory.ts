@@ -37,6 +37,21 @@ export function useReleaseArtifacts() {
   });
 }
 
+/** One service's recent container output, read while a viewer is open; it lives only in the session cache. */
+export function useServiceLogs(
+  target: MaybeRefOrGetter<string | null>,
+  service: MaybeRefOrGetter<string | null>,
+  tail: MaybeRefOrGetter<number>,
+) {
+  return useAppQuery({
+    key: () => DeploymentKeys.logs(toValue(target) ?? "", toValue(service) ?? "", toValue(tail)),
+    queryFn: ({ signal }) =>
+      deploymentsApi.getLogs(toValue(target) ?? "", toValue(service) ?? "", toValue(tail), signal),
+    enabled: () => Boolean(toValue(target) && toValue(service)),
+    meta: { suppressGlobalError: true },
+  });
+}
+
 /** What one target runs and whether it accepts a deployment. */
 export function useTargetState(target: MaybeRefOrGetter<string | null>) {
   return useAppQuery({

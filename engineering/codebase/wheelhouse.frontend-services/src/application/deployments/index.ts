@@ -6,6 +6,7 @@ export {
   useProductBranches,
   useProductCommits,
   useReleaseArtifacts,
+  useServiceLogs,
   useTargetState,
 } from "./hooks/useDeploymentInventory";
 export { useDeploymentOutcome } from "./hooks/useDeploymentOutcome";

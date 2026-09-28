@@ -1,7 +1,32 @@
 import { z } from "zod";
-import { JobStatus, TargetCondition } from "@/domain/deployments";
+import { JobStatus, StepStatus, TargetCondition } from "@/domain/deployments";
 
 const jobStatus = z.enum(JobStatus);
+// Site links open in the operator's browser, so only http(s) URLs survive decoding.
+const siteUrl = z
+  .string()
+  .url()
+  .refine((value) => /^https?:\/\//.test(value), "Site links must be http(s)");
+const PublishedSiteSchema = z.object({
+  name: z.string(),
+  service: z.string(),
+  exposure: z.enum(["public", "private"]),
+  url: siteUrl,
+  probe: z
+    .object({
+      ok: z.boolean(),
+      status: z.number().int().optional(),
+      detail: z.string().optional(),
+    })
+    .optional(),
+});
+const DeploymentStepSchema = z.object({
+  name: z.string(),
+  status: z.enum(StepStatus),
+  startedAt: z.string().optional(),
+  completedAt: z.string().optional(),
+  detail: z.string().optional(),
+});
 const nullableText = z.string().nullable();
 export const DeploymentJobSchema = z.object({
   id: z.string(),
@@ -16,6 +41,9 @@ export const DeploymentJobSchema = z.object({
   startedAt: z.string().optional(),
   completedAt: z.string().optional(),
   mutationStarted: z.boolean().optional(),
+  steps: z.array(DeploymentStepSchema).optional(),
+  warnings: z.array(z.string()).optional(),
+  sites: z.array(PublishedSiteSchema).optional(),
 });
 export const DeploymentTargetSchema = z.object({
   id: z.string(),
@@ -41,17 +69,6 @@ export const ReleaseArtifactSchema = z.object({
   branch: nullableText.optional(),
   expiresAt: nullableText.optional(),
 });
-// Site links open in the operator's browser, so only http(s) URLs survive decoding.
-const siteUrl = z
-  .string()
-  .url()
-  .refine((value) => /^https?:\/\//.test(value), "Site links must be http(s)");
-const PublishedSiteSchema = z.object({
-  name: z.string(),
-  service: z.string(),
-  exposure: z.enum(["public", "private"]),
-  url: siteUrl,
-});
 const ServiceVersionSchema = z.object({
   version: z.string(),
   changedIn: z.string(),
@@ -62,6 +79,14 @@ export const CommitEntrySchema = z.object({
   author: z.string(),
   date: nullableText.optional(),
   buildId: z.string().nullable(),
+});
+export const ServiceLogsSchema = z.object({
+  targetId: z.string(),
+  service: z.string(),
+  tail: z.number().int(),
+  collectedAt: z.string(),
+  lines: z.array(z.string()),
+  truncated: z.boolean().default(false),
 });
 export const BuildRequestSchema = z.object({
   product: z.string(),
@@ -82,6 +107,8 @@ const RolloutSchema = z.object({
   sourceCommit: z.string().optional(),
   versions: z.record(z.string(), ServiceVersionSchema).optional(),
   sites: z.array(PublishedSiteSchema).optional(),
+  steps: z.array(DeploymentStepSchema).optional(),
+  warnings: z.array(z.string()).optional(),
 });
 export const TargetStateSchema = z.object({
   targetId: z.string(),

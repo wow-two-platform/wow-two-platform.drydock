@@ -63,7 +63,9 @@ import { FleetExtensions } from "@/domain/fleet";
 import { AttentionRules } from "@/domain/overview";
 import {
   DeployModal,
+  DeploymentSteps,
   ReconcileModal,
+  ServiceLogsModal,
   TargetSites,
   useDeployModal,
 } from "@/presentation/deployments";
@@ -89,6 +91,8 @@ const deploy = useDeployModal();
 const search = ref("");
 const reconciling = ref(false);
 const inspectorElement = ref<HTMLElement | null>(null);
+/** The service whose container output the log viewer reads; null while it is closed. */
+const logsService = ref<string | null>(null);
 const inventory = computed(() =>
   buildWorkspaceInventory(products.products.value, targets.data.value ?? []),
 );
@@ -961,6 +965,12 @@ function openDeploy(job?: DeploymentJob): void {
                     <dd>{{ inspected.service.exitCode ?? "Not reported" }}</dd>
                   </div>
                 </dl>
+                <Button
+                  variant="outline"
+                  is-full-width
+                  @click="logsService = inspected.service.service"
+                  >Read logs</Button
+                >
                 <p
                   class="border-t border-border pt-4 text-xs text-muted-foreground"
                 >
@@ -1012,6 +1022,14 @@ function openDeploy(job?: DeploymentJob): void {
                 >
                   {{ inspectedJob.failure ?? inspectedJob.reason }}
                 </p>
+                <p
+                  v-for="warning in inspectedJob.warnings ?? []"
+                  :key="warning"
+                  class="break-words rounded-lg bg-warning-soft p-3 text-sm text-warning-soft-foreground"
+                >
+                  {{ warning }}
+                </p>
+                <DeploymentSteps :steps="inspectedJob.steps" />
                 <Button
                   variant="outline"
                   is-full-width
@@ -1135,6 +1153,12 @@ function openDeploy(job?: DeploymentJob): void {
       :active="state.data.value.active"
       :open="reconciling"
       @update:open="reconciling = $event"
+    />
+    <ServiceLogsModal
+      :open="logsService !== null"
+      :target="target?.id ?? null"
+      :service="logsService"
+      @update:open="!$event && (logsService = null)"
     />
   </div>
 </template>

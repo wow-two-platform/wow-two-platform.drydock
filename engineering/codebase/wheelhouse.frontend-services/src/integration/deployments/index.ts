@@ -6,6 +6,7 @@ import type {
   DeploymentStats,
   DeploymentTarget,
   ReleaseArtifact,
+  ServiceLogs,
   TargetCheck,
   TargetState,
 } from "@/domain/deployments";
@@ -17,6 +18,7 @@ import {
   DeploymentStatsSchema,
   DeploymentTargetSchema,
   ReleaseArtifactSchema,
+  ServiceLogsSchema,
   TargetCheckSchema,
   TargetStateSchema,
 } from "./schemas";
@@ -63,6 +65,14 @@ export const deploymentsApi = {
       `/api/deployments/targets/${encodeURIComponent(target)}/check` +
         (release ? `?release=${encodeURIComponent(release)}` : ""),
       TargetCheckSchema,
+      { signal },
+    ),
+
+  /** One service's recent container output; `tail` bounds the lines, 1-1000. */
+  getLogs: (target: string, service: string, tail: number, signal?: AbortSignal) =>
+    requestData<ServiceLogs>(
+      `/api/deployments/targets/${encodeURIComponent(target)}/services/${encodeURIComponent(service)}/logs?tail=${tail}`,
+      ServiceLogsSchema,
       { signal },
     ),
 

@@ -12,6 +12,8 @@ const bundle = await build({
       export { authApi } from './src/integration/auth';
       export { secretsApi } from './src/integration/secrets';
       export { fleetApi } from './src/integration/fleet';
+      export { auditApi } from './src/integration/audit';
+      export { AuditArea, AuditExtensions } from './src/domain/audit';
       export { clearHttpSession } from './src/integration/common';
       export { useFleetVitals } from './src/application/fleet/useFleetVitals';
       export { queryClient, queryPlugin } from './src/bootstrap/query';
@@ -31,6 +33,9 @@ const {
   authApi,
   secretsApi,
   fleetApi,
+  auditApi,
+  AuditArea,
+  AuditExtensions,
   clearHttpSession,
   useFleetVitals,
   queryClient,
@@ -217,6 +222,60 @@ test("decodes environment rules, commit builds, and only http site links", async
   const unsafe = await deploymentsApi.getTargetState("unsafe");
   assert.equal(unsafe.ok, false);
   assert.equal(unsafe.failure.code, "protocol");
+});
+
+test("keeps rollout steps, warnings and site probes, and refuses an unknown step status", async () => {
+  const outcome = {
+    id: "job",
+    status: "succeeded",
+    steps: [
+      { name: "Pull images", status: "succeeded", startedAt: "2026-09-28T10:00:00Z", completedAt: "2026-09-28T10:00:04Z", detail: "2 images" },
+      { name: "Probe sites", status: "warning", detail: "1 of 2 sites answered" },
+    ],
+    warnings: ["Site go did not answer through the ingress: The ingress has no route for this host"],
+    sites: [{ name: "go", service: "redirect", exposure: "public", url: "http://go.localhost:18080",
+      probe: { ok: false, status: 404, detail: "The ingress has no route for this host" } }],
+  };
+  globalThis.fetch = async () => json({ data: outcome });
+  const result = await deploymentsApi.getOutcome("job");
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.value.steps.map((step) => step.status), ["succeeded", "warning"]);
+  assert.equal(result.value.warnings.length, 1);
+  assert.equal(result.value.sites[0].probe.ok, false);
+  globalThis.fetch = async () => json({ data: { ...outcome, steps: [{ name: "Pull images", status: "paused" }] } });
+  assert.equal((await deploymentsApi.getOutcome("job")).ok, false);
+});
+
+test("reads one service's logs with a bounded tail and decodes the lines", async () => {
+  let requested;
+  globalThis.fetch = async (url) => {
+    requested = url;
+    return json({ data: { targetId: "foreverpin-dev", project: "foreverpin-dev", service: "redirect", tail: 50,
+      collectedAt: "2026-09-28T10:00:00Z", lines: ["2026-09-28T10:00:00Z started"], truncated: false } });
+  };
+  const result = await deploymentsApi.getLogs("foreverpin-dev", "redirect", 50);
+  assert.equal(result.ok, true);
+  assert.equal(requested, "/api/deployments/targets/foreverpin-dev/services/redirect/logs?tail=50");
+  assert.deepEqual(result.value.lines, ["2026-09-28T10:00:00Z started"]);
+});
+
+test("pages the audit trail and names each action and chain break in words", async () => {
+  const requests = [];
+  globalThis.fetch = async (url) => {
+    requests.push(url);
+    return json({ data: url.includes("verification")
+      ? { intact: false, entries: 3, brokenSequence: 2, reason: "HashMismatch" }
+      : [{ sequence: 3, occurredAt: "2026-09-28T10:00:00Z", actor: "max", action: "deployment.start",
+          subject: "foreverpin-dev", outcome: "Succeeded", detail: "v1", reason: null }] });
+  };
+  assert.equal((await auditApi.list(100, 4)).value[0].sequence, 3);
+  assert.equal((await auditApi.verify()).value.brokenSequence, 2);
+  assert.deepEqual(requests, ["/api/audit?limit=100&before=4", "/api/audit/verification"]);
+  assert.equal(AuditExtensions.label("vault.secret.set"), "Set a secret");
+  assert.equal(AuditExtensions.label("future.action"), "future.action");
+  assert.equal(AuditExtensions.inArea("build.request", AuditArea.Deployments), true);
+  assert.equal(AuditExtensions.inArea("vault.token.mint", AuditArea.Products), false);
+  assert.equal(AuditExtensions.breakLabel("HashMismatch"), "an entry was edited");
 });
 
 test("accepts explicit empty logout and deletion successes", async () => {

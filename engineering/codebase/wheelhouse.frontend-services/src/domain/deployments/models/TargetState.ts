@@ -1,5 +1,6 @@
 import type { JobStatus } from '../enums/JobStatus';
 import type { TargetCondition } from '../enums/TargetCondition';
+import type { DeploymentStep } from './DeploymentStep';
 import type { PublishedSite } from './PublishedSite';
 import type { ReleaseKind } from './ReleaseArtifact';
 import type { ServiceVersion } from './ServiceVersion';
@@ -21,6 +22,8 @@ export interface RolloutRecord {
   versions?: Record<string, ServiceVersion>;
   /** The sites a verified release answers on; recorded once the rollout succeeds. */
   sites?: PublishedSite[];
+  steps?: DeploymentStep[];
+  warnings?: string[];
 }
 
 /** What a target runs and whether it accepts a deployment. */

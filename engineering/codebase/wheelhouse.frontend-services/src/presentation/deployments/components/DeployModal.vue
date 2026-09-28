@@ -60,6 +60,7 @@ import {
 
 import CheckResultList from "./CheckResultList.vue";
 import JobStatusBadge from "./JobStatusBadge.vue";
+import DeploymentSteps from "./DeploymentSteps.vue";
 import TargetSites from "./TargetSites.vue";
 
 /** Renders choose, confirm and follow stages for deploying one complete release bundle. */
@@ -601,7 +602,14 @@ function close(open: boolean): void {
             >
               {{ outcome.data.value.reason }}
             </p>
+            <DeploymentSteps :steps="outcome.data.value?.steps" />
           </div>
+          <Alert
+            v-for="warning in outcome.data.value?.warnings ?? []"
+            :key="warning"
+            severity="warning"
+            :description="warning"
+          />
           <TargetSites
             v-if="settled"
             :sites="deployed.data.value?.current?.sites"

@@ -1,4 +1,6 @@
 import type { JobStatus } from '../enums/JobStatus';
+import type { DeploymentStep } from './DeploymentStep';
+import type { PublishedSite } from './PublishedSite';
 
 /** One submitted deployment with its last observed outcome; reasons never carry values. */
 export interface DeploymentJob {
@@ -14,4 +16,9 @@ export interface DeploymentJob {
   startedAt?: string;
   completedAt?: string;
   mutationStarted?: boolean;
+  /** The rollout's steps so far; present once the target runner picked the job up. */
+  steps?: DeploymentStep[];
+  /** What needs a look although the rollout succeeded. */
+  warnings?: string[];
+  sites?: PublishedSite[];
 }

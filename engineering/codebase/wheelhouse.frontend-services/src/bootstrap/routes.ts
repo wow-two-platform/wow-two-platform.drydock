@@ -11,6 +11,7 @@ export const AppPlaces = [
   { path: '/fleet', label: 'Fleet', description: 'Your hosts and services, with current resource readings.' },
   { path: '/secrets', label: 'Secrets', description: 'Vault namespaces, write-only secrets, and product tokens.' },
   { path: '/products', label: 'Products', description: 'The registry behind your portfolio.' },
+  { path: '/activity', label: 'Activity', description: 'Every operator action, chained so an edited entry shows.' },
 ] as const;
 
 /** Resolves the existing public URLs to Vue route components. */
@@ -22,6 +23,7 @@ export const router = createRouter({
     { path: '/fleet', component: () => import('@/presentation/fleet/pages/FleetPage.vue') },
     { path: '/secrets', component: () => import('@/presentation/secrets/pages/SecretsPage.vue') },
     { path: '/products', component: () => import('@/presentation/products/pages/ProductsPage.vue') },
+    { path: '/activity', component: () => import('@/presentation/audit/pages/ActivityPage.vue') },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
 });

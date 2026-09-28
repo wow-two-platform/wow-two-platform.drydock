@@ -20,6 +20,14 @@ export {
 } from "./components/ReconcileModal.vue";
 export { default as CheckResultList } from "./components/CheckResultList.vue";
 export {
+  default as ServiceLogsModal,
+  type ServiceLogsModalProps,
+} from "./components/ServiceLogsModal.vue";
+export {
+  default as DeploymentSteps,
+  type DeploymentStepsProps,
+} from "./components/DeploymentSteps.vue";
+export {
   default as TargetSites,
   type TargetSitesProps,
 } from "./components/TargetSites.vue";

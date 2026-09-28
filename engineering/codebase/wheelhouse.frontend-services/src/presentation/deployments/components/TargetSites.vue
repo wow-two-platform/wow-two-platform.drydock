@@ -12,7 +12,7 @@ export interface TargetSitesProps {
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { ExternalLink, Lock } from "lucide-vue-next";
+import { AlertTriangle, ExternalLink, Lock } from "lucide-vue-next";
 
 /** Renders Open site links and each service's version; an older version means no change since that release. */
 defineOptions({ name: "TargetSites" });
@@ -39,17 +39,33 @@ const services = computed(() =>
           :href="site.url"
           target="_blank"
           rel="noopener noreferrer"
-          :title="site.url"
-          class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
+          :title="
+            site.probe && !site.probe.ok
+              ? `${site.url} — did not answer after the deploy: ${site.probe.detail}`
+              : site.url
+          "
+          :class="[
+            'inline-flex h-9 items-center gap-1.5 rounded-lg border bg-card px-3 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring',
+            site.probe && !site.probe.ok ? 'border-warning' : 'border-border',
+          ]"
         >
-          <Lock
-            v-if="site.exposure === 'private'"
+          <AlertTriangle
+            v-if="site.probe && !site.probe.ok"
+            :size="14"
+            class="text-warning"
+            aria-hidden="true"
+          /><Lock
+            v-else-if="site.exposure === 'private'"
             :size="14"
             aria-hidden="true"
           />Open {{ site.name
           }}<ExternalLink :size="14" aria-hidden="true" /><span
             class="sr-only"
-            >, {{ site.url }}, opens in a new tab</span
+            >, {{ site.url }}, opens in a new tab{{
+              site.probe && !site.probe.ok
+                ? `; it did not answer after the deploy: ${site.probe.detail}`
+                : ""
+            }}</span
           >
         </a>
       </li>
