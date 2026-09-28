@@ -1088,11 +1088,11 @@ def main():
             try:
                 root, project = validate_target(read_json(args.target))
                 refused = rejection(error)
-                check = {"name": "Check target", "status": "failed", "completedAt": now()}
+                failed_step = {"name": "Check target", "status": "failed", "completedAt": now()}
                 if refused.get("reason"):
-                    check["detail"] = refused["reason"]
+                    failed_step["detail"] = refused["reason"]
                 write_json(root / project / "jobs" / (args.job + ".json"),
-                           {"id": args.job, **refused, "completedAt": now(), "steps": [check]})
+                           {"id": args.job, **refused, "completedAt": now(), "steps": [failed_step]})
             except Exception:
                 pass
         print(json.dumps(rejection(error)), file=sys.stderr)

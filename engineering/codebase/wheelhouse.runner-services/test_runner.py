@@ -373,6 +373,16 @@ class RunnerTests(unittest.TestCase):
             self.assertEqual(0, runner.main())
         self.assertEqual("ready", json.loads(stdout.getvalue())["condition"])
 
+    def test_every_read_only_cli_action_runs_through_main(self):
+        # Each action must resolve its handler inside main(); a local name there would shadow it.
+        encoded = base64.b64encode(json.dumps(self.target).encode()).decode()
+        with patch.object(runner, "Docker", CheckDocker):
+            for action in ("state", "check", "topology"):
+                with self.subTest(action=action), patch("sys.argv", ["runner.py", action, "--target-json", encoded]), \
+                        contextlib.redirect_stdout(io.StringIO()) as stdout:
+                    self.assertEqual(0, runner.main())
+                    self.assertIsInstance(json.loads(stdout.getvalue()), dict)
+
     def test_unhealthy_reads_both_compose_ps_formats(self):
         rows = [{"Service": "api", "State": "running", "Health": "unhealthy"},
                 {"Service": "web", "State": "running", "Health": "healthy"},
