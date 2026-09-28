@@ -27,6 +27,7 @@ import {
 import { Button } from "@wow-two-beta/ui-vue/presentation/actions";
 import { Badge, EmptyState } from "@wow-two-beta/ui-vue/presentation/display";
 import { Measures } from "@/domain/common";
+import { CanvasArea } from "@/presentation/common";
 import { TopologyAvailability } from "@/domain/topology";
 import {
   buildServiceMapLayout,
@@ -41,6 +42,8 @@ defineOptions({ name: "ServiceMap" });
 const props = defineProps<ServiceMapProps>();
 const emit = defineEmits<{ select: [name: string] }>();
 const arrowId = `topology-arrow-${useId()}`;
+const MapMinHeight = 240;
+const MapMaxHeight = 520;
 const localSelection = ref<string | null>(null);
 const showVolumes = ref(false);
 const showDependencies = ref(true);
@@ -57,6 +60,10 @@ const layout = computed(() =>
     sites: showSites.value,
     platform: showPlatform.value,
   }),
+);
+/** The canvas grows with the map up to a fixed band, and keeps room for its zoom controls. @internal */
+const mapHeight = computed(() =>
+  Math.max(MapMinHeight, Math.min(layout.value.height, MapMaxHeight)),
 );
 /** Names the right-hand column after the layers it currently shows. @internal */
 const rightColumn = computed(() =>
@@ -255,16 +262,17 @@ function condition(value: string | null): string {
           >
         </div>
         <p class="mb-2 text-xs text-muted-foreground">
-          Scroll to explore · Select a service for details
+          Drag to move · Pinch or Ctrl + scroll to zoom · Select a service for
+          details
         </p>
-        <div
-          class="wh-map-surface max-h-[520px] overflow-auto rounded-xl border border-border"
-          role="region"
-          aria-label="Compose service relationships. Scroll to explore the map."
-          tabindex="0"
+        <CanvasArea
+          class="wh-map-surface rounded-xl bg-card"
+          :style="{ height: `${mapHeight}px` }"
+          aria-label="Compose service relationships"
+          :labels="{ canvas: 'service map' }"
         >
           <div
-            class="relative mx-auto"
+            class="relative"
             :style="{
               width: `${layout.width}px`,
               height: `${layout.height}px`,
@@ -463,7 +471,7 @@ function condition(value: string | null): string {
               >
             </button>
           </div>
-        </div>
+        </CanvasArea>
         <p class="mt-2 text-xs text-muted-foreground">
           Lines show Compose membership and startup order; application traffic
           is not measured.
