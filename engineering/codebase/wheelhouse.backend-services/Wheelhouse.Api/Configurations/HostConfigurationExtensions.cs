@@ -3,6 +3,7 @@ using Wheelhouse.Application.Abstractions;
 using Wheelhouse.Persistence;
 using Wheelhouse.Persistence.Repositories;
 using WoW.Two.Sdk.Backend.Beta.Data;
+using WoW.Two.Sdk.Backend.Beta.Foundation.Audit;
 using WoW.Two.Sdk.Backend.Beta.Foundation.Time;
 using WoW.Two.Sdk.Backend.Beta.Foundation.Validation;
 using WoW.Two.Sdk.Backend.Beta.Integrations;
@@ -53,6 +54,9 @@ public static class HostConfigurationExtensions
 
         builder.Services.AddScoped<IServerRepository, EfServerRepository>();
         builder.Services.AddScoped<IProductRepository, EfProductRepository>();
+        builder.Services.AddScoped<IAuditTrail, EfAuditTrail>();
+        builder.Services.AddHashChain<Wheelhouse.Domain.Audit.Entities.AuditEntry,
+            Wheelhouse.Persistence.Audit.AuditEntryCanonicalizer>();
 
         return builder;
     }
@@ -84,7 +88,11 @@ public static class HostConfigurationExtensions
     public static WebApplicationBuilder AddApplicationLayer(this WebApplicationBuilder builder)
     {
         builder.Services.AddMediator(typeof(IApplicationMarker).Assembly);
+        // Registered before validation so it wraps it: a refused request is audited too.
+        builder.Services.AddMediatorBehavior(typeof(Wheelhouse.Application.Audit.AuditBehavior<,>));
         builder.Services.AddMediatorValidationBehavior();
+        builder.Services.AddHttpContextAccessor();
+        builder.Services.AddScoped<IOperatorContext, Wheelhouse.Api.Auth.HttpOperatorContext>();
         builder.Services.AddFluentValidatorsFromAssemblies(typeof(IApplicationMarker).Assembly);
 
         return builder;

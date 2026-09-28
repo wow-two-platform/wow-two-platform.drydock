@@ -1,0 +1,32 @@
+using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Mvc;
+using Wheelhouse.Application.Audit;
+using WoW.Two.Sdk.Backend.Beta.Mediator;
+using WoW.Two.Sdk.Backend.Beta.Mediator.Result;
+using WoW.Two.Sdk.Backend.Beta.Web.Contracts;
+using WoW.Two.Sdk.Backend.Beta.Web.ErrorMapping;
+
+namespace Wheelhouse.Api.Controllers;
+
+/// <summary>Reads the append-only record of operator actions; nothing here changes it.</summary>
+[ApiController]
+[Route("api/audit")]
+[ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+public sealed class AuditController(ISender sender, IErrorHttpStatusCodeMapper errors) : ControllerBase
+{
+    /// <summary>Lists the newest entries; <paramref name="before"/> pages back from a sequence number.</summary>
+    [HttpGet]
+    public async Task<IActionResult> List(
+        [FromQuery, Range(1, 200)] int limit = 50, [FromQuery, Range(1, long.MaxValue)] long? before = null,
+        CancellationToken ct = default) =>
+        Render(await sender.SendAsync(new AuditListQuery(limit, before), ct));
+
+    /// <summary>Recomputes the chain and reports whether every entry and link verifies.</summary>
+    [HttpGet("verification")]
+    public async Task<IActionResult> Verify(CancellationToken ct) =>
+        Render(await sender.SendAsync(new AuditVerifyQuery(), ct));
+
+    private IActionResult Render<T>(AppResult<T> result) where T : notnull => result.Match<IActionResult>(
+        ok => Ok(ApiResponse<T>.Ok(ok.Data)),
+        fail => Problem(statusCode: errors.ToStatusCode(fail.Error), detail: fail.Error.Message));
+}

@@ -18,4 +18,6 @@ public interface IDeploymentGateway
     Task<AppResult<JsonElement>> CommitsAsync(string product, string branch, CancellationToken ct);
     /// <summary>Starts the product's build workflow for a commit that has no build yet.</summary>
     Task<AppResult<JsonElement>> RequestBuildAsync(string product, string commit, CancellationToken ct);
+    /// <summary>Reads the last <paramref name="tail"/> lines one service's container wrote on a target.</summary>
+    Task<AppResult<JsonElement>> LogsAsync(string target, string service, int tail, CancellationToken ct);
 }

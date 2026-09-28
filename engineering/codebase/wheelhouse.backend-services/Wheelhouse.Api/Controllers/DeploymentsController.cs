@@ -96,6 +96,14 @@ public sealed class DeploymentsController(ISender sender, IErrorHttpStatusCodeMa
             fail => Problem(statusCode: errors.ToStatusCode(fail.Error), detail: fail.Error.Message));
     }
 
+    /// <summary>Reads the last lines one service's container wrote; the response is never cached or stored.</summary>
+    [HttpGet("targets/{target}/services/{service}/logs")]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<IActionResult> Logs(
+        [RegularExpression(Slug)] string target, [RegularExpression(Slug)] string service,
+        [FromQuery, Range(1, 1000)] int tail = 200, CancellationToken ct = default) =>
+        Render(await sender.SendAsync(new DeploymentLogsQuery(target, service, tail), ct));
+
     /// <summary>Reads the authoritative outcome from the target.</summary>
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> Status(Guid id, CancellationToken ct) =>

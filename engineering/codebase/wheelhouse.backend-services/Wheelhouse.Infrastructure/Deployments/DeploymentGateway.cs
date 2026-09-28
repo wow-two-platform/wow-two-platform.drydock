@@ -54,6 +54,10 @@ public sealed class DeploymentGateway(DeploymentSettings settings, RunnerFailure
     public Task<AppResult<JsonElement>> RequestBuildAsync(string product, string commit, CancellationToken ct) =>
         RunAsync(["build", "--product", product, "--commit", commit], ct);
 
+    /// <inheritdoc />
+    public Task<AppResult<JsonElement>> LogsAsync(string target, string service, int tail, CancellationToken ct) =>
+        RunAsync(["logs", "--target", target, "--service", service, "--tail", tail.ToString(CultureInfo.InvariantCulture)], ct);
+
     private async Task<AppResult<JsonElement>> RunAsync(string[] arguments, CancellationToken ct)
     {
         if (!File.Exists(settings.TransportPath))

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Wheelhouse.Application.Abstractions;
+using WoW.Two.Sdk.Backend.Beta.Foundation.Errors;
 using WoW.Two.Sdk.Backend.Beta.Mediator.Result;
 
 namespace Wheelhouse.Tests.E2E.Harness;
@@ -17,6 +18,10 @@ public sealed class StubDeploymentGateway : IDeploymentGateway
     public (string Product, string Branch)? LastCommits { get; private set; }
 
     public (string Resource, string? Id)? LastRead { get; private set; }
+    public (string Target, string Service, int Tail)? LastLogs { get; private set; }
+
+    /// <summary>When set, the next starts fail with this runner refusal, as a gate would refuse them.</summary>
+    public string? StartRefusal { get; set; }
 
     public Task<AppResult<JsonElement>> ReadAsync(string resource, string? id, CancellationToken ct)
     {
@@ -51,6 +56,8 @@ public sealed class StubDeploymentGateway : IDeploymentGateway
         LastRelease = release;
         LastConfirm = confirm;
         LastSkipTestPass = skipTestPass;
+        if (StartRefusal is not null)
+            return Task.FromResult(AppResult<JsonElement>.Fail(AppErrors.Conflict(StartRefusal)));
         return Task.FromResult(AppResult<JsonElement>.Ok(JsonSerializer.SerializeToElement(
             new { id = Guid.NewGuid(), status = "queued" })));
     }
@@ -70,6 +77,16 @@ public sealed class StubDeploymentGateway : IDeploymentGateway
         LastBuild = (product, commit);
         return Task.FromResult(AppResult<JsonElement>.Ok(JsonSerializer.SerializeToElement(
             new { product, commit, status = "requested" })));
+    }
+
+    public Task<AppResult<JsonElement>> LogsAsync(string target, string service, int tail, CancellationToken ct)
+    {
+        LastLogs = (target, service, tail);
+        return Task.FromResult(AppResult<JsonElement>.Ok(JsonSerializer.SerializeToElement(new
+        {
+            project = "foreverpin-dev", service, tail, collectedAt = "2026-09-28T10:00:00+00:00",
+            lines = new[] { "2026-09-28T10:00:00Z started" }, truncated = false, targetId = target
+        })));
     }
 
     public Task<AppResult<JsonElement>> ReconcileAsync(string target, string job, string actor, CancellationToken ct)

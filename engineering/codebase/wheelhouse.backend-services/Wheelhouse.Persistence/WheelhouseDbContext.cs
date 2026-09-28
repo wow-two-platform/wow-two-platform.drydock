@@ -1,3 +1,4 @@
+using Wheelhouse.Domain.Audit.Entities;
 using Wheelhouse.Domain.Deployments.Entities;
 using Wheelhouse.Domain.Domains.Entities;
 using Wheelhouse.Domain.Products.Entities;
@@ -30,6 +31,9 @@ public sealed class WheelhouseDbContext(DbContextOptions<WheelhouseDbContext> op
 
     /// <summary>Gets the encrypted secrets.</summary>
     public DbSet<SecretEntry> Secrets => Set<SecretEntry>();
+
+    /// <summary>Gets the append-only, hash-chained audit trail.</summary>
+    public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
 
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -84,6 +88,19 @@ public sealed class WheelhouseDbContext(DbContextOptions<WheelhouseDbContext> op
             e.HasKey(x => x.Id);
             e.HasIndex(x => new { x.Scope, x.RefId, x.Key }).IsUnique();
             e.Property(x => x.Key).IsRequired();
+        });
+
+        modelBuilder.Entity<AuditEntry>(e =>
+        {
+            e.ToTable(AuditEntry.TableName);
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.Sequence).IsUnique();
+            e.HasIndex(x => x.OccurredAtUtc);
+            e.Property(x => x.PreviousHash).IsRequired();
+            e.Property(x => x.Hash).IsRequired();
+            e.Property(x => x.Actor).IsRequired();
+            e.Property(x => x.Action).IsRequired();
+            e.Property(x => x.Subject).IsRequired();
         });
 
         // Store every enum in the model as snake_case text via the SDK reversible converter (member-built reverse map →

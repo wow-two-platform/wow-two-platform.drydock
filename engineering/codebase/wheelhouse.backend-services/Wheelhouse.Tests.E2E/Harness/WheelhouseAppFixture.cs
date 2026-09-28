@@ -132,6 +132,8 @@ public sealed class WheelhouseAppFixture : IAsyncLifetime
 
         Registry.ExistingTags.Clear();
         Registry.Override = null;
+
+        Deployments.StartRefusal = null;
     }
 }
 

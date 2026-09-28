@@ -1,4 +1,5 @@
 using Wheelhouse.Domain.Products.Enums;
+using Wheelhouse.Application.Audit;
 using WoW.Two.Sdk.Backend.Beta.Mediator.Cqrs;
 using WoW.Two.Sdk.Backend.Beta.Mediator.Result;
 
@@ -13,4 +14,14 @@ public sealed record ProductUpdateCommand(
     Guid Id,
     string Name,
     string Repo,
-    ProductStatus Status) : ICommand<AppResult<ProductUpdateResult>>;
+    ProductStatus Status) : ICommand<AppResult<ProductUpdateResult>>, IAuditedCommand
+{
+    /// <inheritdoc />
+    public string AuditAction => "product.update";
+
+    /// <inheritdoc />
+    public string AuditSubject => Id.ToString();
+
+    /// <inheritdoc />
+    public string AuditDetail => Name + " (" + Repo + "), " + Status;
+}

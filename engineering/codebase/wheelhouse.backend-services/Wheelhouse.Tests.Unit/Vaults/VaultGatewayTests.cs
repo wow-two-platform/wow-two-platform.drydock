@@ -166,6 +166,7 @@ public sealed class VaultGatewayTests : IDisposable
         public Task<AppResult<JsonElement>> ReconcileAsync(string target, string job, string actor, CancellationToken ct) => throw new NotSupportedException();
         public Task<AppResult<JsonElement>> CommitsAsync(string product, string branch, CancellationToken ct) => throw new NotSupportedException();
         public Task<AppResult<JsonElement>> RequestBuildAsync(string product, string commit, CancellationToken ct) => throw new NotSupportedException();
+        public Task<AppResult<JsonElement>> LogsAsync(string target, string service, int tail, CancellationToken ct) => throw new NotSupportedException();
     }
 
     private sealed class ClientFactory(HttpMessageHandler handler) : IHttpClientFactory

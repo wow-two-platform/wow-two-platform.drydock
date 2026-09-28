@@ -64,6 +64,26 @@ public sealed class DeploymentsE2ETests(WheelhouseAppFixture fixture) : Wheelhou
     }
 
     [Fact]
+    public async Task Logs_ReadOneServiceWithABoundedTailAndAreNeverCached()
+    {
+        Assert.Equal(HttpStatusCode.Unauthorized,
+            (await AnonymousClient.GetAsync("/api/deployments/targets/pilot/services/api/logs")).StatusCode);
+        var response = await AdminClient.GetAsync("/api/deployments/targets/pilot/services/api/logs?tail=50");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(response.Headers.CacheControl?.NoStore, "Container output must never be cached.");
+        Assert.Equal(("pilot", "api", 50), Fixture.Deployments.LastLogs);
+        Assert.Equal(HttpStatusCode.OK, (await AdminClient.GetAsync("/api/deployments/targets/pilot/services/api/logs")).StatusCode);
+        Assert.Equal(("pilot", "api", 200), Fixture.Deployments.LastLogs);
+    }
+
+    [Theory]
+    [InlineData("/api/deployments/targets/pilot/services/api/logs?tail=0")]
+    [InlineData("/api/deployments/targets/pilot/services/api/logs?tail=1001")]
+    [InlineData("/api/deployments/targets/pilot/services/API/logs")]
+    public async Task Logs_RejectAnUnboundedTailOrAnInvalidService(string path) =>
+        Assert.Equal(HttpStatusCode.BadRequest, (await AdminClient.GetAsync(path)).StatusCode);
+
+    [Fact]
     public async Task Start_RequiresExplicitActionHeader()
     {
         var response = await AdminClient.PostAsJsonAsync("/api/deployments", new { target = "pilot", release = "v1" });
