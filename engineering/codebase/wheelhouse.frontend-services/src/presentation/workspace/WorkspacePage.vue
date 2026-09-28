@@ -4,12 +4,10 @@ import { RouterLink, useRoute, useRouter } from "vue-router";
 import {
   ArrowRight,
   Box,
-  CheckCircle2,
   ChevronRight,
   Layers,
   List,
   Network,
-  Package,
   Plus,
   Rocket,
   Server,
@@ -31,13 +29,10 @@ import { useServerVitals } from "@/application/servers";
 import {
   useDeploymentTargets,
   useDeploymentHistory,
-  useDeploymentStats,
   useTargetState,
   useReleaseArtifacts,
   useDeploymentOutcome,
 } from "@/application/deployments";
-import { SecretKeys, useVaults, useVaultsHygiene } from "@/application/secrets";
-import { useInvalidate } from "@/bootstrap/query";
 import { useRefresh } from "@/application/common";
 import { useTargetTopology } from "@/application/topology";
 import {
@@ -59,7 +54,6 @@ import {
   type DeploymentJob,
 } from "@/domain/deployments";
 import { ServerExtensions } from "@/domain/servers";
-import { AttentionRules } from "@/domain/overview";
 import {
   DeployModal,
   DeploymentSteps,
@@ -74,6 +68,7 @@ import ResourceMeter from "@/presentation/servers/components/ResourceMeter.vue";
 import EnvironmentCompare from "./EnvironmentCompare.vue";
 import ServiceMap from "./ServiceMap.vue";
 import RefreshButton from "@/presentation/common/components/RefreshButton.vue";
+import ProductIcon from "@/presentation/products/components/ProductIcon.vue";
 
 /** Connects products, environments, services, and deployment outcomes in one retained workspace. */
 defineOptions({ name: "WorkspacePage" });
@@ -83,11 +78,7 @@ const products = useProducts();
 const targets = useDeploymentTargets();
 const vitals = useServerVitals();
 const history = useDeploymentHistory();
-const stats = useDeploymentStats();
 const releases = useReleaseArtifacts();
-const vaults = useVaults();
-const hygiene = useVaultsHygiene(() => vaults.data.value ?? []);
-const invalidate = useInvalidate();
 const deploy = useDeployModal();
 const search = ref("");
 const reconciling = ref(false);
@@ -175,39 +166,13 @@ const drift = computed(() =>
       )
     : null,
 );
-const attention = computed(() =>
-  AttentionRules.sort([
-    ...(vitals.data.value ? AttentionRules.fromVitals(vitals.data.value) : []),
-    ...(stats.data.value ? AttentionRules.fromStats(stats.data.value) : []),
-    ...(vaults.data.value ?? []).flatMap((vault) =>
-      AttentionRules.fromVault(vault, hygiene.byVault.value.get(vault.id)),
-    ),
-  ]),
-);
-const attentionIncomplete = computed(() =>
-  Boolean(
-    vitals.error.value ||
-    stats.error.value ||
-    vaults.error.value ||
-    hygiene.errors.value.length,
-  ),
-);
-const attentionLoading = computed(
-  () =>
-    vitals.loading.value ||
-    stats.loading.value ||
-    vaults.loading.value ||
-    hygiene.loading.value,
-);
 const refresh = useRefresh(() =>
   Promise.all([
     products.reload(),
     targets.refetch(),
     vitals.refetch(),
     history.refetch(),
-    stats.refetch(),
     releases.refetch(),
-    invalidate(SecretKeys.vaults),
     ...(target.value ? [state.refetch()] : []),
     ...(target.value ? [topology.refetch()] : []),
     ...(inspected.value?.kind === "deployment" ? [outcome.refetch()] : []),
@@ -411,10 +376,11 @@ function openDeploy(job?: DeploymentJob): void {
               @click="selectProduct(entry)"
             >
               <span class="mb-3 flex items-center gap-2"
-                ><span
-                  class="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-primary"
-                  ><Package :size="16" /></span
-                ><span class="min-w-0 truncate text-sm font-semibold">{{
+                ><ProductIcon
+                  :product-id="entry.registry?.id"
+                  :name="productName(entry)"
+                  size="sm"
+                /><span class="min-w-0 truncate text-sm font-semibold">{{
                   productName(entry)
                 }}</span></span
               >
@@ -490,8 +456,14 @@ function openDeploy(job?: DeploymentJob): void {
                   >
                     Product workspace
                   </p>
-                  <h2 class="text-2xl font-semibold tracking-tight">
-                    {{ productName(product) }}
+                  <h2
+                    class="flex items-center gap-3 text-2xl font-semibold tracking-tight"
+                  >
+                    <ProductIcon
+                      :product-id="product.registry?.id"
+                      :name="productName(product)"
+                      size="lg"
+                    />{{ productName(product) }}
                   </h2>
                   <p class="mt-2 break-all text-xs text-muted-foreground">
                     {{
@@ -855,60 +827,6 @@ function openDeploy(job?: DeploymentJob): void {
               </section>
             </template>
           </template>
-          <section class="rounded-2xl border border-border bg-card p-5">
-            <div class="mb-3 flex items-center justify-between">
-              <h3 class="text-sm font-semibold">Portfolio attention</h3>
-              <span class="text-xs text-muted-foreground">All products</span>
-            </div>
-            <div
-              v-if="attentionLoading && !attention.length"
-              role="status"
-              aria-label="Reading portfolio attention"
-            >
-              <SkeletonState class="h-14 w-full" />
-            </div>
-            <div
-              v-for="item in attention"
-              :key="item.id"
-              class="flex items-start justify-between gap-3 border-t border-border py-3"
-            >
-              <div>
-                <p
-                  class="text-sm font-medium"
-                  :class="
-                    item.tone === 'danger' ? 'text-destructive' : 'text-warning'
-                  "
-                >
-                  {{ item.title }}
-                </p>
-                <p class="mt-1 text-xs text-muted-foreground">
-                  {{ item.detail }}
-                </p>
-              </div>
-              <RouterLink
-                :to="{ path: item.href, query: route.query }"
-                class="shrink-0 text-xs font-medium text-primary"
-                >Open</RouterLink
-              >
-            </div>
-            <p
-              v-if="
-                !attention.length && !attentionLoading && !attentionIncomplete
-              "
-              class="flex items-center gap-2 text-sm text-muted-foreground"
-            >
-              <CheckCircle2 :size="16" class="text-success" />No issues in the
-              available readings.
-            </p>
-            <p
-              v-if="attentionIncomplete"
-              role="status"
-              class="text-xs text-warning"
-            >
-              Some portfolio readings are unavailable; this list may be
-              incomplete.
-            </p>
-          </section>
         </section>
         <aside
           ref="inspectorElement"

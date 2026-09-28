@@ -28,6 +28,7 @@ import { Measures } from '@/domain/common';
 import Panel from '@/presentation/common/components/Panel.vue';
 import LoadState from '@/presentation/common/components/LoadState.vue';
 import PageActions from '@/presentation/common/components/PageActions.vue';
+import PortfolioAttention from '../components/PortfolioAttention.vue';
 import ResourceMeter from '../components/ResourceMeter.vue';
 import TrendLine from '../components/TrendLine.vue';
 import RefreshButton from '@/presentation/common/components/RefreshButton.vue';
@@ -69,6 +70,7 @@ const trendWindow = computed(() => {
       ><RefreshButton size="md" :refreshing="refresh.refreshing.value" @refresh="refresh.refresh"
     /></PageActions
     >
+    <PortfolioAttention />
     <div class="flex flex-wrap items-center justify-between gap-3">
       <p class="text-sm text-muted-foreground">
         {{
