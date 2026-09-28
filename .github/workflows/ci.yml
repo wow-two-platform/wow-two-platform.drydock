@@ -1,0 +1,63 @@
+# Runs every test tier on each push and pull request. The backend build also builds the SPA into wwwroot,
+# which the SPA-serving E2E tests read.
+name: ci
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: engineering/codebase/wheelhouse.frontend-services/.nvmrc
+          cache: npm
+          cache-dependency-path: engineering/codebase/wheelhouse.frontend-services/package-lock.json
+      # Unit, integration, E2E and migration tiers; Testcontainers uses the runner's Docker.
+      - run: dotnet test engineering/codebase/wheelhouse.backend-services/Wheelhouse.BackendServices.slnx
+
+  runner:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pyyaml
+      - run: python -m unittest discover -s engineering/codebase/wheelhouse.runner-services -v
+
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: engineering/codebase/wheelhouse.frontend-services
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: engineering/codebase/wheelhouse.frontend-services/.nvmrc
+          cache: npm
+          cache-dependency-path: engineering/codebase/wheelhouse.frontend-services/package-lock.json
+      - run: npm ci
+      - run: npm test
+      # Type-checks every component, then builds the production bundle.
+      - run: npm run build

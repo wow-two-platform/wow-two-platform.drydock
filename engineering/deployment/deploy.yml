@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=../../../../../conventions/deployment/descriptor/deploy.schema.json
+# Wheelhouse ships like the products it deploys: this descriptor feeds CI, release.py and the runner.
+# Format: wow-two-ws/conventions/deployment/descriptor/deploy-descriptor.md
+descriptor: 1
+product: wheelhouse
+platform: linux/amd64
+shared:
+  - deployment/Dockerfile
+services:
+  console:
+    build:
+      dockerfile: deployment/Dockerfile
+    paths:
+      - codebase/wheelhouse.backend-services/**
+      - codebase/wheelhouse.frontend-services/**
+      - codebase/wheelhouse.runner-services/**
+    health: /api/system/ready
+    memory: 512m
+    settings:
+      required:
+        - ConnectionStrings:Wheelhouse
+        - Identity:GitHub:ClientId
+        - Identity:GitHub:ClientSecret
+        - Identity:AllowedGitHubLogins
+    volumes:
+      keys: /data/keys
+      deployments: /data/deployments
+    needs: [postgres]
+    sites:
+      console: { exposure: private }
