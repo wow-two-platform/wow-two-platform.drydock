@@ -300,7 +300,9 @@ def commits(product, branch):
         detail = item.get("commit") if isinstance(item.get("commit"), dict) else {}
         author = detail.get("author") if isinstance(detail.get("author"), dict) else {}
         message = detail.get("message") if isinstance(detail.get("message"), str) else ""
+        # The permalink is built from the code-owned repository and the validated SHA, never taken from the response.
         result.append({"sha": sha, "message": message.splitlines()[0][:120] if message else "",
                        "author": str(author.get("name") or "")[:80], "date": author.get("date"),
-                       "buildId": built.get(sha)})
+                       "buildId": built.get(sha), "canBuild": source.workflow is not None,
+                       "url": "https://github.com/" + source.repository + "/commit/" + sha})
     return result

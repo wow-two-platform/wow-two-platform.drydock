@@ -7,4 +7,8 @@ export interface CommitEntry {
   date?: string | null;
   /** The catalog ID of the commit's build; null until a build exists. */
   buildId: string | null;
+  /** False when the product has no build workflow, so no build can start; absent from older runners. */
+  canBuild?: boolean | undefined;
+  /** The commit's permalink on GitHub. */
+  url?: string | undefined;
 }

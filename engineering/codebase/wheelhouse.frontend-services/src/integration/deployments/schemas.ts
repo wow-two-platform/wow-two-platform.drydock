@@ -79,6 +79,11 @@ export const CommitEntrySchema = z.object({
   author: z.string(),
   date: nullableText.optional(),
   buildId: z.string().nullable(),
+  canBuild: z.boolean().optional(),
+  url: z
+    .string()
+    .regex(/^https:\/\/github\.com\/[^/]+\/[^/]+\/commit\/[a-f0-9]{40}$/)
+    .optional(),
 });
 export const ServiceLogsSchema = z.object({
   targetId: z.string(),

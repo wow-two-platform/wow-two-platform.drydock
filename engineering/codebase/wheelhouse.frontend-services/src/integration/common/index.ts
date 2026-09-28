@@ -1,5 +1,6 @@
 export {
   clearHttpSession,
+  failureReason,
   request,
   requestData,
   requestEmpty,

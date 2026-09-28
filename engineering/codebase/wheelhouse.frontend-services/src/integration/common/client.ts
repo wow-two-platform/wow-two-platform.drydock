@@ -85,3 +85,24 @@ export function requestEmpty(path: string, options: RequestOptions = {}) {
       : {}),
   });
 }
+
+/**
+ * The reason an operator action was refused, when the management API gives one, else the generic failure text.
+ * The API passes on only the runner's static reasons and contract key names, never values or command output.
+ */
+export function failureReason(
+  error: { readonly message: string } | null | undefined,
+): string {
+  const problem = (
+    error as { readonly problem?: Readonly<Record<string, unknown>> | null } | null | undefined
+  )?.problem;
+  const detail = problem?.["detail"];
+  if (typeof detail === "string") {
+    const text = detail
+      .replace(/[\u0000-\u001f\u007f]/g, "")
+      .replace(/^Deployment (?:rejected|step failed): /, "")
+      .trim();
+    if (text.length > 0 && text.length <= 300) return text;
+  }
+  return error?.message ?? "";
+}

@@ -13,6 +13,7 @@ export interface ReconcileModalProps {
 </script>
 
 <script setup lang="ts">
+import { failureReason } from "@/integration/common";
 import { computed, ref, watch } from "vue";
 
 import { Button } from "@wow-two-beta/ui-vue/presentation/actions";
@@ -73,7 +74,7 @@ async function confirm(): Promise<void> {
     :dismiss-on-escape="!reconcile.loading.value"
     @update:open="close"
   >
-    <AlertModalContent>
+    <AlertModalContent class="flex max-h-[calc(100dvh-2rem)] flex-col">
       <ModalHeader>
         <ModalTitle>Reconcile {{ props.target }}?</ModalTitle>
         <ModalDescription>
@@ -82,7 +83,7 @@ async function confirm(): Promise<void> {
           rollback pointer. Containers and data stay unchanged.
         </ModalDescription>
       </ModalHeader>
-      <ModalBody class="flex flex-col gap-4">
+      <ModalBody class="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 flex flex-col gap-4">
         <p class="text-sm text-muted-foreground">
           Stopped rollout: {{ props.active.release ?? props.active.id }}
           <span v-if="props.active.reason"> · {{ props.active.reason }}</span>
@@ -97,7 +98,7 @@ async function confirm(): Promise<void> {
         <Alert
           v-if="reconcile.error.value"
           severity="danger"
-          :description="reconcile.error.value.message"
+          :description="failureReason(reconcile.error.value)"
         />
       </ModalBody>
       <ModalFooter>

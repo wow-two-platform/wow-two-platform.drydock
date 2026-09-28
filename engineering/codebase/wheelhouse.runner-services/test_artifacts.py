@@ -243,6 +243,13 @@ class CandidateTests(unittest.TestCase):
         self.assertEqual([(self.commit, 'feat: pins', 'foreverpin-ci-7'), ('e' * 40, 'fix: other', None)],
                          [(item['sha'], item['message'], item['buildId']) for item in listed])
 
+    def test_commits_carry_a_permalink_and_whether_a_build_can_start(self):
+        with patch.object(artifacts, 'fetch', side_effect=self.fetch):
+            listed = artifacts.commits('foreverpin', 'main')
+        source = artifacts.source_of('foreverpin')
+        self.assertEqual('https://github.com/' + source.repository + '/commit/' + self.commit, listed[0]['url'])
+        self.assertEqual(source.workflow is not None, listed[0]['canBuild'])
+
     def test_an_unreachable_build_listing_leaves_releases_usable(self):
         def flaky(url):
             if 'actions' in url:

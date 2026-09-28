@@ -62,6 +62,7 @@ import CheckResultList from "./CheckResultList.vue";
 import JobStatusBadge from "./JobStatusBadge.vue";
 import DeploymentSteps from "./DeploymentSteps.vue";
 import TargetSites from "./TargetSites.vue";
+import { failureReason } from "@/integration/common";
 
 /** Renders choose, confirm and follow stages for deploying one complete release bundle. */
 defineOptions({ name: "DeployModal" });
@@ -99,6 +100,10 @@ const buildProduct = () =>
   takesBuilds.value ? (selectedTarget.value?.product ?? null) : null;
 const branches = useProductBranches(buildProduct);
 const commits = useProductCommits(buildProduct, branch);
+/** True when the product has no build workflow: unbuilt commits then offer no Build action. */
+const cannotBuild = computed(() =>
+  (commits.data.value ?? []).some((entry) => entry.canBuild === false),
+);
 const build = useRequestBuild();
 // Local prod always needs the typed target ID; any prod needs it to skip the test pass.
 const typedNeeded = computed(
@@ -256,7 +261,7 @@ function close(open: boolean): void {
     :dismiss-on-escape="!start.loading.value"
     @update:open="close"
   >
-    <ModalContent class="w-full max-w-xl">
+    <ModalContent class="flex max-h-[calc(100dvh-2rem)] w-full max-w-xl flex-col">
       <template v-if="step === 'choose'">
         <ModalHeader>
           <ModalTitle>Deploy a release</ModalTitle>
@@ -265,7 +270,7 @@ function close(open: boolean): void {
             readiness.</ModalDescription
           >
         </ModalHeader>
-        <ModalBody class="flex flex-col gap-4">
+        <ModalBody class="-mx-1 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-1">
           <div
             v-if="targets.loading.value || releases.loading.value"
             class="flex justify-center py-6"
@@ -395,22 +400,41 @@ function close(open: boolean): void {
                 <div v-else-if="commits.loading.value" class="py-2">
                   <Spinner size="sm" label="Reading commits" />
                 </div>
+                <p
+                  v-else-if="cannotBuild"
+                  class="text-xs text-muted-foreground"
+                >
+                  This product has no build workflow, so unbuilt commits cannot be built here.
+                </p>
                 <ul
-                  v-else
+                  v-if="!commits.error.value && !branches.error.value && !commits.loading.value"
                   class="flex flex-col divide-y divide-border"
                   aria-label="Commits"
                 >
                   <li
                     v-for="entry in (commits.data.value ?? []).slice(0, 10)"
                     :key="entry.sha"
-                    class="flex items-center justify-between gap-3 py-2"
+                    class="flex items-center gap-3 py-2"
                   >
-                    <span class="min-w-0 truncate"
-                      ><span class="font-mono">{{ entry.sha.slice(0, 7) }}</span>
-                      <span class="text-muted-foreground">
-                        {{ entry.message }}</span
-                      ></span
-                    >
+                    <span class="flex min-w-0 flex-1 items-baseline gap-2">
+                      <a
+                        v-if="entry.url"
+                        :href="entry.url"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="shrink-0 font-mono text-xs text-primary hover:underline"
+                        :title="`Open ${entry.sha.slice(0, 7)} on GitHub`"
+                        >{{ entry.sha.slice(0, 7) }}</a
+                      >
+                      <span v-else class="shrink-0 font-mono text-xs">{{
+                        entry.sha.slice(0, 7)
+                      }}</span>
+                      <span
+                        class="min-w-0 truncate text-muted-foreground"
+                        :title="entry.message"
+                        >{{ entry.message }}</span
+                      >
+                    </span>
                     <Button
                       v-if="entry.buildId"
                       size="sm"
@@ -420,7 +444,7 @@ function close(open: boolean): void {
                       >Use build</Button
                     >
                     <Button
-                      v-else
+                      v-else-if="entry.canBuild !== false"
                       size="sm"
                       variant="soft"
                       tone="primary"
@@ -437,7 +461,7 @@ function close(open: boolean): void {
                   v-if="build.error.value"
                   severity="danger"
                   title="Build refused"
-                  :description="build.error.value.message"
+                  :description="failureReason(build.error.value)"
                 />
                 <p v-else-if="requested" class="text-xs text-muted-foreground">
                   The build joins the release list when its workflow finishes.
@@ -448,7 +472,7 @@ function close(open: boolean): void {
               v-if="check.error.value"
               severity="danger"
               title="Check unavailable"
-              :description="check.error.value.message"
+              :description="failureReason(check.error.value)"
             />
             <div
               v-if="readiness"
@@ -496,7 +520,7 @@ function close(open: boolean): void {
             window.
           </ModalDescription>
         </ModalHeader>
-        <ModalBody class="flex flex-col gap-4">
+        <ModalBody class="-mx-1 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-1">
           <dl
             class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-3 rounded-xl border border-border p-4 text-sm"
           >
@@ -542,7 +566,7 @@ function close(open: boolean): void {
             v-if="start.error.value"
             severity="danger"
             title="Deployment refused"
-            :description="start.error.value.message"
+            :description="failureReason(start.error.value)"
           />
         </ModalBody>
         <ModalFooter>
@@ -580,7 +604,7 @@ function close(open: boolean): void {
             outcome.</ModalDescription
           >
         </ModalHeader>
-        <ModalBody class="flex flex-col gap-4">
+        <ModalBody class="-mx-1 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-1">
           <div
             role="status"
             class="flex flex-col gap-3 rounded-xl border border-border p-4"
