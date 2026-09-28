@@ -204,6 +204,7 @@ every settings file and the target's lock state; each failure names the rule or 
 | `GET /api/audit/verification` | Whether every stored audit entry and link still verifies |
 | `GET /api/deployments/vitals` | Every target's host load, memory, disks, uptime and containers, read in parallel |
 | `GET /api/deployments/stats?days=30` | Outcomes, success rate, median rollout and recovery, deploys per UTC day (1–90 days) |
+| `GET /api/deployments/vitals/history?hours=24&target=` | Stored readings of the last 1–720 hours, oldest first, for one target or all |
 | `GET /api/vaults/{vault}/hygiene` | Secrets and product tokens due for rotation; metadata only |
 
 - A lost SSH response is an unknown outcome; inspect target state before retrying.
@@ -212,6 +213,8 @@ every settings file and the target's lock state; each failure names the rule or 
 - Reconciling records who acknowledged the rollout under `<inventory>/reconciled/`.
 
 The API reads its runner settings from the `Deployment` section: `TransportPath`, `Root`, `Python` and `GitHubTokenFile`.
+A background sampler reads every target's vitals each `Operations:VitalsSampleMinutes` (default 5; 0 turns it off),
+stores load, memory, the fullest disk and container health in `vitals_samples`, and deletes readings older than 30 days.
 
 ## Rollout steps
 

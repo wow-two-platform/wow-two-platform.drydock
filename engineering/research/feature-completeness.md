@@ -29,7 +29,7 @@ and 25.
 | Domains | Site hosts per target (named or pattern); `ManagedDomain` placeholder entity | Inventory, registrar sync, DNS plan and apply, expiry tracking, preview wildcard |
 | Portfolio | Product create, edit and delete (slug, name, repository, status) in the database | One product catalog, lifecycle actions, cost, capacity, onboarding |
 | Service map | Per-target map: services, networks, volumes, dependencies, container vitals, sites, platform needs, versions; environments compared with promotion | Host view, portfolio matrix |
-| Operations | On-demand host and container vitals, 30-day deploy metrics, one attention list, service log reads, an ingress check | Vitals history, alerts, notifications, uptime probes |
+| Operations | Host and container vitals with 30 days of trends, 30-day deploy metrics, one attention list, service log reads, an ingress check | Alerts, notifications, uptime probes |
 | Wheelhouse itself | Production image, CI on every push, its own `deploy.yml` and release workflow, the audit trail | A host, bootstrap, self-deploy, backups |
 
 ---
@@ -142,7 +142,7 @@ hand-placed settings files and a manual database. At the portfolio's target of 5
 | Step log | Built in v0.3: each step's status, detail and timing in the job record; the dialog and inspector show them |
 | Ingress probe | Built in v0.3: every site requested through the ingress by host name; a site that does not answer is a warning |
 | Log tail | Built in v0.3: one service's last 1-1000 lines, read on request, never stored |
-| Vitals history | A sampler keeps 30 days of host and container vitals |
+| Vitals history | Built in v0.3: a sampler keeps 30 days of per-target readings; the Fleet page draws trends |
 | Alerts | Site down, disk above 85%, backup older than 26 hours, domain or certificate expiring, failed deploy |
 | Notifications | Alerts and deploy outcomes to one channel |
 | Image cleanup | A scheduled job deletes `sha-*` candidate images older than 14 days |
@@ -192,7 +192,7 @@ Placement options:
 | S10 | Settings files on a VPS are placed by hand | Target settings are host paths | Secrets |
 | S11 | Pausing or removing an environment needs SSH | `rehearse.py down` covers only the local server | Topology |
 | S12 | No log view; diagnosing a failed deploy needs SSH | No log action in the runner | v0.3 ✓ |
-| S13 | Vitals are read on demand and nothing alerts | Backlog Hosting rows | Operations |
+| S13 | Vitals were read on demand only, and nothing alerts | History built in v0.3; alerts wait on Point 6 | Operations |
 | S14 | Candidate images accumulate | The 14-day `sha-*` cleanup is specified, not built | Operations |
 | S15 | Placeholder tables and the single-image version query remain | Backlog Cleanup | Foundation |
 | S16 | Product docs predate environments, sites, commit builds and the prod gate | `features.md`, `flows.md`, `context.md` | v0.3 ✓ |
@@ -200,7 +200,7 @@ Placement options:
 | S18 | Local console sign-in is still open | v0.3 Iteration 5: a second OAuth app for `:18210` | v0.3 |
 | S19 | Targets never removed images, so every release and candidate pull stayed on disk | No `docker image rm` anywhere in the runner | v0.3 ✓ |
 | S20 | Product writes skip the `X-Wheelhouse-Action` guard every other write carries | `ProductsController` POST/PUT/DELETE | After Point 1 |
-| S21 | Releases and candidates are visible only inside the deploy dialog | No catalog view with per-service versions | Portfolio and map |
+| S21 | Releases and candidates were visible only inside the deploy dialog | No catalog view | v0.3 ✓ |
 | S22 | The target check never looked at the ingress, so a stopped Traefik passed | `check` covered SSH, Docker, disk, network, settings | v0.3 ✓ |
 | S23 | No browser tests: every UI flow is verified by hand | Frontend tests cover schemas and pure rules only | Adoption version |
 | S24 | Frontend schemas mirror API shapes by hand; nothing catches a drift | Zod schemas beside C# DTOs, no contract test | Adoption version |
@@ -221,7 +221,7 @@ to the SDKs, so each wave below takes the next odd version when it opens.
 | Secrets | Settings rendering, deploy-time tokens, SDK vault consumer, expiring tokens, required-secret preflight, credentials at rest, SSH key rotation, GitHub App | Points 2, 3, 9 |
 | Domains | Inventory and registrar sync, DNS plan and apply, preview wildcard, certificate and domain expiry, pinned domains | Points 4, 5; topology point 25 |
 | Portfolio and map | Service map sites, needs and versions plus environment compare: done in v0.3. Left: portfolio matrix, release catalog, lifecycle actions, cost, capacity view, onboarding, host view | Point 1 |
-| Operations | Vitals history, alerts, notifications, an audit checkpoint, candidate image cleanup | Point 6 |
+| Operations | Vitals history: done in v0.3. Left: alerts, notifications, an audit checkpoint, candidate image cleanup | Point 6 |
 | Live | Control host, Tailscale, OAuth app, bootstrap, self-deploy, first product host, ForeverPin live | Points 7, 8 |
 
 The next version, v0.4, is the Adoption version for v0.3: its stable blocks (the vault admin client, the action-header

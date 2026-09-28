@@ -12,8 +12,7 @@ Deferred work; top of each group = next. Version docs hold only the active versi
 | Choose the shared preview domain for dev and test hosts | check | Topology point 25; one wildcard DNS record per environment |
 | Start and stop an environment from Wheelhouse | feature | Topology point 15; `compose stop/start` under the target lock |
 | Encrypted off-provider backups with a restore drill | feature | Product databases, key volumes, Wheelhouse state; decryption keys held off-host |
-| Keep 30 days of vitals history | feature | A sampler beside the on-demand read; feeds trends and alerts |
-| Uptime, backup-age and disk alerts | feature | Needs the history sampler; external probe of a real redirect; channel alerts |
+| Uptime, backup-age and disk alerts | feature | The vitals sampler exists; needs the alert channel (completeness Point 6) and an external probe |
 | Host Wheelhouse privately and let it deploy itself | feature | CI and its release workflow exist; needs a control host (completeness Point 7) |
 | Rehearse Wheelhouse deploying itself on the local server | feature | A `wheelhouse-dev` target; replaces `rehearse.py console`; needs the console OAuth app |
 
@@ -39,7 +38,7 @@ Deferred work; top of each group = next. Version docs hold only the active versi
 | Show each service's version inside every product | feature | Haven shows its build version beside the logo; adopt across products |
 | Deploy a branch to its own temporary dev environment | feature | Topology point 17; from a code-owned template; later PR previews |
 | Browse releases older than the recent catalog | feature | The target journal already retains deployed bundles |
-| Release catalog view with per-service versions | feature | Releases and candidates show only inside the deploy dialog today |
+| Per-service versions in the release catalog | feature | The catalog lists releases; versions need each bundle's manifest |
 | Delete `sha-*` candidate images older than 14 days | feature | A scheduled workflow per product; the descriptor convention names it |
 | Notify deploy outcomes and alerts | feature | Needs the alert channel (completeness Point 6) |
 | Signed provenance for release bundles | feature | Attestation check before selection |
