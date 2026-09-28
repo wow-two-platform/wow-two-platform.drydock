@@ -183,7 +183,7 @@ async function revoke(): Promise<void> {
     </LoadState>
     <MintTokenModal :vault="vault" :ns="ns" v-model:open="minting" />
     <AlertModal :open="revoking !== null" @update:open="closeRevoke">
-      <AlertModalContent>
+      <AlertModalContent class="flex max-h-[calc(100dvh-2rem)] flex-col">
         <ModalHeader>
           <ModalTitle>Revoke {{ revoking?.name }}?</ModalTitle>
           <ModalDescription>
@@ -191,7 +191,7 @@ async function revoke(): Promise<void> {
             until they restart.
           </ModalDescription>
         </ModalHeader>
-        <ModalBody v-if="changeError"
+        <ModalBody class="-mx-1 min-h-0 flex-1 overflow-y-auto px-1" v-if="changeError"
           ><Alert severity="danger" :description="changeError.message"
         /></ModalBody>
         <ModalFooter>
