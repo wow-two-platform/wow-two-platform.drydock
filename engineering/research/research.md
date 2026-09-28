@@ -11,5 +11,6 @@ Technical research dumps — spikes, comparisons, deep-dives that inform the bui
 - [Deployment topology](deployment-topology.md) — platform services, networks, volumes, site links and dev/test/prod environments.
 - [Feature completeness](feature-completeness.md) — the five vectors, reliability, shipping Wheelhouse and a product sweep.
 - [Next versions](next-versions.md) — version position, close-out, the Adoption inventory and the Feature waves after it.
+- [Design philosophy](design-philosophy.md) — principles, the portfolio and product layout, vocabulary and a short roadmap.
 
 Future topics: deploy substrate (bespoke Docker+Traefik+SSH.NET vs Coolify), registrar API comparison (Porkbun vs Namecheap), Hetzner Cloud provisioning + cloud-init.

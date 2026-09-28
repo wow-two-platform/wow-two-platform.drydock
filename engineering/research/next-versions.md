@@ -17,7 +17,7 @@ only when the developer opens that version. Feature waves and decision Points li
 | Suites | Backend 208 (81 unit, 11 integration, 114 E2E, 2 migrations), frontend 74, runner 157: all green |
 | Repository | `main` is 47 commits ahead of `origin`; CI has never run on GitHub; the remote is still `drydock` and public |
 | Backend SDK | Pinned `10.0.40-beta`; `10.0.59-beta` is published; its repository holds 103 unpushed commits |
-| UI SDK | Pinned `@wow-two-beta/ui-vue@0.0.7`, the latest published; its repository holds 73 unpushed commits, `CanvasArea` among them |
+| UI SDK | Pinned `@wow-two-beta/ui-vue@0.0.7`, the latest published; its repository holds 75 unpushed commits: `CanvasArea`, skeleton slots, the region-scrolling shell and the label-keeping loading button among them |
 | Dependency audit | Backend: 5 packages with high and 4 with moderate advisories, all transitive; frontend runtime: none |
 
 The version docs matched the code except for the Studio workspace, the base service map and the sidebar lines the
@@ -51,10 +51,12 @@ has it, or will once published), **extract** (build it in the SDK from Wheelhous
 |---|---|---|---|
 | Re-pin | `@wow-two-beta/ui-vue@0.0.7` | The next `0.0.y` release | adopt: sweep its renames |
 | Canvas | `presentation/common/components/canvasArea/` copy | `CanvasArea` in `presentation/layout` | adopt: delete the copy |
+| Loading | `common/components/skeleton/` copies, `RefreshButton` | `SkeletonStateSlot` / `Group`, `useRefresh`, `Button` `isLoading` | adopt: delete the copies |
+| Frame | Hand-built region-scrolling `AppLayout.vue` | `AppShell` (`scroll: 'region'`) + horizontal `Navbar` | adopt |
 | Theme choice | Plain menu items with a check | `MenuRadioGroup` / `MenuRadioItem` (in source) | adopt |
 | Trends | `fleet/components/TrendLine.vue` | `Sparkline` | adopt |
 | Resource bars | `fleet/components/ResourceMeter.vue` | `MeterBar` | adopt |
-| Refresh state | `application/common/useRefresh.ts` | A query-layer refresh flag | extract |
+| Refresh state | `application/common/useRefresh.ts` | `useRefresh` in `query` (in source) | adopt |
 | Log reading | `deployments/components/ServiceLogsModal.vue` | A `LogViewer` display | extract |
 | Header actions | `common/components/PageActions.vue` portal | An `AppShell` page-actions slot | extract |
 | Sticky table head | `common/components/TableStyles.ts` | A `Table` sticky-header option | extract |

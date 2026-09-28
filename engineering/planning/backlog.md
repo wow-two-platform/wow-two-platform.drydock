@@ -103,6 +103,10 @@ SDK-wide follow-up ownership is independent of this migration; the original obse
 | Retire the single-image version-status query | issue | Replaced by the published artifact catalog |
 | Extract the vault admin client to the backend SDK | check | After `v0.3` proves it |
 | Swap the canvas copy for the SDK's `CanvasArea` | check | `presentation/common/components/canvasArea` copies the unreleased SDK part; delete after the re-pin |
+| Swap the skeleton copies and `RefreshButton` internals for the SDK's | check | `common/components/skeleton` copies `SkeletonStateSlot`/`Group`; `RefreshButton` becomes `Button` `isLoading` |
+| Move the frame onto the SDK `AppShell` and `Navbar` | check | `AppLayout.vue` hand-builds the region-scrolling frame the SDK now ships |
+| Shape-keeping first loads on the remaining pages | feature | Workspace, Deployments, Servers, Products and Activity still show block skeletons on a first load |
+| Rename the runner's `fleet.py` and `rehearse.py` | check | The screen says Servers and local server; do it with the product catalog split (Point 1) |
 | Stamp applied migrations with the product version | issue | `MigrationOptions.Version` keeps the SDK default `v1.0` |
 | Clear the transitive backend package advisories | issue | Five high, four moderate; they arrive through the backend SDK at `10.0.40-beta` |
 
