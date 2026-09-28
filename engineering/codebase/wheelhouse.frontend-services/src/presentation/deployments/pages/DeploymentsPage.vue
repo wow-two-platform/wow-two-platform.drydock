@@ -16,6 +16,7 @@ import DeployModal from "../components/DeployModal.vue";
 import DeploymentStatsPanel from "../components/DeploymentStatsPanel.vue";
 import HistoryTable from "../components/HistoryTable.vue";
 import HistoryTableSkeleton from "../components/HistoryTableSkeleton.vue";
+import ReleaseCatalogPanel from "../components/ReleaseCatalogPanel.vue";
 import TargetsPanel from "../components/TargetsPanel.vue";
 import { useDeployModal } from "../hooks/useDeployModal";
 
@@ -70,6 +71,9 @@ function redeploy(job: DeploymentJob): void {
         />
       </LoadState>
     </Panel>
+    <ReleaseCatalogPanel
+      @deploy="deploy.openDeploy({ target: '', release: $event })"
+    />
     <DeploymentStatsPanel show-targets />
     <DeployModal
       :key="deploy.session.value"
