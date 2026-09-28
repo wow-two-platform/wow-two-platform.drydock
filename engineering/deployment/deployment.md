@@ -276,6 +276,7 @@ python3 rehearse.py deploy --env test --tag v0.0.1-local.1
 python3 rehearse.py deploy --env prod --tag v0.0.1-local.1 --confirm foreverpin-prod
 python3 rehearse.py bundle --tag v0.0.1-broken.1 --broken     # a release that fails after replacement
 python3 rehearse.py state --env dev
+python3 rehearse.py self                                      # Wheelhouse builds and deploys itself to wheelhouse-dev
 python3 rehearse.py down --volumes
 ```
 
@@ -288,6 +289,9 @@ python3 rehearse.py down --volumes
 - The server generates its own SSH and vault keys under `rehearsal/state/` (ignored by Git) and pins the host key it generated.
 - Each environment gets its own database (`foreverpin_<environment>`) and settings folder (`state/secrets/<environment>/`).
 - Point a local API at the inventory with `WHEELHOUSE_REHEARSAL=1`, `Deployment__Root` and `Deployment__TransportPath`.
+- `self` builds Wheelhouse's image and bundle from this checkout with `release.py` and deploys it to `wheelhouse-dev`.
+- Its private `console` site answers at `http://console-wheelhouse.dev.localhost:18080`, on database `wheelhouse_dev`.
+- Sign-in there needs a GitHub OAuth app in `state/secrets/dev/wheelhouse-console.json`; the file starts with placeholders.
 
 ### From an IDE
 

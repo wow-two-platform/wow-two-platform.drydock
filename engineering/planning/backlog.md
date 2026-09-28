@@ -14,7 +14,7 @@ Deferred work; top of each group = next. Version docs hold only the active versi
 | Encrypted off-provider backups with a restore drill | feature | Product databases, key volumes, Wheelhouse state; decryption keys held off-host |
 | Uptime, backup-age and disk alerts | feature | The vitals sampler exists; needs the alert channel (completeness Point 6) and an external probe |
 | Host Wheelhouse privately and let it deploy itself | feature | CI and its release workflow exist; needs a control host (completeness Point 7) |
-| Rehearse Wheelhouse deploying itself on the local server | feature | A `wheelhouse-dev` target; replaces `rehearse.py console`; needs the console OAuth app |
+| Retire `rehearse.py console` for the self-deployed console | check | `rehearse.py self` deploys Wheelhouse to `wheelhouse-dev`; it needs an OAuth app and the inventory mount to manage targets |
 
 ---
 

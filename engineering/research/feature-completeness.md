@@ -30,7 +30,7 @@ and 25.
 | Portfolio | Product create, edit and delete (slug, name, repository, status) in the database | One product catalog, lifecycle actions, cost, capacity, onboarding |
 | Service map | Per-target map: services, networks, volumes, dependencies, container vitals, sites, platform needs, versions; environments compared with promotion | Host view, portfolio matrix |
 | Operations | Host and container vitals with 30 days of trends, 30-day deploy metrics, one attention list, service log reads, an ingress check | Alerts, notifications, uptime probes |
-| Wheelhouse itself | Production image, CI on every push, its own `deploy.yml` and release workflow, the audit trail | A host, bootstrap, self-deploy, backups |
+| Wheelhouse itself | Production image, CI on every push, its own `deploy.yml` and release workflow, the audit trail, a local self-deploy | A host, bootstrap, backups |
 
 ---
 
@@ -165,7 +165,7 @@ Wheelhouse ships like a product: a catalog entry, a `deploy.yml`, candidate and 
 | Updates | Wheelhouse deploys its own releases; the target-side runner completes while the container is replaced |
 | Break-glass | The laptop keeps the operator CLI and an inventory copy; it deploys or rolls back Wheelhouse and every product |
 | Backups | A nightly encrypted dump of Wheelhouse's database plus the inventory and key volumes, off-provider |
-| Local rehearsal | The local server gets a `wheelhouse-dev` target; Wheelhouse deploys Wheelhouse, replacing `rehearse.py console` |
+| Local rehearsal | Built in v0.3: `rehearse.py self` builds Wheelhouse with `release.py` and deploys it to `wheelhouse-dev` |
 | Production settings | `AllowedHosts` names the tailnet host; `Deployment:TrustedProxies` names the address `tailscale serve` connects from, so OAuth callbacks keep `https` |
 
 Placement options:
