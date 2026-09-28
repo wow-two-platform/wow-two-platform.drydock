@@ -7,7 +7,7 @@ export interface AppLayoutProps {
 }
 </script>
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, useTemplateRef, watch } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import { Ship } from 'lucide-vue-next';
 import { Badge } from '@wow-two-beta/ui-vue/presentation/display';
@@ -25,15 +25,25 @@ const route = useRoute();
 const system = useApiConnection();
 const theme = useColorScheme();
 const current = computed(() => AppPlaces.find((place) => place.path === route.path));
+const consoleVersion = __APP_VERSION__;
+const mainElement = useTemplateRef<HTMLElement>('main');
+
+/** The main region is the scroll container, so a new page starts at its top. */
+watch(
+  () => route.path,
+  () => mainElement.value?.scrollTo({ top: 0 }),
+);
 </script>
 <template>
-  <div class="wh-ambient min-h-svh text-foreground">
+  <!-- The frame owns the viewport: the header spans the full window and only the main region scrolls, so no
+       platform scrollbar ever cuts the header short. -->
+  <div class="wh-ambient flex h-dvh flex-col overflow-hidden text-foreground">
     <a
       href="#main-content"
       class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-card focus:p-3"
       >Skip to content</a
     >
-    <header class="wh-glass wh-glass-navigation sticky top-0 z-30 border-b">
+    <header class="wh-glass wh-glass-navigation relative z-30 shrink-0 border-b">
       <div class="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-7 px-4 sm:px-6 xl:px-8">
         <RouterLink
           :to="{ path: '/', query: route.query }"
@@ -44,6 +54,11 @@ const current = computed(() => AppPlaces.find((place) => place.path === route.pa
             ><Ship :size="21"
           /></span>
           <span class="text-lg">Wheelhouse</span>
+          <span
+            class="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[11px] font-medium text-muted-foreground"
+            :title="`Console ${consoleVersion}`"
+            >v{{ consoleVersion }}</span
+          >
         </RouterLink>
         <nav
           aria-label="Primary navigation"
@@ -78,15 +93,22 @@ const current = computed(() => AppPlaces.find((place) => place.path === route.pa
         </div>
       </div>
     </header>
-    <main id="main-content" class="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:py-8 xl:px-8">
-      <header class="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 class="text-2xl font-semibold tracking-tight">{{ current?.label }}</h1>
-          <p class="mt-1 text-sm text-muted-foreground">{{ current?.description }}</p>
-        </div>
-        <div id="page-actions" class="flex flex-wrap items-center gap-2 empty:hidden" />
-      </header>
-      <slot />
+    <main
+      id="main-content"
+      ref="main"
+      tabindex="-1"
+      class="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable] focus:outline-none"
+    >
+      <div class="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:py-8 xl:px-8">
+        <header class="mb-6 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h1 class="text-2xl font-semibold tracking-tight">{{ current?.label }}</h1>
+            <p class="mt-1 text-sm text-muted-foreground">{{ current?.description }}</p>
+          </div>
+          <div id="page-actions" class="flex flex-wrap items-center gap-2 empty:hidden" />
+        </header>
+        <slot />
+      </div>
     </main>
   </div>
 </template>

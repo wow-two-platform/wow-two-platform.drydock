@@ -220,9 +220,10 @@ body,
   height: 100%;
 }
 
-/* A panel opening or closing never resizes the page by adding or removing the scrollbar. */
+/* The frame's main region scrolls (and reserves its own gutter); the document never does, so the canvas only
+   needs the page color for overscroll and the first paint. */
 html {
-  scrollbar-gutter: stable;
+  background-color: var(--color-background);
 }
 
 body {
