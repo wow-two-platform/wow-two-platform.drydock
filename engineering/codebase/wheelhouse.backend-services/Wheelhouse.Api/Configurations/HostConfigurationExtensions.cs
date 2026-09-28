@@ -81,6 +81,15 @@ public static class HostConfigurationExtensions
 
         // The integration clients read the signed-in admin's OAuth token off the current request.
         builder.Services.AddHttpContextAccessTokenProvider();
+        builder.Services.AddMemoryCache();
+        builder.Services.AddHttpClient(Wheelhouse.Infrastructure.Products.GitHubProductIconSource.ClientName, client =>
+        {
+            client.BaseAddress = new Uri("https://api.github.com/");
+            client.Timeout = TimeSpan.FromSeconds(10);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("Wheelhouse");
+            client.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
+        });
+        builder.Services.AddScoped<IProductIconSource, Wheelhouse.Infrastructure.Products.GitHubProductIconSource>();
         builder.Services.AddGitHubIntegration();
         builder.Services.AddGhcrIntegration();
 

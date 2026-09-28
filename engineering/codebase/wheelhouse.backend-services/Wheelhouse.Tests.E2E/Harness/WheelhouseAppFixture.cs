@@ -41,6 +41,9 @@ public sealed class WheelhouseAppFixture : IAsyncLifetime
     /// <summary>The shared vault stub — records the last change so tests can assert what Wheelhouse forwarded.</summary>
     public StubVaultGateway Vaults { get; } = new();
 
+    /// <summary>The shared icon stub — add a repository's icon to <see cref="StubProductIconSource.Icons"/> to serve it.</summary>
+    public StubProductIconSource ProductIcons { get; } = new();
+
     /// <summary>A fresh anonymous client (no admin header) — protected endpoints return 401.</summary>
     public HttpClient CreateAnonymousClient() => Host.CreateClient();
 
@@ -89,6 +92,10 @@ public sealed class WheelhouseAppFixture : IAsyncLifetime
                 // Replace the real GHCR client with the shared stub (no registry network calls).
                 services.RemoveAll<IContainerRegistryClient>();
                 services.AddSingleton<IContainerRegistryClient>(Registry);
+
+                // Product icons come from the stub, never from GitHub.
+                services.RemoveAll<Wheelhouse.Application.Abstractions.IProductIconSource>();
+                services.AddSingleton<Wheelhouse.Application.Abstractions.IProductIconSource>(ProductIcons);
             },
         };
 

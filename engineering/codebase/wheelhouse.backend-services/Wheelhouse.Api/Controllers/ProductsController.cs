@@ -5,6 +5,7 @@ using Wheelhouse.Application.Products.Commands.ProductUpdate;
 using Wheelhouse.Application.Products.Models;
 using Wheelhouse.Application.Products.Queries.ProductGetAll;
 using Wheelhouse.Application.Products.Queries.ProductGetById;
+using Wheelhouse.Application.Products.Queries.ProductIcon;
 using Wheelhouse.Application.Products.Queries.ProductVersionStatus;
 using WoW.Two.Sdk.Backend.Beta.Web.Contracts;
 using Microsoft.AspNetCore.Mvc;
@@ -54,6 +55,26 @@ public sealed class ProductsController(ISender sender, IErrorHttpStatusCodeMappe
 
         return result.Match<IActionResult>(
             ok => Ok(ApiResponse<ProductVersionDto>.Ok(ok.Data.Version)),
+            fail => Problem(detail: fail.Error.Message, statusCode: errorMapper.ToStatusCode(fail.Error)));
+    }
+
+    /// <summary>Gets the icon a product's repository carries; not found when it carries none.</summary>
+    [HttpGet("{id:guid}/icon")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetIcon(Guid id, CancellationToken ct)
+    {
+        var result = await sender.SendAsync(new ProductIconQuery(id), ct);
+
+        return result.Match<IActionResult>(
+            ok =>
+            {
+                Response.Headers.CacheControl = "private, max-age=3600";
+                Response.Headers.XContentTypeOptions = "nosniff";
+                // An <img> ignores the disposition; opening the URL on its own downloads the file instead of
+                // rendering it, so an SVG from a repository can never run script on this origin.
+                return File(ok.Data.Content, ok.Data.ContentType, "icon" + Path.GetExtension(ok.Data.Path));
+            },
             fail => Problem(detail: fail.Error.Message, statusCode: errorMapper.ToStatusCode(fail.Error)));
     }
 
