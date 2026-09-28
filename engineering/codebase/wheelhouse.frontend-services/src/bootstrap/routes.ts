@@ -8,7 +8,7 @@ export const AppPlaces = [
     label: 'Deployments',
     description: 'Published releases, readiness checks, and rollout outcomes.',
   },
-  { path: '/fleet', label: 'Fleet', description: 'Your hosts and services, with current resource readings.' },
+  { path: '/servers', label: 'Servers', description: 'Your servers and their services, with current resource readings.' },
   { path: '/secrets', label: 'Secrets', description: 'Vault namespaces, write-only secrets, and product tokens.' },
   { path: '/products', label: 'Products', description: 'The registry behind your portfolio.' },
   { path: '/activity', label: 'Activity', description: 'Every operator action, chained so an edited entry shows.' },
@@ -20,7 +20,8 @@ export const router = createRouter({
   routes: [
     { path: '/', component: () => import('@/presentation/workspace/WorkspacePage.vue') },
     { path: '/deployments', component: () => import('@/presentation/deployments/pages/DeploymentsPage.vue') },
-    { path: '/fleet', component: () => import('@/presentation/fleet/pages/FleetPage.vue') },
+    { path: '/servers', component: () => import('@/presentation/servers/pages/ServersPage.vue') },
+    { path: '/fleet', redirect: (to) => ({ path: '/servers', query: to.query }) },
     { path: '/secrets', component: () => import('@/presentation/secrets/pages/SecretsPage.vue') },
     { path: '/products', component: () => import('@/presentation/products/pages/ProductsPage.vue') },
     { path: '/activity', component: () => import('@/presentation/audit/pages/ActivityPage.vue') },

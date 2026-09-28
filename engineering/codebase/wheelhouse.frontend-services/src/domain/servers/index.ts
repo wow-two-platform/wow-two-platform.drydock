@@ -1,11 +1,11 @@
-/** Providers implemented by the code-owned fleet catalog; adding one requires code. */
+/** Providers implemented by the code-owned server catalog; adding one requires code. */
 export const VpsProvider = {
   Hetzner: 'Hetzner',
   Local: 'Local',
 } as const;
 export type VpsProvider = (typeof VpsProvider)[keyof typeof VpsProvider];
 
-/** A host defined in the fleet catalog. */
+/** A server defined in the code-owned catalog. */
 export interface Server {
   id: string;
   name: string;
@@ -15,6 +15,6 @@ export interface Server {
   sshUser: string;
 }
 
-export type { ContainerVitals, DiskUsage, FleetVitals, HostVitals, TargetVitals } from './models/FleetVitals';
+export type { ContainerVitals, DiskUsage, ServerVitals, HostVitals, TargetVitals } from './models/ServerVitals';
 export { TrendRanges, hostTrend, type TrendPoint, type TrendRange, type VitalsSample } from './models/VitalsSample';
-export { FleetExtensions, RESTART_WARNING, USAGE_THRESHOLDS, type ContainerTone } from './FleetExtensions';
+export { ServerExtensions, RESTART_WARNING, USAGE_THRESHOLDS, type ContainerTone } from './ServerExtensions';

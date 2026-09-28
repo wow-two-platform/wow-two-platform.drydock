@@ -11,13 +11,13 @@ const bundle = await build({
       export { deploymentsApi } from './src/integration/deployments';
       export { authApi } from './src/integration/auth';
       export { secretsApi } from './src/integration/secrets';
-      export { fleetApi } from './src/integration/fleet';
+      export { serversApi } from './src/integration/servers';
       export { auditApi } from './src/integration/audit';
       export { AuditArea, AuditExtensions } from './src/domain/audit';
       export { compareEnvironments } from './src/domain/deployments/EnvironmentComparison';
-      export { hostTrend } from './src/domain/fleet/models/VitalsSample';
+      export { hostTrend } from './src/domain/servers/models/VitalsSample';
       export { clearHttpSession } from './src/integration/common';
-      export { useFleetVitals } from './src/application/fleet/useFleetVitals';
+      export { useServerVitals } from './src/application/servers/useServerVitals';
       export { queryClient, queryPlugin } from './src/bootstrap/query';
       export { createRenderer, nextTick } from 'vue';
     `,
@@ -34,14 +34,14 @@ const {
   deploymentsApi,
   authApi,
   secretsApi,
-  fleetApi,
+  serversApi,
   auditApi,
   AuditArea,
   AuditExtensions,
   compareEnvironments,
   hostTrend,
   clearHttpSession,
-  useFleetVitals,
+  useServerVitals,
   queryClient,
   queryPlugin,
   createRenderer,
@@ -324,7 +324,7 @@ test("reads vitals history and traces one server's host figures from its first t
       sample("other-prod", "vps", "2026-09-28T10:10:00Z", 10),
     ] });
   };
-  const result = await fleetApi.getVitalsHistory(24);
+  const result = await serversApi.getVitalsHistory(24);
   assert.equal(requested, "/api/deployments/vitals/history?hours=24");
   assert.deepEqual(hostTrend(result.value, "local", "memoryPercent").map((point) => point.value), [50, 70]);
   assert.deepEqual(hostTrend(result.value, "vps", "diskPercent").map((point) => point.value), [40]);
@@ -415,7 +415,7 @@ test("accepts unavailable targets and nullable host metrics without inventing he
     ],
   };
   globalThis.fetch = async () => json({ data: snapshot });
-  const result = await fleetApi.getVitals();
+  const result = await serversApi.getVitals();
   assert.equal(result.ok, true);
   assert.deepEqual(result.value, snapshot);
 });
@@ -443,7 +443,7 @@ test("cancels pending private data across logout even when the transport resolve
   settle(json({ data: [product] }));
 });
 
-test("fleet polling preserves an in-flight snapshot and stops after the last panel unmounts", async () => {
+test("server vitals polling preserves an in-flight snapshot and stops after the last panel unmounts", async () => {
   const originalInterval = globalThis.setInterval;
   const originalClearInterval = globalThis.clearInterval;
   const originalDocument = Object.getOwnPropertyDescriptor(
@@ -484,12 +484,12 @@ test("fleet polling preserves an in-flight snapshot and stops after the last pan
       new Promise((settle) =>
         requests.push({ signal: options.signal, settle }),
       );
-    queryClient.setQueryData(["fleet", "vitals"], snapshot);
+    queryClient.setQueryData(["servers", "vitals"], snapshot);
     let vitals;
     for (let index = 0; index < 2; index++) {
       const app = renderer.createApp({
         setup() {
-          vitals = useFleetVitals();
+          vitals = useServerVitals();
           return () => null;
         },
       });

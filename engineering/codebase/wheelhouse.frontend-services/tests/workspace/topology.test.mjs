@@ -10,6 +10,7 @@ const bundle = await build({
     contents: `
       export { buildServiceMapLayout } from './src/presentation/workspace/serviceMap/ServiceMapLayout';
       export { describeServiceObservation } from './src/presentation/workspace/serviceMap/ServiceObservation';
+      export { describeServiceVersion } from './src/presentation/workspace/serviceMap/ServiceVersion';
       export { ServiceTopologySchema } from './src/integration/topology/schemas';
       export { topologyApi } from './src/integration/topology';
       export { useTargetTopology, TopologyKeys } from './src/application/topology';
@@ -47,6 +48,7 @@ const bundle = await build({
 const {
   buildServiceMapLayout,
   describeServiceObservation,
+  describeServiceVersion,
   ServiceTopologySchema,
   topologyApi,
   useTargetTopology,
@@ -485,4 +487,15 @@ test("schema defaults release facts for an older runner and refuses a non-http s
     { name: "app", path: "/", port: 8080, exposure: "public", url: "javascript:alert(1)", reachable: null },
   ];
   assert.equal(ServiceTopologySchema.safeParse(unsafe).success, false);
+});
+
+test("every service shows a version: its own when recorded, else the release it runs", () => {
+  assert.deepEqual(
+    describeServiceVersion({ version: { version: "1.2.0", changedIn: "v1.2.0" } }, "v1.3.0"),
+    { label: "1.2.0", detail: "Last changed in v1.2.0", isServiceVersion: true },
+  );
+  const fallback = describeServiceVersion({ version: null }, "rehearsal-1");
+  assert.equal(fallback.label, "rehearsal-1");
+  assert.equal(fallback.isServiceVersion, false);
+  assert.equal(describeServiceVersion({ version: null }, null).label, "unversioned");
 });

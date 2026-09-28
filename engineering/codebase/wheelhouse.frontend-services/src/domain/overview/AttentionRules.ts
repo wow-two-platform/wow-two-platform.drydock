@@ -1,6 +1,6 @@
 import { Measures } from '@/domain/common';
 import { TargetCondition, type DeploymentStats } from '@/domain/deployments';
-import { FleetExtensions, RESTART_WARNING, USAGE_THRESHOLDS, type FleetVitals } from '@/domain/fleet';
+import { ServerExtensions, RESTART_WARNING, USAGE_THRESHOLDS, type ServerVitals } from '@/domain/servers';
 import { VaultStatus, type VaultHygiene, type VaultSummary } from '@/domain/secrets';
 
 /** How urgent an attention item is. */
@@ -23,16 +23,16 @@ function listed(values: string[]) {
   return values.slice(0, LISTED).join(', ') + (values.length > LISTED ? ` and ${values.length - LISTED} more` : '');
 }
 
-/** Pure rules that turn fleet, deployment and vault readings into attention items. */
+/** Pure rules that turn server, deployment and vault readings into attention items. */
 export const AttentionRules = {
   /** Unreachable or locked targets, failing containers, and hosts short on disk, memory or CPU. */
-  fromVitals: (vitals: FleetVitals): AttentionItem[] => {
+  fromVitals: (vitals: ServerVitals): AttentionItem[] => {
     const items: AttentionItem[] = [];
     for (const target of vitals.targets) {
       const id = target.targetId;
       if (!target.ok) {
         items.push({ id: `unreachable:${id}`, tone: 'danger', title: `${id} could not be read`,
-          detail: target.reason ?? 'Wheelhouse could not reach the target.', href: '/fleet' });
+          detail: target.reason ?? 'Wheelhouse could not reach the target.', href: '/servers' });
         continue;
       }
       if (target.condition === TargetCondition.NeedsReconciliation)
@@ -40,40 +40,40 @@ export const AttentionRules = {
           detail: 'A rollout stopped after changing containers; new deployments wait until it is reconciled.', href: '/deployments' });
       if (target.release && target.containers?.length === 0)
         items.push({ id: `empty:${id}`, tone: 'danger', title: `${id} runs no containers`,
-          detail: `It last verified ${target.release}, but none of its containers exist now.`, href: '/fleet' });
+          detail: `It last verified ${target.release}, but none of its containers exist now.`, href: '/servers' });
       for (const container of target.containers ?? []) {
-        if (!FleetExtensions.isHealthy(container))
+        if (!ServerExtensions.isHealthy(container))
           items.push({ id: `container:${id}:${container.service}`, tone: 'danger',
-            title: `${container.service} on ${id} is ${FleetExtensions.containerLabel(container)}`,
+            title: `${container.service} on ${id} is ${ServerExtensions.containerLabel(container)}`,
             detail: `${container.state === 'running' ? 'Running but failing its health check' : 'Not serving traffic'}; `
-              + `${container.restarts} restart${container.restarts === 1 ? '' : 's'}.`, href: '/fleet' });
+              + `${container.restarts} restart${container.restarts === 1 ? '' : 's'}.`, href: '/servers' });
         else if (container.restarts >= RESTART_WARNING)
           items.push({ id: `restarts:${id}:${container.service}`, tone: 'warning',
             title: `${container.service} on ${id} restarted ${container.restarts} times`,
-            detail: 'It is running now; repeated restarts usually mean a crash loop or memory pressure.', href: '/fleet' });
+            detail: 'It is running now; repeated restarts usually mean a crash loop or memory pressure.', href: '/servers' });
       }
       for (const problem of target.problems ?? [])
         items.push({ id: `problem:${id}:${problem}`, tone: 'warning', title: `${id}: ${problem}`,
-          detail: 'Part of the reading failed; the rest is shown.', href: '/fleet' });
+          detail: 'Part of the reading failed; the rest is shown.', href: '/servers' });
     }
-    for (const [server, targets] of FleetExtensions.byServer(vitals.targets)) {
-      const host = FleetExtensions.hostOf(targets);
+    for (const [server, targets] of ServerExtensions.byServer(vitals.targets)) {
+      const host = ServerExtensions.hostOf(targets);
       if (!host) continue;
       for (const disk of host.disks) {
-        const used = FleetExtensions.diskPercent(disk);
+        const used = ServerExtensions.diskPercent(disk);
         if (used > WARN_PERCENT)
           items.push({ id: `disk:${server}:${disk.path}`, tone: used > CRITICAL_PERCENT ? 'danger' : 'warning',
             title: `${disk.path} on ${server} is ${Math.round(used)}% full`,
-            detail: `${Measures.bytes(disk.freeBytes)} free of ${Measures.bytes(disk.totalBytes)}.`, href: '/fleet' });
+            detail: `${Measures.bytes(disk.freeBytes)} free of ${Measures.bytes(disk.totalBytes)}.`, href: '/servers' });
       }
-      const memory = FleetExtensions.memoryPercent(host);
+      const memory = ServerExtensions.memoryPercent(host);
       if (memory != null && memory > CRITICAL_PERCENT)
         items.push({ id: `memory:${server}`, tone: 'warning', title: `${server} uses ${Math.round(memory)}% of its memory`,
-          detail: `${Measures.bytes(host.memoryAvailableBytes)} available.`, href: '/fleet' });
-      const load = FleetExtensions.loadPercent(host);
+          detail: `${Measures.bytes(host.memoryAvailableBytes)} available.`, href: '/servers' });
+      const load = ServerExtensions.loadPercent(host);
       if (load != null && load > LOAD_WARNING_PERCENT)
         items.push({ id: `load:${server}`, tone: 'warning', title: `${server} is overloaded`,
-          detail: `1-minute load ${host.load?.[0]} on ${host.cpus} CPUs.`, href: '/fleet' });
+          detail: `1-minute load ${host.load?.[0]} on ${host.cpus} CPUs.`, href: '/servers' });
     }
     return items;
   },

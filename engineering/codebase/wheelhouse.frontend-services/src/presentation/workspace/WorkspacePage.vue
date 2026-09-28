@@ -11,7 +11,6 @@ import {
   Network,
   Package,
   Plus,
-  RefreshCw,
   Rocket,
   Server,
   ShieldCheck,
@@ -28,7 +27,7 @@ import {
 } from "@wow-two-beta/ui-vue/presentation/forms";
 import { SkeletonState } from "@wow-two-beta/ui-vue/presentation/feedback";
 import { useProducts } from "@/application/products";
-import { useFleetVitals } from "@/application/fleet";
+import { useServerVitals } from "@/application/servers";
 import {
   useDeploymentTargets,
   useDeploymentHistory,
@@ -59,7 +58,7 @@ import {
   TargetCondition,
   type DeploymentJob,
 } from "@/domain/deployments";
-import { FleetExtensions } from "@/domain/fleet";
+import { ServerExtensions } from "@/domain/servers";
 import { AttentionRules } from "@/domain/overview";
 import {
   DeployModal,
@@ -71,9 +70,10 @@ import {
 } from "@/presentation/deployments";
 import LoadState from "@/presentation/common/components/LoadState.vue";
 import PageActions from "@/presentation/common/components/PageActions.vue";
-import ResourceMeter from "@/presentation/fleet/components/ResourceMeter.vue";
+import ResourceMeter from "@/presentation/servers/components/ResourceMeter.vue";
 import EnvironmentCompare from "./EnvironmentCompare.vue";
 import ServiceMap from "./ServiceMap.vue";
+import RefreshButton from "@/presentation/common/components/RefreshButton.vue";
 
 /** Connects products, environments, services, and deployment outcomes in one retained workspace. */
 defineOptions({ name: "WorkspacePage" });
@@ -81,7 +81,7 @@ const route = useRoute();
 const router = useRouter();
 const products = useProducts();
 const targets = useDeploymentTargets();
-const vitals = useFleetVitals();
+const vitals = useServerVitals();
 const history = useDeploymentHistory();
 const stats = useDeploymentStats();
 const releases = useReleaseArtifacts();
@@ -332,17 +332,11 @@ function openDeploy(job?: DeploymentJob): void {
 <template>
   <div>
     <PageActions>
-      <Button
-        variant="ghost"
-        tone="neutral"
-        :aria-busy="refresh.refreshing.value"
-        @click="refresh.refresh"
-        ><template #leading
-          ><RefreshCw
-            :size="16"
-            :class="refresh.refreshing.value ? 'animate-spin' : ''" /></template
-        >Refresh</Button
-      >
+      <RefreshButton
+        size="md"
+        :refreshing="refresh.refreshing.value"
+        @refresh="refresh.refresh"
+      />
       <Button :is-disabled="!target" @click="openDeploy()"
         ><template #leading><Rocket :size="16" /></template>Deploy
         release</Button
@@ -354,7 +348,7 @@ function openDeploy(job?: DeploymentJob): void {
       :has-data="inventoryRead.status === 'ready'"
       :empty="!inventory.products.length"
       empty-title="Your workspace starts with a product"
-      empty-description="Register a product, or configure an environment in the fleet catalog."
+      empty-description="Register a product, or configure an environment in the server catalog."
       @retry="refresh.refresh"
     >
       <template #skeleton
@@ -375,7 +369,7 @@ function openDeploy(job?: DeploymentJob): void {
       >
         <aside
           aria-label="Product navigator"
-          class="wh-glass min-w-0 rounded-2xl border border-border p-3 lg:sticky lg:top-24"
+          class="wh-glass min-w-0 rounded-2xl border border-border p-3 lg:sticky lg:top-6"
         >
           <div class="mb-4 flex items-center justify-between px-1">
             <h2
@@ -674,7 +668,8 @@ function openDeploy(job?: DeploymentJob): void {
                 </div>
                 <LoadState
                   v-if="serviceView === 'map'"
-                  :loading="topology.loading.value || refresh.refreshing.value"
+                  :loading="topology.loading.value && !topology.data.value"
+                  :refreshing="refresh.refreshing.value"
                   :error="topology.error.value"
                   :has-data="Boolean(topology.data.value)"
                   @retry="topology.refetch"
@@ -747,11 +742,11 @@ function openDeploy(job?: DeploymentJob): void {
                           ><span
                             class="text-xs capitalize"
                             :class="
-                              FleetExtensions.isHealthy(service)
+                              ServerExtensions.isHealthy(service)
                                 ? 'text-success'
                                 : 'text-destructive'
                             "
-                            >{{ FleetExtensions.containerLabel(service) }}</span
+                            >{{ ServerExtensions.containerLabel(service) }}</span
                           ></span
                         >
                         <span
@@ -791,12 +786,12 @@ function openDeploy(job?: DeploymentJob): void {
                     >
                       <ResourceMeter
                         label="Host CPU load"
-                        :value="FleetExtensions.loadPercent(targetVitals.host)"
+                        :value="ServerExtensions.loadPercent(targetVitals.host)"
                         :refreshing="refresh.refreshing.value"
                       /><ResourceMeter
                         label="Host memory"
                         :value="
-                          FleetExtensions.memoryPercent(targetVitals.host)
+                          ServerExtensions.memoryPercent(targetVitals.host)
                         "
                         :refreshing="refresh.refreshing.value"
                       />
@@ -919,7 +914,7 @@ function openDeploy(job?: DeploymentJob): void {
           ref="inspectorElement"
           tabindex="-1"
           aria-label="Context inspector"
-          class="wh-glass min-w-0 rounded-2xl border border-border outline-none lg:col-start-2 xl:sticky xl:top-24 xl:col-start-auto"
+          class="wh-glass min-w-0 rounded-2xl border border-border outline-none lg:col-start-2 xl:sticky xl:top-6 xl:col-start-auto"
         >
           <header
             class="flex items-center gap-2 border-b border-border px-5 py-4"
@@ -944,7 +939,7 @@ function openDeploy(job?: DeploymentJob): void {
                     {{ inspected.service.service }}
                   </h3>
                   <p class="mt-1 text-sm capitalize text-muted-foreground">
-                    {{ FleetExtensions.containerLabel(inspected.service) }}
+                    {{ ServerExtensions.containerLabel(inspected.service) }}
                   </p>
                 </div>
                 <ResourceMeter

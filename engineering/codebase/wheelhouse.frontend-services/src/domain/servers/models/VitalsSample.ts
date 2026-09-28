@@ -12,7 +12,7 @@ export interface VitalsSample {
   restarts: number;
 }
 
-/** The trend ranges the fleet page offers, in hours. */
+/** The trend ranges the servers page offers, in hours. */
 export const TrendRanges = { day: 24, week: 168, month: 720 } as const;
 export type TrendRange = keyof typeof TrendRanges;
 

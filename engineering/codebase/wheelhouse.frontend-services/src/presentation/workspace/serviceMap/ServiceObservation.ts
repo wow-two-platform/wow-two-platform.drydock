@@ -1,4 +1,4 @@
-import { FleetExtensions, type ContainerVitals } from "@/domain/fleet";
+import { ServerExtensions, type ContainerVitals } from "@/domain/servers";
 
 /** The observed status remains separate from the saved Compose declaration. */
 export interface ServiceObservation {
@@ -26,9 +26,9 @@ export function describeServiceObservation(
       count: matches.length,
     };
   const container = matches[0]!;
-  const tone = FleetExtensions.containerTone(container);
+  const tone = ServerExtensions.containerTone(container);
   return {
-    label: FleetExtensions.containerLabel(container),
+    label: ServerExtensions.containerLabel(container),
     tone: tone === "destructive" ? "danger" : tone,
     count: 1,
   };

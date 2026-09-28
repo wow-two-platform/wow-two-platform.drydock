@@ -1,5 +1,5 @@
 <script lang="ts">
-import type { ContainerVitals } from "@/domain/fleet";
+import type { ContainerVitals } from "@/domain/servers";
 import type { ServiceTopology } from "@/domain/topology";
 
 /** Inputs keep the saved declaration separate from optional runtime observations. */
@@ -36,6 +36,7 @@ import {
   type ServiceMapNode,
 } from "./serviceMap/ServiceMapLayout";
 import { describeServiceObservation } from "./serviceMap/ServiceObservation";
+import { describeServiceVersion } from "./serviceMap/ServiceVersion";
 
 /** Maps saved Compose services to their shared resources and declared startup dependencies. */
 defineOptions({ name: "ServiceMap" });
@@ -156,9 +157,10 @@ function members(node: ServiceMapNode): number {
     ).includes(node.name as never),
   ).length;
 }
-/** The release in which a service last changed, when the release declares it. @internal */
+/** The version a service runs: its own when the release records one, else the release. @internal */
 function versionOf(name: string) {
-  return props.topology.services.find((service) => service.name === name)?.version ?? null;
+  const service = props.topology.services.find((item) => item.name === name);
+  return service ? describeServiceVersion(service, props.topology.release) : null;
 }
 /** Formats the limited Compose startup conditions as operator-facing labels. @internal */
 function condition(value: string | null): string {
@@ -449,9 +451,9 @@ function condition(value: string | null): string {
                 }}</span
                 ><span
                   v-if="versionOf(node.name)"
-                  class="ml-auto shrink-0 font-mono text-[10px] font-normal text-muted-foreground"
-                  :title="`Last changed in ${versionOf(node.name)!.changedIn}`"
-                  >{{ versionOf(node.name)!.version }}</span
+                  class="ml-auto max-w-24 shrink-0 truncate font-mono text-[10px] font-normal text-muted-foreground"
+                  :title="versionOf(node.name)!.detail"
+                  >{{ versionOf(node.name)!.label }}</span
                 ></span
               >
               <span
@@ -507,11 +509,13 @@ function condition(value: string | null): string {
             Runtime read {{ Measures.moment(props.observedAt) }}
           </p>
           <dl class="mt-4 grid gap-3 text-xs sm:grid-cols-2">
-            <div v-if="selected.version">
+            <div>
               <dt class="font-medium">Version</dt>
               <dd class="mt-1 break-words font-mono text-muted-foreground">
-                {{ selected.version.version }} · changed in
-                {{ selected.version.changedIn }}
+                {{ versionOf(selected.name)?.label }}
+              </dd>
+              <dd class="mt-1 text-muted-foreground">
+                {{ versionOf(selected.name)?.detail }}
               </dd>
             </div>
             <div v-if="(selected.needs ?? []).length">

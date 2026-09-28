@@ -6,7 +6,7 @@ import {
   type MaybeRefOrGetter,
 } from "vue";
 
-import { FleetKeys } from "@/application/fleet";
+import { ServerKeys } from "@/application/servers";
 import { TopologyKeys } from "@/application/topology";
 import { useAppQuery, useInvalidate } from "@/bootstrap/query";
 import { DeploymentExtensions } from "@/domain/deployments";
@@ -55,7 +55,7 @@ export function useDeploymentOutcome(id: MaybeRefOrGetter<string | null>) {
       if (!job || !status || DeploymentExtensions.isPending(status)) return;
       void invalidate(DeploymentKeys.history);
       void invalidate(DeploymentKeys.statsAll);
-      void invalidate(FleetKeys.vitals);
+      void invalidate(ServerKeys.vitals);
       if (target) {
         void invalidate(DeploymentKeys.state(target));
         void invalidate(TopologyKeys.target(target));

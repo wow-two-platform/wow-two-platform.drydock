@@ -1,5 +1,5 @@
 import { Measures } from '@/domain/common';
-import type { ContainerVitals, DiskUsage, HostVitals, TargetVitals } from './models/FleetVitals';
+import type { ContainerVitals, DiskUsage, HostVitals, TargetVitals } from './models/ServerVitals';
 
 /** Meter zones `[good, warn]` in percent: green up to 75, amber up to 90, red above. */
 export const USAGE_THRESHOLDS: [number, number] = [75, 90];
@@ -11,7 +11,7 @@ export const RESTART_WARNING = 3;
 export type ContainerTone = 'success' | 'info' | 'warning' | 'destructive' | 'neutral';
 
 /** Pure rules over host and container vitals. */
-export const FleetExtensions = {
+export const ServerExtensions = {
   /** Used memory in percent, or null when the host hides it. */
   memoryPercent: (host: HostVitals) =>
     host.memoryTotalBytes && host.memoryAvailableBytes != null

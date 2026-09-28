@@ -45,7 +45,7 @@ export interface TargetVitals {
 }
 
 /** Every target's vitals from one collection pass. */
-export interface FleetVitals {
+export interface ServerVitals {
   collectedAt: string;
   targets: TargetVitals[];
 }

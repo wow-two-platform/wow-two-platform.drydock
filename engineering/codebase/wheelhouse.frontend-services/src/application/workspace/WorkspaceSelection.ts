@@ -1,5 +1,5 @@
 import type { DeploymentJob, DeploymentTarget } from '@/domain/deployments';
-import type { ContainerVitals, FleetVitals } from '@/domain/fleet';
+import type { ContainerVitals, ServerVitals } from '@/domain/servers';
 
 import type { WorkspaceInventory, WorkspaceProduct } from './WorkspaceInventory';
 
@@ -27,7 +27,7 @@ export type WorkspaceInspector =
 export interface WorkspaceSelectionInput {
   readonly requested: WorkspaceSelection;
   readonly inventory: WorkspaceRead<WorkspaceInventory>;
-  readonly vitals?: WorkspaceRead<FleetVitals>;
+  readonly vitals?: WorkspaceRead<ServerVitals>;
   readonly history?: WorkspaceRead<readonly DeploymentJob[]>;
 }
 

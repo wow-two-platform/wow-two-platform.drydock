@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TargetCondition } from "@/domain/deployments";
-import { VpsProvider } from "@/domain/fleet";
+import { VpsProvider } from "@/domain/servers";
 
 export const ServerSchema = z.object({
   id: z.string(),
@@ -36,7 +36,7 @@ const ContainerSchema = z.object({
   memoryBytes: nullableNumber,
   memoryLimitBytes: nullableNumber,
 });
-export const FleetVitalsSchema = z.object({
+export const ServerVitalsSchema = z.object({
   collectedAt: z.string(),
   targets: z.array(
     z.object({

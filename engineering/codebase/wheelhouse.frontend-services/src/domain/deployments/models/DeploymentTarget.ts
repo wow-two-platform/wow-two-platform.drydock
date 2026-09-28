@@ -1,4 +1,4 @@
-/** A code-owned product environment on one fleet host. */
+/** A code-owned product environment on one server. */
 export interface DeploymentTarget {
   id: string;
   product: string;

@@ -1,5 +1,5 @@
 <script lang="ts">
-import type { TrendPoint } from "@/domain/fleet";
+import type { TrendPoint } from "@/domain/servers";
 
 /** Defines one host figure's stored readings over a time window. */
 export interface TrendLineProps {
@@ -15,7 +15,7 @@ export interface TrendLineProps {
 <script setup lang="ts">
 import { computed } from "vue";
 
-import { USAGE_THRESHOLDS } from "@/domain/fleet";
+import { USAGE_THRESHOLDS } from "@/domain/servers";
 
 /** Draws a percentage over time with the warning and danger levels the meters use; no chart library needed. */
 defineOptions({ name: "TrendLine" });

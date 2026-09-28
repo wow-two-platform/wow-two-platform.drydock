@@ -9,7 +9,7 @@ export interface ResourceMeterProps {
 </script>
 <script setup lang="ts">
 import { MeterBar, SkeletonState } from '@wow-two-beta/ui-vue/presentation/feedback';
-import { USAGE_THRESHOLDS } from '@/domain/fleet';
+import { USAGE_THRESHOLDS } from '@/domain/servers';
 
 /** Presents a current resource snapshot without inventing history or unknown values. */
 defineOptions({ name: 'ResourceMeter' });

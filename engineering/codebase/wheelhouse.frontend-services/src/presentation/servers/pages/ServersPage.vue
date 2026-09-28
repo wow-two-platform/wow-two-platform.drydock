@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { RouterLink } from 'vue-router';
-import { RefreshCw, Server as ServerIcon } from 'lucide-vue-next';
-import { Button } from '@wow-two-beta/ui-vue/presentation/actions';
+import { Server as ServerIcon } from 'lucide-vue-next';
 import {
   Badge,
   Table,
@@ -19,23 +18,24 @@ import {
   SelectPickerContent,
   SelectPickerItem,
 } from '@wow-two-beta/ui-vue/presentation/forms';
-import { useServers, useFleetVitals, useVitalsHistory } from '@/application/fleet';
+import { useServers, useServerVitals, useVitalsHistory } from '@/application/servers';
 import { useDeploymentTargets } from '@/application/deployments';
 import { useProducts } from '@/application/products';
 import { buildWorkspaceInventory } from '@/application/workspace/WorkspaceInventory';
 import { useRefresh } from '@/application/common';
-import { FleetExtensions, TrendRanges, VpsProvider, hostTrend, type TrendRange } from '@/domain/fleet';
+import { ServerExtensions, TrendRanges, VpsProvider, hostTrend, type TrendRange } from '@/domain/servers';
 import { Measures } from '@/domain/common';
 import Panel from '@/presentation/common/components/Panel.vue';
 import LoadState from '@/presentation/common/components/LoadState.vue';
 import PageActions from '@/presentation/common/components/PageActions.vue';
 import ResourceMeter from '../components/ResourceMeter.vue';
 import TrendLine from '../components/TrendLine.vue';
+import RefreshButton from '@/presentation/common/components/RefreshButton.vue';
 
-/** Presents code-owned fleet inventory and current, timestamped resource readings. */
-defineOptions({ name: 'FleetPage' });
+/** Presents the code-owned servers and their current, timestamped resource readings. */
+defineOptions({ name: 'ServersPage' });
 const servers = useServers();
-const vitals = useFleetVitals();
+const vitals = useServerVitals();
 const targets = useDeploymentTargets();
 const products = useProducts();
 const workspaceLinks = computed(() => {
@@ -53,7 +53,7 @@ const provider = ref<string | null>(null);
 const visible = computed(() =>
   (servers.data.value ?? []).filter((server) => !provider.value || server.provider === provider.value),
 );
-const groups = computed(() => FleetExtensions.byServer(vitals.data.value?.targets ?? []));
+const groups = computed(() => ServerExtensions.byServer(vitals.data.value?.targets ?? []));
 const TrendLabels: Record<TrendRange, string> = { day: 'Last 24 hours', week: 'Last 7 days', month: 'Last 30 days' };
 const trendRange = ref<TrendRange>('day');
 const history = useVitalsHistory(() => TrendRanges[trendRange.value]);
@@ -66,10 +66,8 @@ const trendWindow = computed(() => {
 <template>
   <div class="space-y-6">
     <PageActions
-      ><Button variant="outline" :aria-busy="refresh.refreshing.value" @click="refresh.refresh"
-        ><template #leading><RefreshCw :size="16" :class="refresh.refreshing.value ? 'animate-spin' : ''" /></template
-        >Refresh readings</Button
-      ></PageActions
+      ><RefreshButton size="md" :refreshing="refresh.refreshing.value" @refresh="refresh.refresh"
+    /></PageActions
     >
     <div class="flex flex-wrap items-center justify-between gap-3">
       <p class="text-sm text-muted-foreground">
@@ -105,7 +103,7 @@ const trendWindow = computed(() => {
       :has-data="Boolean(servers.data.value)"
       :empty="!visible.length"
       empty-title="No configured hosts"
-      empty-description="No host matches this provider. Hosts are defined in reviewed fleet configuration."
+      empty-description="No server matches this provider. Servers are defined in reviewed configuration."
       @retry="servers.refetch"
     >
       <div class="grid items-start gap-5 2xl:grid-cols-2">
@@ -118,22 +116,22 @@ const trendWindow = computed(() => {
           <template #actions
             ><Badge>{{ server.provider }}</Badge></template
           >
-          <div v-if="FleetExtensions.hostOf(groups.get(server.id) ?? [])" class="mb-5 grid gap-3 sm:grid-cols-2">
+          <div v-if="ServerExtensions.hostOf(groups.get(server.id) ?? [])" class="mb-5 grid gap-3 sm:grid-cols-2">
             <ResourceMeter
               label="CPU load"
-              :value="FleetExtensions.loadPercent(FleetExtensions.hostOf(groups.get(server.id) ?? [])!)"
+              :value="ServerExtensions.loadPercent(ServerExtensions.hostOf(groups.get(server.id) ?? [])!)"
               :refreshing="refresh.refreshing.value"
             />
             <ResourceMeter
               label="Memory"
-              :value="FleetExtensions.memoryPercent(FleetExtensions.hostOf(groups.get(server.id) ?? [])!)"
+              :value="ServerExtensions.memoryPercent(ServerExtensions.hostOf(groups.get(server.id) ?? [])!)"
               :refreshing="refresh.refreshing.value"
             />
             <ResourceMeter
-              v-for="disk in FleetExtensions.hostOf(groups.get(server.id) ?? [])?.disks"
+              v-for="disk in ServerExtensions.hostOf(groups.get(server.id) ?? [])?.disks"
               :key="disk.path"
               :label="`Disk · ${disk.path}`"
-              :value="FleetExtensions.diskPercent(disk)"
+              :value="ServerExtensions.diskPercent(disk)"
               :detail="`${Measures.bytes(disk.freeBytes)} free of ${Measures.bytes(disk.totalBytes)}`"
               :refreshing="refresh.refreshing.value"
             />
@@ -201,7 +199,7 @@ const trendWindow = computed(() => {
                 <div>
                   <p class="font-medium">{{ container.service }}</p>
                   <p class="mt-1 text-xs text-muted-foreground">
-                    {{ FleetExtensions.containerLabel(container) }} · {{ container.restarts }} restarts · started
+                    {{ ServerExtensions.containerLabel(container) }} · {{ container.restarts }} restarts · started
                     {{ Measures.moment(container.startedAt) }}
                   </p>
                 </div>

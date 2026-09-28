@@ -1,17 +1,17 @@
 import { onMounted, onScopeDispose } from "vue";
 import { queryClient, useAppQuery } from "@/bootstrap/query";
-import { fleetApi } from "@/integration/fleet";
-import { FleetKeys } from "./FleetKeys";
+import { serversApi } from "@/integration/servers";
+import { ServerKeys } from "./ServerKeys";
 
 const REFRESH_MS = 60_000;
 const readers = new Set<() => unknown>();
 let timer: ReturnType<typeof setInterval> | undefined;
 
-/** Shares one visible-page snapshot poll across all mounted fleet panels. */
-export function useFleetVitals() {
+/** Shares one visible-page snapshot poll across all mounted server panels. */
+export function useServerVitals() {
   const vitals = useAppQuery({
-    key: FleetKeys.vitals,
-    queryFn: ({ signal }) => fleetApi.getVitals(signal),
+    key: ServerKeys.vitals,
+    queryFn: ({ signal }) => serversApi.getVitals(signal),
     meta: { suppressGlobalError: true },
   });
   onMounted(() => {
@@ -20,7 +20,7 @@ export function useFleetVitals() {
       // Keep a slow SSH snapshot alive: bare refetch cancels an existing read.
       if (
         document.visibilityState === "visible" &&
-        queryClient.isFetching({ queryKey: FleetKeys.vitals }) === 0
+        queryClient.isFetching({ queryKey: ServerKeys.vitals }) === 0
       )
         void readers.values().next().value?.();
     }, REFRESH_MS);

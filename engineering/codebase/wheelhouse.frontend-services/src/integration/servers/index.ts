@@ -1,13 +1,13 @@
-import type { FleetVitals, Server, VitalsSample } from "@/domain/fleet";
+import type { ServerVitals, Server, VitalsSample } from "@/domain/servers";
 import { requestData } from "@/integration/common";
-import { FleetVitalsSchema, ServerSchema, VitalsSampleSchema } from "./schemas";
+import { ServerVitalsSchema, ServerSchema, VitalsSampleSchema } from "./schemas";
 
-/** Read-only fleet catalog and snapshots. */
-export const fleetApi = {
+/** Read-only server catalog and snapshots. */
+export const serversApi = {
   listServers: (signal?: AbortSignal) =>
     requestData<Server[]>("/api/servers", ServerSchema.array(), { signal }),
   getVitals: (signal?: AbortSignal) =>
-    requestData<FleetVitals>("/api/deployments/vitals", FleetVitalsSchema, {
+    requestData<ServerVitals>("/api/deployments/vitals", ServerVitalsSchema, {
       signal,
     }),
   /** Every target's stored readings of the last `hours` (1-720), oldest first. */
