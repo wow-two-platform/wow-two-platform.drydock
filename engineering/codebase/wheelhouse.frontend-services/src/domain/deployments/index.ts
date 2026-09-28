@@ -14,3 +14,11 @@ export type { RolloutRecord, TargetState } from './models/TargetState';
 export type { TargetCheck, TargetCheckItem } from './models/TargetCheck';
 export { DeploymentExtensions, type IndicatorTone, type ReleaseDrift, type StatusVariant } from './DeploymentExtensions';
 export type { DailyDeploys, DeploymentMeasures, DeploymentStats, TargetDeployStats } from './models/DeploymentStats';
+export {
+  EnvironmentOrder,
+  compareEnvironments,
+  type EnvironmentColumn,
+  type EnvironmentComparison,
+  type Promotion,
+  type ServiceComparison,
+} from './EnvironmentComparison';

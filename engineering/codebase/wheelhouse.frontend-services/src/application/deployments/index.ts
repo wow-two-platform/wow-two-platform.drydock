@@ -8,6 +8,7 @@ export {
   useReleaseArtifacts,
   useServiceLogs,
   useTargetState,
+  useTargetStates,
 } from "./hooks/useDeploymentInventory";
 export { useDeploymentOutcome } from "./hooks/useDeploymentOutcome";
 export {

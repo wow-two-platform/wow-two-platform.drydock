@@ -72,6 +72,7 @@ import {
 import LoadState from "@/presentation/common/components/LoadState.vue";
 import PageActions from "@/presentation/common/components/PageActions.vue";
 import ResourceMeter from "@/presentation/fleet/components/ResourceMeter.vue";
+import EnvironmentCompare from "./EnvironmentCompare.vue";
 import ServiceMap from "./ServiceMap.vue";
 
 /** Connects products, environments, services, and deployment outcomes in one retained workspace. */
@@ -631,6 +632,12 @@ function openDeploy(job?: DeploymentJob): void {
               <TargetSites
                 :sites="state.data.value?.current?.sites"
                 :versions="state.data.value?.current?.versions"
+              />
+              <EnvironmentCompare
+                v-if="product"
+                :targets="product.targets"
+                :releases="releases.data.value ?? []"
+                @promote="deploy.openDeploy($event)"
               />
               <section
                 class="wh-glass rounded-2xl border border-border p-5"

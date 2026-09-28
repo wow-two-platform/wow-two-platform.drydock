@@ -1,6 +1,7 @@
 import { toValue, type MaybeRefOrGetter } from "vue";
 
-import { useAppQuery } from "@/bootstrap/query";
+import { useAppQueries, useAppQuery } from "@/bootstrap/query";
+import type { DeploymentTarget } from "@/domain/deployments";
 import { deploymentsApi } from "@/integration/deployments";
 
 import { DeploymentKeys } from "../DeploymentKeys";
@@ -90,5 +91,16 @@ export function useProductCommits(
       ),
     enabled: () => Boolean(toValue(product) && toValue(branch)),
     meta: { suppressGlobalError: true },
+  });
+}
+
+/** Every given target's state at once, aligned with `targets`; an entry is undefined until it is read. */
+export function useTargetStates(targets: MaybeRefOrGetter<readonly DeploymentTarget[]>) {
+  return useAppQueries({
+    queries: () =>
+      toValue(targets).map((target) => ({
+        key: DeploymentKeys.state(target.id),
+        queryFn: ({ signal }: { signal: AbortSignal }) => deploymentsApi.getTargetState(target.id, signal),
+      })),
   });
 }

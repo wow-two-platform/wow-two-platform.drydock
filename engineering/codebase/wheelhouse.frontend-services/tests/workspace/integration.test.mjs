@@ -14,6 +14,7 @@ const bundle = await build({
       export { fleetApi } from './src/integration/fleet';
       export { auditApi } from './src/integration/audit';
       export { AuditArea, AuditExtensions } from './src/domain/audit';
+      export { compareEnvironments } from './src/domain/deployments/EnvironmentComparison';
       export { clearHttpSession } from './src/integration/common';
       export { useFleetVitals } from './src/application/fleet/useFleetVitals';
       export { queryClient, queryPlugin } from './src/bootstrap/query';
@@ -36,6 +37,7 @@ const {
   auditApi,
   AuditArea,
   AuditExtensions,
+  compareEnvironments,
   clearHttpSession,
   useFleetVitals,
   queryClient,
@@ -276,6 +278,34 @@ test("pages the audit trail and names each action and chain break in words", asy
   assert.equal(AuditExtensions.inArea("build.request", AuditArea.Deployments), true);
   assert.equal(AuditExtensions.inArea("vault.token.mint", AuditArea.Products), false);
   assert.equal(AuditExtensions.breakLabel("HashMismatch"), "an entry was edited");
+});
+
+test("lines environments up dev to prod and offers each published release to the next one", () => {
+  const target = (environment) => ({ id: `pin-${environment}`, product: "pin", environment, serverId: "local",
+    provider: "Local", host: "127.0.0.1", acceptsCandidates: environment === "dev", needsConfirmation: false,
+    requiresTestPass: environment === "prod" });
+  const state = (release, kind, versions) => ({ targetId: "", project: "", condition: "ready", active: null,
+    current: { id: "job", release, kind, versions } });
+  const releases = [{ id: "pin-v1-1", product: "pin", release: "v1.1", kind: "release", prerelease: false,
+    publishedAt: "2026-09-28T00:00:00Z", provider: "github" }];
+  const comparison = compareEnvironments(
+    [target("prod"), target("dev"), target("test")],
+    [
+      state("v1.0", "release", { api: { version: "1.0", changedIn: "v1.0" } }),
+      state("sha-abc", "candidate", { api: { version: "1.1+abc", changedIn: "sha-abc" } }),
+      state("v1.1", "release", { api: { version: "1.1", changedIn: "v1.1" } }),
+    ],
+    releases,
+  );
+  assert.deepEqual(comparison.columns.map((column) => column.environment), ["dev", "test", "prod"]);
+  assert.equal(comparison.columns[0].promotion, null); // a commit's build never leaves dev
+  assert.deepEqual(comparison.columns[1].promotion,
+    { targetId: "pin-prod", environment: "prod", bundleId: "pin-v1-1", release: "v1.1" });
+  assert.deepEqual(comparison.rows[0].pending, [true, true, false]);
+  const unread = compareEnvironments([target("test"), target("prod")],
+    [state("v1.1", "release", {}), undefined], releases);
+  assert.equal(unread.columns[0].promotion, null);
+  assert.equal(unread.columns[1].read, false);
 });
 
 test("accepts explicit empty logout and deletion successes", async () => {
