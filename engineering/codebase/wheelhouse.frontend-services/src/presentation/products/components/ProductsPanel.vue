@@ -9,13 +9,13 @@ export interface ProductsPanelProps {
 import { computed, ref, watch } from "vue";
 import {
   ChevronRight,
-  GitBranch,
+  Info,
   Package,
   Pencil,
   Search,
   Trash2,
 } from "lucide-vue-next";
-import { Button } from "@wow-two-beta/ui-vue/presentation/actions";
+import { Button, CopyButton } from "@wow-two-beta/ui-vue/presentation/actions";
 import { Badge } from "@wow-two-beta/ui-vue/presentation/display";
 import {
   Alert,
@@ -28,10 +28,16 @@ import {
   ModalHeader,
   ModalTitle,
   ModalDescription,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
 } from "@wow-two-beta/ui-vue/presentation/overlays";
 import { useProducts } from "@/application/products";
 import { ProductStatus, type Product } from "@/domain/products";
+import { WorkspaceProductBindings } from "@/application/workspace/WorkspaceInventory";
 import RegisterProductForm from "./RegisterProductForm.vue";
+import RepositoryActions from "./RepositoryActions.vue";
+import ProductIcon from "./ProductIcon.vue";
 
 /** Presents portfolio selection with a contextual inspector and confirmed registry changes. */
 defineOptions({ name: "ProductsPanel" });
@@ -67,6 +73,15 @@ const selected = computed(
     null,
 );
 const formOpen = computed(() => props.registering || editing.value !== null);
+/** The runner catalog product a registry entry is bound to, which lists its branches and commits. */
+const runnerProduct = computed(
+  () =>
+    WorkspaceProductBindings.find(
+      (binding) =>
+        binding.registrySlug === selected.value?.slug &&
+        binding.repository === selected.value?.repo,
+    )?.runnerProduct ?? null,
+);
 
 /** Keeps the inspector attached to a visible product after searches or registry changes. */
 watch(
@@ -224,11 +239,7 @@ function saved(): void {
               : 'border-transparent hover:border-border hover:bg-card'
           "
         >
-          <span
-            class="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-sm font-semibold text-primary"
-          >
-            {{ product.name.slice(0, 1).toUpperCase() }}
-          </span>
+          <ProductIcon :product-id="product.id" :name="product.name" />
           <div class="min-w-0 flex-1">
             <p class="truncate text-sm font-semibold">{{ product.name }}</p>
             <p class="mt-1 truncate text-xs text-muted-foreground">
@@ -250,8 +261,42 @@ function saved(): void {
               <Package :size="16" class="text-muted-foreground" />
               <span class="text-xs text-muted-foreground">Product details</span>
             </div>
-            <h2 class="break-words text-xl font-semibold">
+            <h2 class="flex items-center gap-1 break-words text-xl font-semibold">
+              <ProductIcon
+                :product-id="selected.id"
+                :name="selected.name"
+                size="lg"
+                class="mr-2"
+              />
               {{ selected.name }}
+              <Popover placement="bottom-start">
+                <PopoverTrigger as-child>
+                  <Button
+                    variant="ghost"
+                    tone="neutral"
+                    size="sm"
+                    class="px-1.5 text-muted-foreground"
+                    aria-label="Registry identifiers"
+                    title="Registry identifiers"
+                  >
+                    <Info :size="15" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent class="w-80 p-3 text-xs font-normal">
+                  <p class="text-muted-foreground">Product ID</p>
+                  <div class="mt-1 flex items-center gap-2">
+                    <code class="min-w-0 flex-1 break-all font-mono">{{
+                      selected.id
+                    }}</code>
+                    <CopyButton
+                      :text="selected.id"
+                      size="sm"
+                      aria-label="Copy the product ID"
+                      copied-aria-label="Product ID copied"
+                    />
+                  </div>
+                </PopoverContent>
+              </Popover>
             </h2>
             <p class="mt-1 break-all font-mono text-xs text-muted-foreground">
               {{ selected.slug }}
@@ -266,11 +311,11 @@ function saved(): void {
             <dt class="mb-2 text-xs text-muted-foreground">
               Source repository
             </dt>
-            <dd class="flex items-start gap-2 break-all font-medium">
-              <GitBranch
-                :size="16"
-                class="mt-0.5 shrink-0 text-muted-foreground"
-              />{{ selected.repo }}
+            <dd>
+              <RepositoryActions
+                :repository="selected.repo"
+                :runner-product="runnerProduct"
+              />
             </dd>
           </div>
           <div>
@@ -286,17 +331,6 @@ function saved(): void {
             <dd>{{ new Date(selected.createdAtUtc).toLocaleString() }}</dd>
           </div>
         </dl>
-        <details
-          class="mb-6 rounded-lg border border-border px-3 py-2.5 text-xs"
-        >
-          <summary class="cursor-pointer text-muted-foreground">
-            Registry identifiers
-          </summary>
-          <dl class="mt-3 space-y-1">
-            <dt class="text-muted-foreground">Product ID</dt>
-            <dd class="break-all font-mono">{{ selected.id }}</dd>
-          </dl>
-        </details>
         <div
           v-if="confirmingDelete"
           class="space-y-3 rounded-xl bg-destructive-soft p-4"
@@ -367,7 +401,7 @@ function saved(): void {
       }
     "
   >
-    <ModalContent class="w-[min(40rem,calc(100vw-2rem))]">
+    <ModalContent class="flex max-h-[calc(100dvh-2rem)] w-[min(40rem,calc(100vw-2rem))] flex-col overflow-y-auto">
       <ModalHeader>
         <ModalTitle>{{
           editing ? "Edit product" : "Register product"
