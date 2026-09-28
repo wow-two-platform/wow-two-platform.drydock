@@ -80,6 +80,13 @@ class FleetTests(unittest.TestCase):
         self.assertEqual('{site}-{product}.{environment}.preview.example', dev_ingress['pattern'])
         self.assertEqual(('https', ['websecure'], 'letsencrypt'),
                          (prod_ingress['scheme'], prod_ingress['entryPoints'], prod_ingress['certResolver']))
+        # A VPS ingress publishes on the host's own ports, so the runner probes loopback by default.
+        self.assertEqual(('https://127.0.0.1', None), (prod_ingress['probe'], prod_ingress['privateProbe']))
+
+    def test_local_sites_are_probed_through_the_rig_ingress(self):
+        with patch.dict('os.environ', {'WHEELHOUSE_REHEARSAL': '1'}):
+            ingress = fleet.resolve_target(Path('/data'), 'foreverpin-dev')['target']['ingress']
+        self.assertEqual(('http://ingress:80', 'http://ingress:80'), (ingress['probe'], ingress['privateProbe']))
 
     def test_site_hosts_must_be_valid_names(self):
         server = fleet.Server('pilot', 'Pilot', fleet.VpsProvider.HETZNER, 'vps.example.net', 'hel1')

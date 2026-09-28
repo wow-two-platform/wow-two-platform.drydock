@@ -287,10 +287,17 @@ def deploy(bundle_id, name, confirm=None, skip_test_pass=False, timeout=420):
         time.sleep(5)
         outcome = transport("status", "--job", job["id"])
         if outcome.get("status") in TERMINAL:
-            print(json.dumps({key: outcome.get(key) for key in ("status", "release", "reason", "failure")}))
+            for step in outcome.get("steps", []):
+                print("  " + step["status"].ljust(9) + " " + step["name"]
+                      + (" — " + step["detail"] if step.get("detail") else ""))
+            print(json.dumps({key: outcome.get(key) for key in ("status", "release", "reason", "failure", "warnings")
+                              if outcome.get(key) is not None}))
             if outcome.get("status") == "succeeded":
                 for site in transport("state", "--target", target_of(name))["current"].get("sites", []):
-                    print("Open " + site["name"] + ": " + site["url"])
+                    probe = site.get("probe")
+                    answer = "" if probe is None else " (answered " + str(probe.get("status")) + ")" if probe["ok"] \
+                        else " (" + probe["detail"] + ")"
+                    print("Open " + site["name"] + ": " + site["url"] + answer)
             return outcome
     sys.exit("Timed out waiting for " + job["id"])
 

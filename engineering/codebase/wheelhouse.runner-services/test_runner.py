@@ -2,6 +2,7 @@ import base64
 import contextlib
 import copy
 import hashlib
+import http.server
 import io
 import json
 import os
@@ -9,6 +10,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import tarfile
+import threading
 import unittest
 from unittest.mock import patch
 import runner
@@ -542,6 +544,119 @@ class RunnerTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unknown service"):
             runner.validate_bundle(self.bundle)
 
+    def test_steps_record_each_stage_of_a_successful_rollout(self):
+        self.target["smoke"] = [{"service": "api", "path": "/health"}]
+        result = self.apply()
+        self.assertEqual([("Check target", "succeeded"), ("Pull images", "succeeded"), ("Start containers", "succeeded"),
+                          ("Verify services", "succeeded"), ("Publish sites", "succeeded")],
+                         [(step["name"], step["status"]) for step in result["steps"]])
+        self.assertEqual("1 service healthy; 1 smoke check passed", result["steps"][3]["detail"])
+        self.assertTrue(all(step["completedAt"] >= step["startedAt"] for step in result["steps"]))
+        saved = runner.read_json(self.root / "state/pilot-test/jobs" / (result["id"] + ".json"))
+        self.assertEqual(result["steps"], saved["steps"])
+
+    def test_steps_mark_the_failed_stage_and_the_rollback(self):
+        self.apply()
+        self.manifest.update(release="v2", rollbackCompatible=True)
+        self.save()
+        FakeDocker.fail = "v2"
+        result = self.apply()
+        self.assertEqual("rolled_back", result["status"])
+        names = [(step["name"], step["status"]) for step in result["steps"]]
+        self.assertEqual([("Check target", "succeeded"), ("Pull images", "succeeded"), ("Start containers", "failed"),
+                          ("Roll back to v1", "succeeded")], names)
+        self.assertNotIn("detail", result["steps"][2])  # an unsafe exception message never becomes a detail
+        self.assertNotIn("DO_NOT_LOG", json.dumps(result))
+
+    def test_a_site_that_does_not_answer_warns_without_failing_the_rollout(self):
+        self.target["ingress"] = self.local_ingress(probe="http://ingress:80")
+        self.manifest["sites"] = {"api": {"app": {}}}
+        self.save()
+
+        def prober(target, sites):
+            sites[0]["probe"] = {"ok": False, "status": 404, "detail": "The ingress has no route for this host"}
+            return sites
+
+        result = runner.apply(self.bundle, self.target, "test-operator", docker_factory=FakeDocker, prober=prober)
+        self.assertEqual("succeeded", result["status"])
+        self.assertEqual(("Probe sites", "warning", "0 of 1 site answered"),
+                         tuple(result["steps"][-1][key] for key in ("name", "status", "detail")))
+        self.assertEqual(["Site app did not answer through the ingress: The ingress has no route for this host"],
+                         result["warnings"])
+        self.assertFalse(runner.state(self.target)["current"]["sites"][0]["probe"]["ok"])
+
+    def test_a_failing_prober_never_fails_a_healthy_rollout(self):
+        self.target["ingress"] = self.local_ingress(probe="http://ingress:80")
+        self.manifest["sites"] = {"api": {"app": {}}}
+        self.save()
+
+        def prober(target, sites):
+            raise RuntimeError("password=DO_NOT_LOG")
+
+        result = runner.apply(self.bundle, self.target, "test-operator", docker_factory=FakeDocker, prober=prober)
+        self.assertEqual(("succeeded", "warning"), (result["status"], result["steps"][-1]["status"]))
+        self.assertNotIn("DO_NOT_LOG", json.dumps(result))
+
+    def test_cli_rejection_records_a_failed_check_step(self):
+        (self.root / "settings.json").write_text(json.dumps({}))
+        job = "22222222-2222-4222-8222-222222222222"
+        target = self.root / "target.json"
+        target.write_text(json.dumps(self.target))
+        with patch("sys.argv", ["runner.py", "apply", "--bundle", str(self.bundle), "--target", str(target),
+                                "--job", job]), contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(1, runner.main())
+        record = runner.read_json(self.root / "state/pilot-test/jobs" / (job + ".json"))
+        self.assertEqual("rejected", record["status"])
+        self.assertEqual(("Check target", "failed", "Missing required setting: api:Database:Connection"),
+                         tuple(record["steps"][0][key] for key in ("name", "status", "detail")))
+
+    def test_ports_are_validated_and_smoke_checks_use_the_declared_port(self):
+        self.manifest["ports"] = {"api": 70000}
+        self.save()
+        with self.assertRaisesRegex(ValueError, "service ports"):
+            runner.validate_bundle(self.bundle)
+        self.manifest["ports"] = {"api": 80}
+        self.save()
+        calls = []
+
+        class SmokeDocker(runner.Docker):
+            def compose(self, bundle, *arguments):
+                calls.append(arguments)
+                return "cid\n" if arguments[0] == "ps" else "200"
+
+            def execute(self, arguments, step, timeout=600):
+                return json.dumps([{"Config": {"Image": self.image}, "State": {"Health": {"Status": "healthy"}}}])
+
+        SmokeDocker.image = self.manifest["images"]["api"]
+        self.target["smoke"] = [{"service": "api", "path": "/health"}]
+        SmokeDocker(self.target, {}).verify(self.bundle, runner.validate_bundle(self.bundle))
+        self.assertEqual("http://localhost:80/health", calls[-1][-1])
+
+    def test_logs_read_one_service_bounded_and_refuse_a_missing_container(self):
+        class LogDocker:
+            containers = "abc123\n"
+
+            def __init__(self, target, environment):
+                pass
+
+            def execute(self, arguments, step, timeout=600):
+                self.filters = [argument for argument in arguments if argument.startswith("label=")]
+                return self.containers
+
+            def output(self, arguments, step, timeout=60):
+                return "2026-09-28T10:00:00Z started\n2026-09-28T10:00:01Z " + "x" * 3000 + "\n"
+
+        result = runner.logs(self.target, "api", 2, docker_factory=LogDocker)
+        self.assertEqual(("pilot-test", "api", 2, True), (result["project"], result["service"], result["tail"],
+                                                          result["truncated"]))
+        self.assertEqual(runner.LOG_LINE_LIMIT, len(result["lines"][1]))
+        for service, tail, message in (("API", 10, "Invalid service"), ("api", 0, "1-1000"), ("api", 1001, "1-1000")):
+            with self.subTest(service=service, tail=tail), self.assertRaisesRegex(ValueError, message):
+                runner.logs(self.target, service, tail, docker_factory=LogDocker)
+        LogDocker.containers = ""
+        with self.assertRaisesRegex(ValueError, "No container"):
+            runner.logs(self.target, "api", 10, docker_factory=LogDocker)
+
     def test_versions_and_kind_are_validated(self):
         for field, value, message in (("kind", "nightly", "release kind"),
                                       ("versions", {"api": {"version": "1.0", "changedIn": "no spaces"}}, "service version"),
@@ -554,6 +669,84 @@ class RunnerTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, message):
                     runner.validate_bundle(self.bundle)
                 self.manifest = manifest
+
+
+class IngressHandler(http.server.BaseHTTPRequestHandler):
+    """A stand-in ingress: routes by Host header, answering Traefik's own 404 for an unknown host."""
+    routes = {}
+    seen = []
+
+    def do_GET(self):
+        self.seen.append((self.headers["Host"], self.path))
+        status = self.routes.get(self.headers["Host"])
+        if callable(status):
+            status = status()
+        body = b"404 page not found\n" if status is None else b"{}"
+        self.send_response(404 if status is None else status)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, *arguments):
+        pass
+
+
+class ProbeTests(unittest.TestCase):
+    def setUp(self):
+        IngressHandler.routes, IngressHandler.seen = {}, []
+        self.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), IngressHandler)
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        self.address = "http://127.0.0.1:" + str(self.server.server_address[1])
+        self.target = {"product": "pilot", "environment": "test", "root": "/srv/pilot",
+                       "ingress": {"scheme": "http", "port": 18080, "entryPoints": ["web"], "privateEntryPoints": [],
+                                   "probe": self.address, "hosts": {}}}
+
+    def tearDown(self):
+        self.server.shutdown()
+        self.server.server_close()
+
+    def sites(self, *names):
+        return [{"name": name, "service": "api", "exposure": "public",
+                 "url": "http://" + name + "-pilot.test.localhost:18080/api"} for name in names]
+
+    def test_a_site_answers_through_the_ingress_by_its_host_name(self):
+        IngressHandler.routes = {"app-pilot.test.localhost": 200}
+        probed = runner.probe_sites(self.target, self.sites("app"), deadline_seconds=1, interval=0.05)
+        self.assertEqual({"ok": True, "status": 200}, probed[0]["probe"])
+        self.assertEqual([("app-pilot.test.localhost", "/api")], IngressHandler.seen)
+
+    def test_an_application_404_answers_but_the_ingress_404_does_not(self):
+        IngressHandler.routes = {"app-pilot.test.localhost": 404}
+        probed = runner.probe_sites(self.target, self.sites("app", "go"), deadline_seconds=0.2, interval=0.05)
+        self.assertTrue(probed[0]["probe"]["ok"])
+        self.assertEqual({"ok": False, "status": 404, "detail": "The ingress has no route for this host"},
+                         probed[1]["probe"])
+
+    def test_a_route_that_appears_within_the_deadline_passes(self):
+        answers = iter([None, None, 200])
+        IngressHandler.routes = {"app-pilot.test.localhost": lambda: next(answers, 200)}
+        probed = runner.probe_sites(self.target, self.sites("app"), deadline_seconds=2, interval=0.05)
+        self.assertTrue(probed[0]["probe"]["ok"])
+        self.assertEqual(3, len(IngressHandler.seen))
+
+    def test_gateway_errors_and_an_unreachable_ingress_fail(self):
+        IngressHandler.routes = {"app-pilot.test.localhost": 502}
+        self.assertEqual("The ingress could not reach the service",
+                         runner.probe_sites(self.target, self.sites("app"), 0.1, 0.05)[0]["probe"]["detail"])
+        self.target["ingress"]["probe"] = "http://127.0.0.1:9"
+        self.assertIn("did not answer", runner.probe_sites(self.target, self.sites("app"), 0.1, 0.05)[0]["probe"]["detail"])
+
+    def test_private_sites_without_a_private_probe_address_stay_unprobed(self):
+        sites = self.sites("admin")
+        sites[0]["exposure"] = "private"
+        self.assertEqual([], runner.probe_sites(self.target, sites, 0.1, 0.05))
+        self.assertNotIn("probe", sites[0])
+
+    def test_invalid_probe_addresses_are_refused(self):
+        self.target["ingress"]["probe"] = "ftp://ingress"
+        with self.assertRaisesRegex(ValueError, "probe address"):
+            runner.validate_target(self.target)
+
 
 if __name__ == "__main__":
     unittest.main()

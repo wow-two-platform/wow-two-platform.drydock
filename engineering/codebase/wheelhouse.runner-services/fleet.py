@@ -32,6 +32,10 @@ class Ingress:
     cert_resolver: str | None = "letsencrypt"
     # Hosts for sites a target leaves unnamed, e.g. "{site}-{product}.{environment}.preview.example"; prod names its own.
     pattern: str | None = None
+    # Where the runner reaches the public entry points from the host, to request each site after a deploy;
+    # unset means the scheme's port on loopback. Private sites are probed only when `private_probe` is set.
+    probe: str | None = None
+    private_probe: str | None = None
 
 
 @dataclass(frozen=True)
@@ -83,8 +87,10 @@ LOCAL_STATE = Path(os.environ.get("REHEARSAL_STATE")
                    or Path(__file__).resolve().parents[2] / "deployment" / "rehearsal" / "state")
 # `network`: Wheelhouse runs inside the rig and reaches the target and vault by service name, as it would a VPS.
 IN_RIG = os.environ.get("WHEELHOUSE_REHEARSAL") == "network"
+# The runner executes inside the rig's target container, which reaches Traefik by its service name.
 LOCAL_INGRESS = Ingress(scheme="http", port=18080, entry_points=("web",), private_entry_points=("web",),
-                        cert_resolver=None, pattern="{site}-{product}.{environment}.localhost")
+                        cert_resolver=None, pattern="{site}-{product}.{environment}.localhost",
+                        probe="http://ingress:80", private_probe="http://ingress:80")
 LOCAL_SERVERS = (Server("local", "Local server", VpsProvider.LOCAL, "target" if IN_RIG else "127.0.0.1", "local",
                         ssh_port=22 if IN_RIG else 2222, ingress=LOCAL_INGRESS),)
 LOCAL_TARGETS = tuple(
@@ -161,9 +167,10 @@ def ingress_of(server, target):
     # Prod on a VPS names every host itself; a shared preview pattern would publish it under the wrong domain.
     pattern = ingress.pattern if (target.environment is not DeploymentEnvironment.PROD
                                   or server.provider is VpsProvider.LOCAL) else None
+    probe = ingress.probe or ingress.scheme + "://127.0.0.1" + (":" + str(ingress.port) if ingress.port else "")
     return {"scheme": ingress.scheme, "port": ingress.port, "entryPoints": list(ingress.entry_points),
             "privateEntryPoints": list(ingress.private_entry_points), "certResolver": ingress.cert_resolver,
-            "pattern": pattern, "hosts": hosts}
+            "pattern": pattern, "hosts": hosts, "probe": probe, "privateProbe": ingress.private_probe}
 
 
 def resolve_target(root, identifier):

@@ -272,6 +272,7 @@ def render(descriptor, planned, images, branch=None, rollback_compatible=False):
                                           for name, service in descriptor["services"].items() if service["settings"]},
                 "versions": {name: {"version": entry["version"], "changedIn": entry["changedIn"]}
                              for name, entry in planned["services"].items()},
+                "ports": {name: service["port"] for name, service in descriptor["services"].items()},
                 "sites": {name: service["sites"] for name, service in descriptor["services"].items() if service["sites"]},
                 "needs": {name: service["needs"] for name, service in descriptor["services"].items() if service["needs"]}}
     if branch:

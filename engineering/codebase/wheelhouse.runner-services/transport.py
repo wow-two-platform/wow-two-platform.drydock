@@ -252,7 +252,7 @@ def jobs(root, limit=50):
                 "release": record.get("release") or observed.get("release") or record.get("bundleId"),
                 "actor": record.get("actor"), "submittedAt": submitted,
                 "status": observed.get("status") or record.get("status")}
-        for key in ("reason", "failure", "startedAt", "completedAt", "mutationStarted", "sourceCommit"):
+        for key in ("reason", "failure", "startedAt", "completedAt", "mutationStarted", "sourceCommit", "warnings"):
             if key in observed:
                 item[key] = observed[key]
         result.append(item)
@@ -274,6 +274,18 @@ def target_topology(root, target_id):
         result = run_remote(Ssh(config["ssh"]), "topology", config["target"])
     except (OSError, ValueError, CommandFailed):
         result = empty_topology("unavailable", "The target topology could not be collected.")
+    result["targetId"] = target_id
+    return result
+
+
+def logs(root, target_id, service, tail=200):
+    """One service's recent container output from its target; passed to the caller, never written here."""
+    config = fleet.resolve_target(root, target_id)
+    validate_target(config["target"])
+    require(isinstance(service, str) and SLUG.fullmatch(service), "Invalid service")
+    require(type(tail) is int and 1 <= tail <= 1000, "Tail must be 1-1000 lines")
+    result = run_remote(Ssh(config["ssh"]), "logs", config["target"], "--service", service, "--tail", str(tail),
+                        timeout=60)
     result["targetId"] = target_id
     return result
 
@@ -444,11 +456,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=["import", "servers", "targets", "vaults", "releases", "template", "submit",
                                            "status", "jobs", "state", "check", "reconcile", "vitals", "stats", "topology",
-                                           "branches", "commits", "build"])
+                                           "branches", "commits", "build", "logs"])
     parser.add_argument("--root", required=True)
     parser.add_argument("--target")
     parser.add_argument("--bundle")
     parser.add_argument("--service")
+    parser.add_argument("--tail", type=int, default=200, help="logs: lines to read, 1-1000")
     parser.add_argument("--actor", default="operator")
     parser.add_argument("--job")
     parser.add_argument("--archive")
@@ -497,6 +510,8 @@ def main():
             result = vitals(root, args.target)
         elif args.action == "stats":
             result = stats(root, args.days)
+        elif args.action == "logs":
+            result = logs(root, args.target, args.service, args.tail)
         else:
             result = status(root, args.job)
         print(json.dumps(result))

@@ -165,6 +165,8 @@ class PlanTests(unittest.TestCase):
         self.assertEqual({"api": {"version": "1.0.0+" + second[:7], "changedIn": "sha-" + second[:7]},
                           "edge": {"version": "0.9.0", "changedIn": "v0.9.0"}}, validated["versions"])
         self.assertEqual(["api", "edge", "edge"], [site["service"] for site in runner.release_sites(validated)])
+        self.assertEqual(8080, runner.service_port(validated, "api"))
+        self.assertEqual(set(self.descriptor["services"]), set(validated["ports"]))
         compose = json.loads(compose_bytes)
         api, edge = compose["services"]["api"], compose["services"]["edge"]
         self.assertEqual(["pilot-${DEPLOY_ENVIRONMENT}-api"], api["networks"]["platform"]["aliases"])

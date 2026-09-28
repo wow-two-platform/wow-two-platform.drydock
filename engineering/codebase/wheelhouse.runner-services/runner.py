@@ -6,13 +6,18 @@ import contextlib
 import datetime
 import fcntl
 import hashlib
+import http.client
 import json
 import os
 from pathlib import Path
 import re
 import shutil
+import socket
+import ssl
 import subprocess
 import sys
+import time
+import urllib.parse
 import uuid
 
 SLUG = re.compile(r"[a-z][a-z0-9-]{0,47}")
@@ -24,6 +29,10 @@ BRANCH = re.compile(r"[A-Za-z0-9._/-]{1,200}")
 HOST = re.compile(r"(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+")
 SITE_PATH = re.compile(r"/(?:[A-Za-z0-9._~-]+/)*(?:[A-Za-z0-9._~-]+)?")
 ENTRY_POINT = re.compile(r"[a-z][a-z0-9-]{0,31}")
+PROBE_ADDRESS = re.compile(r"https?://[A-Za-z0-9.-]+(?::[0-9]{1,5})?")
+# Traefik's own answer for a host it has no router for; an application's 404 carries its own body.
+NO_ROUTE = b"404 page not found"
+LOG_LINE_LIMIT = 2000
 KINDS = ("release", "candidate")
 EXPOSURES = ("public", "private")
 TERMINAL = {"succeeded", "failed", "rolled_back", "rollback_failed", "interrupted", "rejected"}
@@ -122,8 +131,16 @@ def validate_bundle(bundle):
     for entry in versions.values():
         require(isinstance(entry, dict) and VERSION.fullmatch(str(entry.get("version", "")))
                 and RELEASE.fullmatch(str(entry.get("changedIn", ""))), "Invalid service version")
+    # The port each service listens on inside its container; a release without the map listens on 8080.
+    ports = manifest.get("ports", {})
+    require(isinstance(ports, dict) and set(ports) <= set(services)
+            and all(type(port) is int and 1 <= port <= 65535 for port in ports.values()), "Invalid service ports")
     release_sites(manifest)
     return manifest
+
+
+def service_port(manifest, service):
+    return manifest.get("ports", {}).get(service, 8080)
 
 
 def release_sites(manifest):
@@ -180,6 +197,11 @@ def target_ingress(target):
     hosts = ingress.get("hosts", {})
     require(isinstance(hosts, dict) and all(isinstance(name, str) and SLUG.fullmatch(name) and isinstance(host, str)
                                             and HOST.fullmatch(host) for name, host in hosts.items()), "Invalid site host")
+    # Where the runner reaches the ingress's public and private entry points from the target host.
+    for key in ("probe", "privateProbe"):
+        address = ingress.get(key)
+        require(address is None or (isinstance(address, str) and PROBE_ADDRESS.fullmatch(address)),
+                "Invalid ingress probe address")
     return ingress
 
 
@@ -238,6 +260,103 @@ def publish_routes(root, project, routes):
     return published
 
 
+def ingress_request(address, host, path, timeout=5):
+    """GETs `path` from the ingress at `address`, naming `host` in the Host header and TLS SNI."""
+    origin = urllib.parse.urlsplit(address)
+    port = origin.port or (443 if origin.scheme == "https" else 80)
+    connection = http.client.HTTPConnection(origin.hostname, port, timeout=timeout)
+    try:
+        if origin.scheme == "https":
+            # The certificate can still be pending right after a first deploy; this checks routing, not TLS.
+            context = ssl.create_default_context()
+            context.check_hostname = False
+            context.verify_mode = ssl.CERT_NONE
+            connection.sock = context.wrap_socket(socket.create_connection((origin.hostname, port), timeout=timeout),
+                                                  server_hostname=host)
+        connection.request("GET", path, headers={"Host": host, "User-Agent": "wheelhouse-probe"})
+        response = connection.getresponse()
+        return response.status, response.read(len(NO_ROUTE))
+    finally:
+        connection.close()
+
+
+def classify_probe(request, address, host, path):
+    try:
+        status, body = request(address, host, path)
+    except (OSError, ValueError, http.client.HTTPException) as error:
+        return {"ok": False, "detail": "The ingress did not answer (" + type(error).__name__ + ")"}
+    if status == 404 and body.startswith(NO_ROUTE):
+        return {"ok": False, "status": status, "detail": "The ingress has no route for this host"}
+    if status in (502, 503, 504):
+        return {"ok": False, "status": status, "detail": "The ingress could not reach the service"}
+    if status >= 500:
+        return {"ok": False, "status": status, "detail": "The service answered " + str(status)}
+    return {"ok": True, "status": status}
+
+
+def probe_sites(target, sites, deadline_seconds=20, interval=1.0, request=ingress_request):
+    """Requests every published site through the ingress by its host name, the way a visitor reaches it, until each
+    answers or the deadline passes; attaches the outcome to the site. A site without a probe address stays unprobed."""
+    ingress = target_ingress(target) or {}
+    pending = {}
+    for index, site in enumerate(sites):
+        address = ingress.get("probe" if site.get("exposure") == "public" else "privateProbe")
+        if address:
+            pending[index] = address
+    deadline = time.monotonic() + deadline_seconds
+    results = {}
+    while pending:
+        for index, address in list(pending.items()):
+            url = urllib.parse.urlsplit(sites[index]["url"])
+            results[index] = classify_probe(request, address, url.hostname, url.path or "/")
+            if results[index]["ok"]:
+                del pending[index]
+        # The ingress reloads a changed route file within seconds; a site that never answers is reported.
+        if not pending or time.monotonic() >= deadline:
+            break
+        time.sleep(interval)
+    for index, result in results.items():
+        sites[index]["probe"] = result
+    return [sites[index] for index in sorted(results)]
+
+
+class Steps:
+    """A rollout's ordered steps, saved into its job record as each starts and ends. Details are operator-safe."""
+
+    def __init__(self, record, save):
+        self.record, self.save = record, save
+        record.setdefault("steps", [])
+
+    def add(self, name, status, started, detail=None):
+        step = {"name": name, "status": status, "startedAt": started, "completedAt": now()}
+        if detail:
+            step["detail"] = detail
+        self.record["steps"].append(step)
+        self.save()
+
+    @contextlib.contextmanager
+    def run(self, name):
+        step = {"name": name, "status": "running", "startedAt": now()}
+        self.record["steps"].append(step)
+        self.save()
+        try:
+            yield step
+        except BaseException as error:
+            step.update(status="failed", completedAt=now())
+            if reason(error):
+                step["detail"] = reason(error)
+            self.save()
+            raise
+        if step["status"] == "running":
+            step["status"] = "succeeded"
+        step["completedAt"] = now()
+        self.save()
+
+
+def plural(count, noun):
+    return str(count) + " " + noun + ("" if count == 1 else "s")
+
+
 def configuration_value(value, field):
     for key in field.split(":"):
         value = value.get(key) if isinstance(value, dict) else None
@@ -274,7 +393,7 @@ def validate_settings(target, service, required):
         require(configuration_value(configuration, key) not in (None, "", []), "Missing required setting: " + service + ":" + key)
     hosts = configuration.get("AllowedHosts") if isinstance(configuration, dict) else None
     if isinstance(hosts, str):
-        # Health checks and smoke probes reach every service as http://localhost:8080.
+        # Health checks and smoke probes reach every service as http://localhost:<its port>.
         entries = {host.strip().lower() for host in hosts.split(";") if host.strip()}
         require(not entries or "*" in entries or "localhost" in entries,
                 "AllowedHosts must include localhost for health probes: " + service)
@@ -318,6 +437,17 @@ class Docker:
             raise CommandFailed(step + " timed out after " + str(timeout) + "s") from None
         if result.returncode:
             raise CommandFailed(step + " failed (exit " + str(result.returncode) + "); inspect target containers privately")
+        return result.stdout
+
+    def output(self, arguments, step, timeout=60):
+        """A command's interleaved stdout and stderr, for the operator who asked; the runner never stores it."""
+        try:
+            result = subprocess.run(arguments, env=self.environment, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                    text=True, errors="replace", timeout=timeout)
+        except subprocess.TimeoutExpired:
+            raise CommandFailed(step + " timed out after " + str(timeout) + "s") from None
+        if result.returncode:
+            raise CommandFailed(step + " failed (exit " + str(result.returncode) + ")")
         return result.stdout
 
     def preflight(self, manifest):
@@ -365,14 +495,16 @@ class Docker:
             require(re.fullmatch(r"/[A-Za-z0-9/_?=&.%~-]*", probe.get("path", "")), "Invalid smoke path")
             expected = probe.get("status", 200)
             require(type(expected) is int and 200 <= expected <= 499, "Invalid smoke status")
+            port = str(service_port(manifest, probe["service"]))
             status = self.compose(bundle, "exec", "-T", probe["service"], "curl", "--silent",
                                   "--output", "/dev/null", "--write-out", "%{http_code}",
-                                  "--max-time", "10", "http://localhost:8080" + probe["path"])
+                                  "--max-time", "10", "http://localhost:" + port + probe["path"])
             require(status.strip() == str(expected), "Smoke check failed: " + probe["service"] + " " + probe["path"]
                     + " returned " + status.strip()[:3] + ", expected " + str(expected))
 
 
-def apply(bundle, target, actor, job_id=None, docker_factory=Docker):
+def apply(bundle, target, actor, job_id=None, docker_factory=Docker, prober=probe_sites):
+    started = now()
     manifest = validate_bundle(bundle)
     root, project = validate_target(target, manifest)
     root = root / project
@@ -408,16 +540,45 @@ def apply(bundle, target, actor, job_id=None, docker_factory=Docker):
         def save():
             write_json(root / "jobs" / (job_id + ".json"), record)
             write_json(active_path, record)
-        save()
+        steps = Steps(record, save)
+        steps.add("Check target", "succeeded", started, "Settings, disk, Docker and platform verified")
         mutation_started = False
         try:
-            docker.pull(destination)
+            with steps.run("Pull images") as step:
+                docker.pull(destination)
+                step["detail"] = plural(len(manifest["images"]), "image")
             mutation_started = True
             record["mutationStarted"] = True
             save()
-            docker.up(destination)
-            docker.verify(destination, manifest)
-            record["sites"] = publish_routes(root.parent, project, routes)
+            with steps.run("Start containers"):
+                docker.up(destination)
+            with steps.run("Verify services") as step:
+                docker.verify(destination, manifest)
+                smoke = len(target.get("smoke", []))
+                step["detail"] = plural(len(manifest["images"]), "service") + " healthy" + (
+                    "; " + plural(smoke, "smoke check") + " passed" if smoke else "")
+            with steps.run("Publish sites") as step:
+                record["sites"] = publish_routes(root.parent, project, routes)
+                step["detail"] = plural(len(record["sites"]), "site") if record["sites"] else "No sites to publish"
+            if record["sites"]:
+                # A site that does not answer is a warning: the containers are healthy, the path to them is not.
+                with steps.run("Probe sites") as step:
+                    try:
+                        probed = prober(target, record["sites"])
+                    except Exception:
+                        probed = None
+                    failed = [site for site in probed or () if not site["probe"]["ok"]]
+                    if probed is None:
+                        step.update(status="warning", detail="The site probe could not run")
+                    elif not probed:
+                        step.update(status="skipped", detail="No probe address for this ingress")
+                    elif failed:
+                        step.update(status="warning", detail=str(len(probed) - len(failed)) + " of "
+                                    + plural(len(probed), "site") + " answered")
+                        record["warnings"] = ["Site " + site["name"] + " did not answer through the ingress: "
+                                              + site["probe"]["detail"] for site in failed]
+                    else:
+                        step["detail"] = plural(len(probed), "site") + " answered"
             record["status"] = "succeeded"
             write_json(previous_path, {key: record[key] for key in CURRENT if key in record})
         except (Exception, KeyboardInterrupt) as error:
@@ -433,13 +594,14 @@ def apply(bundle, target, actor, job_id=None, docker_factory=Docker):
                         record["reason"] += "; not healthy: " + ", ".join(states)
             if mutation_started and previous and manifest["rollbackCompatible"]:
                 try:
-                    prior_bundle = root / "releases" / previous["id"]
-                    prior_manifest = validate_bundle(prior_bundle)
-                    prior_environment = environment_for(target, prior_manifest)
-                    prior_docker = docker_factory(target, prior_environment)
-                    prior_docker.pull(prior_bundle)
-                    prior_docker.up(prior_bundle)
-                    prior_docker.verify(prior_bundle, prior_manifest)
+                    with steps.run("Roll back to " + str(previous.get("release") or "the previous release")):
+                        prior_bundle = root / "releases" / previous["id"]
+                        prior_manifest = validate_bundle(prior_bundle)
+                        prior_environment = environment_for(target, prior_manifest)
+                        prior_docker = docker_factory(target, prior_environment)
+                        prior_docker.pull(prior_bundle)
+                        prior_docker.up(prior_bundle)
+                        prior_docker.verify(prior_bundle, prior_manifest)
                     record["status"] = "rolled_back"
                 except Exception:
                     record["status"] = "rollback_failed"
@@ -504,7 +666,7 @@ def lock_held(base):
 
 def summary(record):
     fields = ("id", "release", "sourceCommit", "kind", "branch", "versions", "sites", "status", "actor", "startedAt",
-              "completedAt", "failure", "reason", "mutationStarted", "previous")
+              "completedAt", "failure", "reason", "mutationStarted", "previous", "steps", "warnings")
     return None if record is None else {key: record[key] for key in fields if key in record}
 
 
@@ -860,6 +1022,24 @@ def vitals(target, docker_factory=None):
     return result
 
 
+def logs(target, service, tail=200, docker_factory=None):
+    """The last lines one service's container wrote, read on request. The runner never stores container output."""
+    root, project = validate_target(target)
+    require(isinstance(service, str) and SLUG.fullmatch(service), "Invalid service")
+    require(type(tail) is int and 1 <= tail <= 1000, "Tail must be 1-1000 lines")
+    docker = (docker_factory or Docker)(target, base_environment(target))
+    containers = docker.execute(["docker", "ps", "--all", "--quiet", "--no-trunc",
+                                 "--filter", "label=com.docker.compose.project=" + project,
+                                 "--filter", "label=com.docker.compose.service=" + service],
+                                "docker ps", timeout=30).split()
+    require(containers, "No container runs this service")
+    output = docker.output(["docker", "logs", "--tail", str(tail), "--timestamps", containers[0]], "docker logs")
+    lines = output.splitlines()[-tail:]
+    return {"project": project, "service": service, "tail": tail, "collectedAt": now(),
+            "lines": [line[:LOG_LINE_LIMIT] for line in lines],
+            "truncated": any(len(line) > LOG_LINE_LIMIT for line in lines)}
+
+
 def decode(value):
     # Transport passes documents as base64 arguments so read-only calls leave no files on the target.
     return json.loads(base64.b64decode(value, validate=True))
@@ -868,13 +1048,15 @@ def decode(value):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=["validate", "apply", "launch", "status", "acknowledge", "state", "check",
-                                           "vitals", "topology"])
+                                           "vitals", "topology", "logs"])
     parser.add_argument("--bundle")
     parser.add_argument("--target")
     parser.add_argument("--target-json")
     parser.add_argument("--release-json")
     parser.add_argument("--actor", default="operator")
     parser.add_argument("--job")
+    parser.add_argument("--service")
+    parser.add_argument("--tail", type=int, default=200)
     args = parser.parse_args()
     try:
         target = decode(args.target_json) if args.target_json else None
@@ -894,6 +1076,8 @@ def main():
             result = check(target or read_json(args.target), decode(args.release_json) if args.release_json else None)
         elif args.action == "vitals":
             result = vitals(target or read_json(args.target))
+        elif args.action == "logs":
+            result = logs(target or read_json(args.target), args.service, args.tail)
         else:
             result = apply(args.bundle, read_json(args.target), args.actor, args.job)
         print(json.dumps(result))
@@ -903,8 +1087,12 @@ def main():
         if args.action == "apply" and args.job:
             try:
                 root, project = validate_target(read_json(args.target))
+                refused = rejection(error)
+                check = {"name": "Check target", "status": "failed", "completedAt": now()}
+                if refused.get("reason"):
+                    check["detail"] = refused["reason"]
                 write_json(root / project / "jobs" / (args.job + ".json"),
-                           {"id": args.job, **rejection(error), "completedAt": now()})
+                           {"id": args.job, **refused, "completedAt": now(), "steps": [check]})
             except Exception:
                 pass
         print(json.dumps(rejection(error)), file=sys.stderr)

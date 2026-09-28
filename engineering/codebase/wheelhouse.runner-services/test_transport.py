@@ -273,6 +273,29 @@ class TransportTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "not defined in code"):
                 transport.vitals(self.root, "missing")
 
+    def test_logs_read_one_service_through_the_runner_and_bound_the_request(self):
+        config = {"serverId": "pilot", "provider": "Hetzner", "ssh": self.config,
+                  "target": {"product": "pilot", "environment": "test", "root": "/srv/wheelhouse"}}
+
+        def remote(ssh, action, target, *arguments, release=None, timeout=30):
+            self.assertEqual(("logs", ("--service", "api", "--tail", "50"), 60), (action, arguments, timeout))
+            return {"project": "pilot-test", "service": "api", "lines": ["started"]}
+        with patch.object(transport.fleet, "resolve_target", return_value=config), \
+                patch.object(transport, "run_remote", side_effect=remote):
+            result = transport.logs(self.root, "pilot-test", "api", 50)
+            self.assertEqual(("pilot-test", ["started"]), (result["targetId"], result["lines"]))
+            for service, tail in (("../api", 50), ("api", 5000)):
+                with self.subTest(service=service, tail=tail), self.assertRaises(ValueError):
+                    transport.logs(self.root, "pilot-test", service, tail)
+
+    def test_jobs_carry_the_warnings_a_target_observed(self):
+        job = "33333333-3333-4333-8333-333333333333"
+        transport.write_json(self.root / "jobs" / (job + ".json"),
+                             {"id": job, "targetId": "pilot-test", "status": "queued", "submittedAt": "2026-09-28T10:00:00+00:00"})
+        transport.write_json(self.root / "observed" / (job + ".json"),
+                             {"status": "succeeded", "warnings": ["Site app did not answer through the ingress"]})
+        self.assertEqual(["Site app did not answer through the ingress"], transport.jobs(self.root)[0]["warnings"])
+
     def policy_config(self, environment, candidates, confirmation):
         return {"serverId": "local", "provider": "Local", "ssh": self.config,
                 "acceptsCandidates": candidates, "needsConfirmation": confirmation,
