@@ -1,6 +1,6 @@
 # Feature completeness — vectors, reliability and shipping Wheelhouse
 
-*Last updated: 2026-09-28*
+*Last updated: 2026-09-29*
 
 What Wheelhouse needs before it is complete and reliable enough to run the portfolio: the five vectors the product
 named (topology, secrets, domains, portfolio, service map), the reliability properties, how Wheelhouse ships itself,
@@ -14,6 +14,7 @@ and 25.
 - [x] Decision-free items built in v0.3 iterations 9-11: rollout steps, site probes, log reads, ingress check, image cleanup, audit trail, CI.
 - [x] Second sweep: runner housekeeping, write guards, test layers and contracts (S19-S25).
 - [x] Service map built in v0.3 iteration 12: sites, platform needs, versions, environments compared with promotion.
+- [x] Third sweep: version stamps, version docs, SDK pins and dependency advisories (S26-S29); [next versions](next-versions.md).
 - [ ] Points decided.
 - [ ] Version tracks written from the decided points.
 
@@ -28,7 +29,7 @@ and 25.
 | Secrets | Vault console: namespaces, write-only values, product tokens, rotation hygiene; required-key checks on settings files | Settings rendering, deploy-time tokens, SDK vault consumer, expiring tokens, Wheelhouse's own credentials at rest |
 | Domains | Site hosts per target (named or pattern); `ManagedDomain` placeholder entity | Inventory, registrar sync, DNS plan and apply, expiry tracking, preview wildcard |
 | Portfolio | Product create, edit and delete (slug, name, repository, status) in the database | One product catalog, lifecycle actions, cost, capacity, onboarding |
-| Service map | Per-target map: services, networks, volumes, dependencies, container vitals, sites, platform needs, versions; environments compared with promotion | Host view, portfolio matrix |
+| Service map | Per-target map on a pan-and-zoom canvas: services, networks, volumes, dependencies, container vitals, sites, platform needs, versions; environments compared with promotion | Host view, portfolio matrix |
 | Operations | Host and container vitals with 30 days of trends, 30-day deploy metrics, one attention list, service log reads, an ingress check | Alerts, notifications, uptime probes |
 | Wheelhouse itself | Production image, CI on every push, its own `deploy.yml` and release workflow, the audit trail, a local self-deploy | A host, bootstrap, backups |
 
@@ -205,6 +206,10 @@ Placement options:
 | S23 | No browser tests: every UI flow is verified by hand | Frontend tests cover schemas and pure rules only | Adoption version |
 | S24 | Frontend schemas mirror API shapes by hand; nothing catches a drift | Zod schemas beside C# DTOs, no contract test | Adoption version |
 | S25 | The audit chain proves no middle edit, but not that the newest entries were kept | No checkpoint outside the database | Operations |
+| S26 | The code said version `0.1.0` through v0.3, and nothing showed a running version | `Directory.Build.props`, `package.json`, the status endpoint | v0.3 ✓ |
+| S27 | Applied migrations are stamped `v1.0`, the SDK default, not the product version | `MigrationOptions.Version` is never set | Adoption version |
+| S28 | Nine transitive backend packages carry advisories, five of them high | `dotnet list package --vulnerable --include-transitive` on the API | Adoption version |
+| S29 | v0.3 missed the Studio workspace and base map and still described the retired sidebar | `v0.3.md` Iterations 2 and 12 | v0.3 ✓ |
 
 ---
 

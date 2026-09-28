@@ -1,6 +1,6 @@
 # research/
 
-*Last updated: 2026-09-28*
+*Last updated: 2026-09-29*
 
 Technical research dumps — spikes, comparisons, deep-dives that inform the build. One doc per topic.
 
@@ -10,5 +10,6 @@ Technical research dumps — spikes, comparisons, deep-dives that inform the bui
 - [Claude UI directions](design-directions/design-directions.md) — six parked boards plus the Harbor Frost merge, as standalone pages.
 - [Deployment topology](deployment-topology.md) — platform services, networks, volumes, site links and dev/test/prod environments.
 - [Feature completeness](feature-completeness.md) — the five vectors, reliability, shipping Wheelhouse and a product sweep.
+- [Next versions](next-versions.md) — version position, close-out, the Adoption inventory and the Feature waves after it.
 
 Future topics: deploy substrate (bespoke Docker+Traefik+SSH.NET vs Coolify), registrar API comparison (Porkbun vs Namecheap), Hetzner Cloud provisioning + cloud-init.

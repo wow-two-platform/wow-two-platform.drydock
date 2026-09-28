@@ -1,6 +1,6 @@
 # Wheelhouse — Backlog
 
-*Last updated: 2026-09-28*
+*Last updated: 2026-09-29*
 
 Deferred work; top of each group = next. Version docs hold only the active version.
 
@@ -102,6 +102,9 @@ SDK-wide follow-up ownership is independent of this migration; the original obse
 | Require the action header on product writes | issue | Every other write carries it; waits on the product catalog decision (completeness Point 1) |
 | Retire the single-image version-status query | issue | Replaced by the published artifact catalog |
 | Extract the vault admin client to the backend SDK | check | After `v0.3` proves it |
+| Swap the canvas copy for the SDK's `CanvasArea` | check | `presentation/common/components/canvasArea` copies the unreleased SDK part; delete after the re-pin |
+| Stamp applied migrations with the product version | issue | `MigrationOptions.Version` keeps the SDK default `v1.0` |
+| Clear the transitive backend package advisories | issue | Five high, four moderate; they arrive through the backend SDK at `10.0.40-beta` |
 
 Route splitting and skeleton first loads were completed in the [Vue workspace migration](ui-workspace.md).
 
