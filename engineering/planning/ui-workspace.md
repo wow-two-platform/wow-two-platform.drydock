@@ -1,6 +1,6 @@
 # Wheelhouse — Studio workspace and Vue migration
 
-*Last updated: 2026-09-26*
+*Last updated: 2026-09-29*
 
 ## Status
 
@@ -129,6 +129,7 @@ receive solid fallbacks.
 - [x] Interactive map distinguishes services, startup dependencies, shared networks and optional named volumes.
 - [x] Loading, unavailable, empty, stale, disconnected and multiple-service states verified.
 - [x] Runner, backend and frontend checks plus responsive browser verification complete.
+- [x] The map pans and zooms on the shared `CanvasArea`; a local copy serves until the UI SDK re-pin.
 
 ### Map evidence boundary
 
