@@ -1,5 +1,6 @@
 using Wheelhouse.Domain.Audit.Entities;
 using Wheelhouse.Domain.Deployments.Entities;
+using Wheelhouse.Domain.Operations.Entities;
 using Wheelhouse.Domain.Domains.Entities;
 using Wheelhouse.Domain.Products.Entities;
 using Wheelhouse.Domain.Secrets.Entities;
@@ -34,6 +35,9 @@ public sealed class WheelhouseDbContext(DbContextOptions<WheelhouseDbContext> op
 
     /// <summary>Gets the append-only, hash-chained audit trail.</summary>
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
+
+    /// <summary>Gets thirty days of host and container readings.</summary>
+    public DbSet<VitalsSample> VitalsSamples => Set<VitalsSample>();
 
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -101,6 +105,16 @@ public sealed class WheelhouseDbContext(DbContextOptions<WheelhouseDbContext> op
             e.Property(x => x.Actor).IsRequired();
             e.Property(x => x.Action).IsRequired();
             e.Property(x => x.Subject).IsRequired();
+        });
+
+        modelBuilder.Entity<VitalsSample>(e =>
+        {
+            e.ToTable(VitalsSample.TableName);
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TargetId, x.SampledAtUtc });
+            e.HasIndex(x => x.SampledAtUtc);
+            e.Property(x => x.TargetId).IsRequired();
+            e.Property(x => x.ServerId).IsRequired();
         });
 
         // Store every enum in the model as snake_case text via the SDK reversible converter (member-built reverse map →

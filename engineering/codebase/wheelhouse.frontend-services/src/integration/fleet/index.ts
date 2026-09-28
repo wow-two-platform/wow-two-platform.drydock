@@ -1,6 +1,6 @@
-import type { FleetVitals, Server } from "@/domain/fleet";
+import type { FleetVitals, Server, VitalsSample } from "@/domain/fleet";
 import { requestData } from "@/integration/common";
-import { FleetVitalsSchema, ServerSchema } from "./schemas";
+import { FleetVitalsSchema, ServerSchema, VitalsSampleSchema } from "./schemas";
 
 /** Read-only fleet catalog and snapshots. */
 export const fleetApi = {
@@ -10,4 +10,11 @@ export const fleetApi = {
     requestData<FleetVitals>("/api/deployments/vitals", FleetVitalsSchema, {
       signal,
     }),
+  /** Every target's stored readings of the last `hours` (1-720), oldest first. */
+  getVitalsHistory: (hours: number, signal?: AbortSignal) =>
+    requestData<VitalsSample[]>(
+      `/api/deployments/vitals/history?hours=${hours}`,
+      VitalsSampleSchema.array(),
+      { signal },
+    ),
 };

@@ -53,3 +53,16 @@ export const FleetVitalsSchema = z.object({
     }),
   ),
 });
+
+export const VitalsSampleSchema = z.object({
+  targetId: z.string(),
+  serverId: z.string(),
+  sampledAt: z.string(),
+  readable: z.boolean(),
+  loadPercent: nullableNumber,
+  memoryPercent: nullableNumber,
+  diskPercent: nullableNumber,
+  containers: z.number().int(),
+  healthyContainers: z.number().int(),
+  restarts: z.number().int(),
+});

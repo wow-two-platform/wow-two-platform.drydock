@@ -71,6 +71,8 @@ public sealed class WheelhouseAppFixture : IAsyncLifetime
                 config.AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["ConnectionStrings:Wheelhouse"] = _postgres.ConnectionString,
+                    // Tests run sampling passes explicitly; the background sampler stays off.
+                    ["Operations:VitalsSampleMinutes"] = "0",
                 })),
             ConfigureServicesHook = services =>
             {

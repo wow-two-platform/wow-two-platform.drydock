@@ -15,6 +15,7 @@ const bundle = await build({
       export { auditApi } from './src/integration/audit';
       export { AuditArea, AuditExtensions } from './src/domain/audit';
       export { compareEnvironments } from './src/domain/deployments/EnvironmentComparison';
+      export { hostTrend } from './src/domain/fleet/models/VitalsSample';
       export { clearHttpSession } from './src/integration/common';
       export { useFleetVitals } from './src/application/fleet/useFleetVitals';
       export { queryClient, queryPlugin } from './src/bootstrap/query';
@@ -38,6 +39,7 @@ const {
   AuditArea,
   AuditExtensions,
   compareEnvironments,
+  hostTrend,
   clearHttpSession,
   useFleetVitals,
   queryClient,
@@ -306,6 +308,27 @@ test("lines environments up dev to prod and offers each published release to the
     [state("v1.1", "release", {}), undefined], releases);
   assert.equal(unread.columns[0].promotion, null);
   assert.equal(unread.columns[1].read, false);
+});
+
+test("reads vitals history and traces one server's host figures from its first target", async () => {
+  const sample = (targetId, serverId, sampledAt, memoryPercent) => ({ targetId, serverId, sampledAt, readable: true,
+    loadPercent: null, memoryPercent, diskPercent: 40, containers: 2, healthyContainers: 2, restarts: 0 });
+  let requested;
+  globalThis.fetch = async (url) => {
+    requested = url;
+    return json({ data: [
+      sample("pin-dev", "local", "2026-09-28T10:00:00Z", 50),
+      sample("pin-test", "local", "2026-09-28T10:00:00Z", 50),
+      sample("pin-dev", "local", "2026-09-28T10:05:00Z", null),
+      sample("pin-dev", "local", "2026-09-28T10:10:00Z", 70),
+      sample("other-prod", "vps", "2026-09-28T10:10:00Z", 10),
+    ] });
+  };
+  const result = await fleetApi.getVitalsHistory(24);
+  assert.equal(requested, "/api/deployments/vitals/history?hours=24");
+  assert.deepEqual(hostTrend(result.value, "local", "memoryPercent").map((point) => point.value), [50, 70]);
+  assert.deepEqual(hostTrend(result.value, "vps", "diskPercent").map((point) => point.value), [40]);
+  assert.deepEqual(hostTrend(result.value, "missing", "memoryPercent"), []);
 });
 
 test("accepts explicit empty logout and deletion successes", async () => {

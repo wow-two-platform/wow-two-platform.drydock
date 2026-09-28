@@ -55,6 +55,7 @@ public static class HostConfigurationExtensions
         builder.Services.AddScoped<IServerRepository, EfServerRepository>();
         builder.Services.AddScoped<IProductRepository, EfProductRepository>();
         builder.Services.AddScoped<IAuditTrail, EfAuditTrail>();
+        builder.Services.AddScoped<IVitalsHistory, EfVitalsHistory>();
         builder.Services.AddHashChain<Wheelhouse.Domain.Audit.Entities.AuditEntry,
             Wheelhouse.Persistence.Audit.AuditEntryCanonicalizer>();
 
@@ -68,6 +69,8 @@ public static class HostConfigurationExtensions
         builder.Services.AddSingleton(DeploymentSettingsFor(builder));
         builder.Services.AddSingleton<Wheelhouse.Infrastructure.Deployments.Parsers.RunnerFailureParser>();
         builder.Services.AddScoped<IDeploymentGateway, Wheelhouse.Infrastructure.Deployments.DeploymentGateway>();
+        builder.Services.AddScoped<Wheelhouse.Application.Operations.VitalsSampling>();
+        builder.Services.AddHostedService<Wheelhouse.Infrastructure.Operations.VitalsSampler>();
 
         // Vault administration: code-owned endpoints only, no redirects or cookies, bounded calls.
         builder.Services.AddHttpClient(Wheelhouse.Infrastructure.Vaults.VaultGateway.ClientName,

@@ -16,4 +16,5 @@ export interface Server {
 }
 
 export type { ContainerVitals, DiskUsage, FleetVitals, HostVitals, TargetVitals } from './models/FleetVitals';
+export { TrendRanges, hostTrend, type TrendPoint, type TrendRange, type VitalsSample } from './models/VitalsSample';
 export { FleetExtensions, RESTART_WARNING, USAGE_THRESHOLDS, type ContainerTone } from './FleetExtensions';

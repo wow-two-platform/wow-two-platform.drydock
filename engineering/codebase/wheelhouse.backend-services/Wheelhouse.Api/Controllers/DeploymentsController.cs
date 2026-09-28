@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Text.Json;
 using Wheelhouse.Api.Requests;
 using Wheelhouse.Application.Deployments;
+using Wheelhouse.Application.Operations;
 using Microsoft.AspNetCore.Mvc;
 using WoW.Two.Sdk.Backend.Beta.Mediator;
 using WoW.Two.Sdk.Backend.Beta.Mediator.Result;
@@ -66,6 +67,15 @@ public sealed class DeploymentsController(ISender sender, IErrorHttpStatusCodeMa
     [HttpGet("vitals")]
     public async Task<IActionResult> Vitals(CancellationToken ct) =>
         Render(await sender.SendAsync(new DeploymentReadQuery("vitals"), ct));
+
+    /// <summary>Reads stored vitals samples of the last hours (1-720), for one target or every target.</summary>
+    [HttpGet("vitals/history")]
+    public async Task<IActionResult> VitalsHistory(
+        [FromQuery, RegularExpression(Slug)] string? target, [FromQuery, Range(1, 720)] int hours = 24,
+        CancellationToken ct = default) =>
+        (await sender.SendAsync(new VitalsHistoryQuery(target, hours), ct)).Match<IActionResult>(
+            ok => Ok(ApiResponse<IReadOnlyList<VitalsSampleDto>>.Ok(ok.Data)),
+            fail => Problem(statusCode: errors.ToStatusCode(fail.Error), detail: fail.Error.Message));
 
     /// <summary>Lists published releases and per-commit builds from approved repositories.</summary>
     [HttpGet("releases")]

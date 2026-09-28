@@ -19,17 +19,18 @@ import {
   SelectPickerContent,
   SelectPickerItem,
 } from '@wow-two-beta/ui-vue/presentation/forms';
-import { useServers, useFleetVitals } from '@/application/fleet';
+import { useServers, useFleetVitals, useVitalsHistory } from '@/application/fleet';
 import { useDeploymentTargets } from '@/application/deployments';
 import { useProducts } from '@/application/products';
 import { buildWorkspaceInventory } from '@/application/workspace/WorkspaceInventory';
 import { useRefresh } from '@/application/common';
-import { FleetExtensions, VpsProvider } from '@/domain/fleet';
+import { FleetExtensions, TrendRanges, VpsProvider, hostTrend, type TrendRange } from '@/domain/fleet';
 import { Measures } from '@/domain/common';
 import Panel from '@/presentation/common/components/Panel.vue';
 import LoadState from '@/presentation/common/components/LoadState.vue';
 import PageActions from '@/presentation/common/components/PageActions.vue';
 import ResourceMeter from '../components/ResourceMeter.vue';
+import TrendLine from '../components/TrendLine.vue';
 
 /** Presents code-owned fleet inventory and current, timestamped resource readings. */
 defineOptions({ name: 'FleetPage' });
@@ -53,6 +54,14 @@ const visible = computed(() =>
   (servers.data.value ?? []).filter((server) => !provider.value || server.provider === provider.value),
 );
 const groups = computed(() => FleetExtensions.byServer(vitals.data.value?.targets ?? []));
+const TrendLabels: Record<TrendRange, string> = { day: 'Last 24 hours', week: 'Last 7 days', month: 'Last 30 days' };
+const trendRange = ref<TrendRange>('day');
+const history = useVitalsHistory(() => TrendRanges[trendRange.value]);
+/** The trend window, fixed per read so the lines line up across servers. */
+const trendWindow = computed(() => {
+  const until = history.data.value ? Date.now() : 0;
+  return { since: until - TrendRanges[trendRange.value] * 3_600_000, until };
+});
 </script>
 <template>
   <div class="space-y-6">
@@ -132,6 +141,43 @@ const groups = computed(() => FleetExtensions.byServer(vitals.data.value?.target
           <p v-else class="mb-5 text-sm text-muted-foreground">
             {{ vitals.loading.value ? 'Reading host vitals…' : 'Host vitals are unavailable.' }}
           </p>
+          <section class="mb-5" :aria-label="`${server.name} trends`">
+            <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <h3 class="text-xs font-medium text-muted-foreground">Trends · sampled every few minutes</h3>
+              <div class="w-36">
+                <SelectPicker v-model="trendRange"
+                  ><SelectPickerTrigger aria-label="Trend range"><SelectPickerValue /></SelectPickerTrigger
+                  ><SelectPickerContent
+                    ><SelectPickerItem
+                      v-for="(label, value) in TrendLabels"
+                      :key="value"
+                      :item-key="value"
+                      :value="value"
+                      :label="label" /></SelectPickerContent
+                ></SelectPicker>
+              </div>
+            </div>
+            <p v-if="history.error.value" class="text-xs text-muted-foreground">
+              Trends are unavailable: {{ history.error.value.message }}
+            </p>
+            <div v-else class="grid gap-3 sm:grid-cols-3">
+              <TrendLine
+                label="CPU load"
+                :points="hostTrend(history.data.value ?? [], server.id, 'loadPercent')"
+                v-bind="trendWindow"
+              />
+              <TrendLine
+                label="Memory"
+                :points="hostTrend(history.data.value ?? [], server.id, 'memoryPercent')"
+                v-bind="trendWindow"
+              />
+              <TrendLine
+                label="Fullest disk"
+                :points="hostTrend(history.data.value ?? [], server.id, 'diskPercent')"
+                v-bind="trendWindow"
+              />
+            </div>
+          </section>
           <section
             v-for="target in groups.get(server.id) ?? []"
             :key="target.targetId"
