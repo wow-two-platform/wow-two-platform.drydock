@@ -46,7 +46,7 @@ class FleetTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'not defined in code'):
                 fleet.resolve_target(Path('/data/deployments'), 'foreverpin-dev')
         with patch.dict('os.environ', {'WHEELHOUSE_REHEARSAL': '1'}):
-            self.assertEqual(['foreverpin-dev', 'foreverpin-test', 'foreverpin-prod'],
+            self.assertEqual(['foreverpin-dev', 'foreverpin-test', 'foreverpin-prod', 'wheelhouse-dev'],
                              [target.id for target in fleet.active_targets()])
             config = fleet.resolve_target(Path('/data/deployments'), 'foreverpin-dev')
             self.assertEqual(('Local', 2222, 'dev', 'local'),

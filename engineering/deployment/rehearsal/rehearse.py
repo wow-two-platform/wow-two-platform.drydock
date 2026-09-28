@@ -5,6 +5,9 @@ The local server hosts ForeverPin's dev, test and prod environments at once. Dev
 deploy on demand, and prod asks for its target ID typed out.
 Prod takes a release only after it succeeded on test, unless --skip-test-pass comes with the typed ID. Each environment's sites answer through the local
 ingress at http://<site>-foreverpin.<environment>.localhost:18080.
+
+`self` ships Wheelhouse the way it ships products: its own release generator builds its image and bundle from this
+checkout, and the runner deploys it to the wheelhouse-dev target, at http://console-wheelhouse.dev.localhost:18080.
 """
 import argparse
 import base64
@@ -26,6 +29,10 @@ RUNNERS = HERE.parents[1] / "codebase" / "wheelhouse.runner-services"
 TRANSPORT = RUNNERS / "transport.py"
 RELEASE = RUNNERS / "release.py"
 WORKBENCH = HERE.parents[4]
+REPOSITORY = HERE.parents[2]
+SELF = "wheelhouse"
+SELF_TARGET = "wheelhouse-dev"
+SELF_HOST = "console-wheelhouse.dev.localhost"
 PRODUCT = "foreverpin"
 PRODUCT_REPO = WORKBENCH / "ventures" / "10x-venture-forever-pin"
 # ForeverPin carries no deploy.yml yet; the local server holds one for it.
@@ -222,12 +229,10 @@ def bundle(tag=None, broken=False):
     if (INVENTORY / "bundles" / bundle_id).exists():
         print("Already imported " + bundle_id)
         return bundle_id
-    platform = "linux/" + run("docker", "info", "--format", "{{.Architecture}}").strip() \
-        .replace("x86_64", "amd64").replace("aarch64", "arm64")
     output = private_dir(STATE / "build") / bundle_id
     archive = STATE / "build" / (bundle_id + ".tar.gz")
     arguments = [yaml_python(), str(RELEASE), "build", "--repo", str(PRODUCT_REPO), "--commit", commit,
-                 "--descriptor", str(DESCRIPTOR), "--registry", REGISTRY + "/" + PRODUCT, "--platform", platform,
+                 "--descriptor", str(DESCRIPTOR), "--registry", REGISTRY + "/" + PRODUCT, "--platform", platform(),
                  "--output", str(output), "--archive", str(archive)]
     if branch != "HEAD":
         arguments += ["--branch", branch]
@@ -273,15 +278,16 @@ def settings(bundle_id, name):
     print("Wrote " + name + " settings for " + bundle_id)
 
 
-def deploy(bundle_id, name, confirm=None, skip_test_pass=False, timeout=420):
+def deploy(bundle_id, name, confirm=None, skip_test_pass=False, timeout=420, target=None):
     """Submits the bundle through the same transport the dashboard uses and waits for the outcome."""
-    arguments = ["submit", "--target", target_of(name), "--bundle", bundle_id, "--actor", "local-server"]
+    target = target or target_of(name)
+    arguments = ["submit", "--target", target, "--bundle", bundle_id, "--actor", "local-server"]
     if confirm:
         arguments += ["--confirm", confirm]
     if skip_test_pass:
         arguments.append("--skip-test-pass")
     job = transport(*arguments)
-    print("Submitted " + job["id"] + " to " + target_of(name))
+    print("Submitted " + job["id"] + " to " + target)
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         time.sleep(5)
@@ -293,7 +299,7 @@ def deploy(bundle_id, name, confirm=None, skip_test_pass=False, timeout=420):
             print(json.dumps({key: outcome.get(key) for key in ("status", "release", "reason", "failure", "warnings")
                               if outcome.get(key) is not None}))
             if outcome.get("status") == "succeeded":
-                for site in transport("state", "--target", target_of(name))["current"].get("sites", []):
+                for site in transport("state", "--target", target)["current"].get("sites", []):
                     probe = site.get("probe")
                     answer = "" if probe is None else " (answered " + str(probe.get("status")) + ")" if probe["ok"] \
                         else " (" + probe["detail"] + ")"
@@ -302,11 +308,56 @@ def deploy(bundle_id, name, confirm=None, skip_test_pass=False, timeout=420):
     sys.exit("Timed out waiting for " + job["id"])
 
 
+def platform():
+    return "linux/" + run("docker", "info", "--format", "{{.Architecture}}").strip() \
+        .replace("x86_64", "amd64").replace("aarch64", "arm64")
+
+
+def self_bundle():
+    """Builds Wheelhouse's image and bundle with its own release generator, as its CI does, and imports it.
+    The build takes the checkout as it is, so uncommitted changes ride along under HEAD's commit."""
+    commit = run("git", "-C", str(REPOSITORY), "rev-parse", "HEAD").strip()
+    bundle_id = SELF + "-sha-" + commit[:7]
+    if (INVENTORY / "bundles" / bundle_id).exists():
+        print("Already imported " + bundle_id)
+        return bundle_id
+    output = private_dir(STATE / "build") / bundle_id
+    archive = STATE / "build" / (bundle_id + ".tar.gz")
+    print(run(yaml_python(), str(RELEASE), "build", "--repo", str(REPOSITORY), "--commit", commit, "--checkout",
+              "--registry", REGISTRY + "/" + SELF, "--platform", platform(),
+              "--output", str(output), "--archive", str(archive)).strip())
+    transport("import", "--archive", str(archive), "--bundle", bundle_id)
+    print("Imported " + bundle_id)
+    return bundle_id
+
+
+def self_environment():
+    """Wheelhouse's database on the local server's Postgres, and its settings. Sign-in stays off until the settings
+    name a GitHub OAuth app whose callback is http://<SELF_HOST>:18080/api/identity/callback."""
+    found = compose("exec", "-T", "database", "psql", "-U", PRODUCT, "-d", PRODUCT, "-tAc",
+                    "SELECT 1 FROM pg_database WHERE datname = 'wheelhouse_dev'").strip()
+    if found != "1":
+        compose("exec", "-T", "database", "psql", "-U", PRODUCT, "-d", PRODUCT, "-c", "CREATE DATABASE wheelhouse_dev")
+    path = private_dir(SECRETS / "dev") / "wheelhouse-console.json"
+    if path.exists():
+        return
+    password = (SECRETS / "database-password").read_text().strip()
+    private_file(path, json.dumps({
+        "ConnectionStrings": {"Wheelhouse": "Host=rehearsal-database;Database=wheelhouse_dev;Username=" + PRODUCT
+                                            + ";Password=" + password},
+        "Identity": {"GitHub": {"ClientId": "set-a-github-oauth-app", "ClientSecret": "set-a-github-oauth-app"},
+                     "AllowedGitHubLogins": [CONSOLE_ADMIN]},
+        # Health probes call localhost; the operator arrives through the ingress on the private site's host.
+        "AllowedHosts": "localhost;" + SELF_HOST,
+    }, indent=2) + "\n")
+    print("Wrote " + str(path) + "; add a GitHub OAuth app there to sign in")
+
+
 def down(volumes):
     profiles = ["--profile", "vault", "--profile", "console", "--profile", "dev"]
     # The runner names each product project <product>-<environment>; `rehearsal` predates environments.
-    for name in (*ENVIRONMENTS, "rehearsal"):
-        run("docker", "compose", "-p", PRODUCT + "-" + name, "down", *(["--volumes"] if volumes else []),
+    for project in (*(PRODUCT + "-" + name for name in (*ENVIRONMENTS, "rehearsal")), SELF_TARGET):
+        run("docker", "compose", "-p", project, "down", *(["--volumes"] if volumes else []),
             env=environment(), capture=False)
     compose(*profiles, "down", *(["--volumes"] if volumes else []), capture=False)
 
@@ -314,7 +365,7 @@ def down(volumes):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("action", choices=["up", "console", "dev", "bundle", "settings", "check", "deploy", "state",
-                                           "run", "down"])
+                                           "run", "self", "down"])
     parser.add_argument("--env", default="dev", help="dev (default), test or prod")
     parser.add_argument("--tag", help="bundle: a release tag such as v0.0.1-local.1; without it, a dev candidate")
     parser.add_argument("--bundle", help="the bundle ID to use; defaults to the checkout's candidate")
@@ -354,6 +405,11 @@ def main():
         settings(bundle_id, args.env)
         print(json.dumps(transport("check", "--target", target_of(args.env), "--bundle", bundle_id), indent=2))
         deploy(bundle_id, args.env, args.confirm)
+    elif args.action == "self":
+        up()
+        bundle_id = self_bundle()
+        self_environment()
+        deploy(bundle_id, "dev", target=SELF_TARGET, timeout=600)
     else:
         down(args.volumes)
 

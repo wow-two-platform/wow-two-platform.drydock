@@ -396,9 +396,10 @@ class TransportTests(unittest.TestCase):
             listed = {item["id"]: (item["environment"], item["acceptsCandidates"], item["needsConfirmation"])
                       for item in transport.targets(self.root)}
         self.assertEqual({"foreverpin-dev": ("dev", True, False), "foreverpin-test": ("test", False, False),
-                          "foreverpin-prod": ("prod", False, True)}, listed)
+                          "foreverpin-prod": ("prod", False, True), "wheelhouse-dev": ("dev", True, False)}, listed)
         with patch.dict("os.environ", {"WHEELHOUSE_REHEARSAL": "1"}):
-            self.assertEqual([False, False, True], [item["requiresTestPass"] for item in transport.targets(self.root)])
+            self.assertEqual([False, False, True, False],
+                             [item["requiresTestPass"] for item in transport.targets(self.root)])
 
     def test_cli_rejection_carries_a_safe_reason(self):
         argv = ["transport.py", "template", "--root", str(self.root), "--bundle", "../escape"]

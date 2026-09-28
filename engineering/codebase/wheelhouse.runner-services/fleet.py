@@ -100,7 +100,11 @@ LOCAL_TARGETS = tuple(
            "wheelhouse-rehearsal",
            smoke=({"service": "management", "path": "/api/runtime-config", "status": 200},
                   {"service": "redirect", "path": "/health", "status": 200}))
-    for environment in DeploymentEnvironment)
+    for environment in DeploymentEnvironment) + (
+    # Wheelhouse ships like its products: `rehearse.py self` deploys its own bundle here.
+    Target("wheelhouse-dev", "local", "wheelhouse", DeploymentEnvironment.DEV,
+           (("console", str(LOCAL_STATE / "secrets" / "dev" / "wheelhouse-console.json")),),
+           "wheelhouse-rehearsal", smoke=({"service": "console", "path": "/api/system/ready", "status": 200},)),)
 LOCAL_VAULTS = (Vault("local-vault", "Local vault", "local", "http://vault:8080" if IN_RIG else "http://127.0.0.1:18201"),)
 
 
