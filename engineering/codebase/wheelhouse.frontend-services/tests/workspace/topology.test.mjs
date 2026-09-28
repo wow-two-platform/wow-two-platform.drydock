@@ -423,3 +423,66 @@ test("declared-only service selection opens local details and follows external s
     mounted.app.unmount();
   }
 });
+
+test("sites and platform services join the right column, one hub per need, and can be hidden", () => {
+  const input = topology({
+    services: [
+      {
+        name: "api",
+        image: null,
+        networks: ["internal"],
+        volumes: [],
+        ports: [],
+        version: { version: "1.2.0", changedIn: "v1.2.0" },
+        needs: ["postgres"],
+        sites: [
+          { name: "app", path: "/api", port: 8080, exposure: "public", url: "http://app.localhost/api", reachable: false },
+        ],
+      },
+      {
+        name: "worker",
+        image: null,
+        networks: ["internal"],
+        volumes: [],
+        ports: [],
+        version: null,
+        needs: ["postgres", "valkey"],
+        sites: [],
+      },
+    ],
+    networks: [{ name: "internal", external: false }],
+    volumes: [],
+    dependencies: [],
+  });
+  const result = buildServiceMapLayout(input);
+  const site = result.nodes.find((node) => node.kind === "site");
+  assert.equal(site.name, "app/api");
+  assert.equal(site.href, "http://app.localhost/api");
+  assert.equal(site.attention, true);
+  assert.deepEqual(
+    result.nodes.filter((node) => node.kind === "platform").map((node) => node.name),
+    ["postgres", "valkey"],
+  );
+  assert.equal(result.edges.filter((edge) => edge.kind === "platform").length, 3);
+  assert.equal(result.edges.filter((edge) => edge.kind === "site").length, 1);
+  assert.equal(result.width, 752);
+  const hidden = buildServiceMapLayout(input, false, { sites: false, platform: false });
+  assert.equal(hidden.nodes.some((node) => node.kind === "site" || node.kind === "platform"), false);
+  assert.equal(hidden.width, 584);
+  for (const node of result.nodes)
+    assert.ok(node.x + node.width <= result.width && node.y + node.height <= result.height);
+});
+
+test("schema defaults release facts for an older runner and refuses a non-http site address", () => {
+  const older = ServiceTopologySchema.safeParse(topology());
+  assert.equal(older.success, true);
+  assert.deepEqual(
+    [older.data.services[0].version, older.data.services[0].needs, older.data.services[0].sites],
+    [null, [], []],
+  );
+  const unsafe = topology();
+  unsafe.services[0].sites = [
+    { name: "app", path: "/", port: 8080, exposure: "public", url: "javascript:alert(1)", reachable: null },
+  ];
+  assert.equal(ServiceTopologySchema.safeParse(unsafe).success, false);
+});

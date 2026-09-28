@@ -13,11 +13,16 @@ export interface ServiceMapProps {
 <script setup lang="ts">
 import { computed, ref, useId, watch } from "vue";
 import {
+  AlertTriangle,
   Box,
   Database,
+  ExternalLink,
+  Globe,
+  Lock,
   Network,
   ArrowDownToLine,
   Layers,
+  Server,
 } from "lucide-vue-next";
 import { Button } from "@wow-two-beta/ui-vue/presentation/actions";
 import { Badge, EmptyState } from "@wow-two-beta/ui-vue/presentation/display";
@@ -39,8 +44,29 @@ const arrowId = `topology-arrow-${useId()}`;
 const localSelection = ref<string | null>(null);
 const showVolumes = ref(false);
 const showDependencies = ref(true);
+const showSites = ref(true);
+const showPlatform = ref(true);
+const hasSites = computed(() =>
+  props.topology.services.some((service) => (service.sites ?? []).length),
+);
+const hasNeeds = computed(() =>
+  props.topology.services.some((service) => (service.needs ?? []).length),
+);
 const layout = computed(() =>
-  buildServiceMapLayout(props.topology, showVolumes.value),
+  buildServiceMapLayout(props.topology, showVolumes.value, {
+    sites: showSites.value,
+    platform: showPlatform.value,
+  }),
+);
+/** Names the right-hand column after the layers it currently shows. @internal */
+const rightColumn = computed(() =>
+  [
+    showSites.value && hasSites.value ? "Sites" : null,
+    showPlatform.value && hasNeeds.value ? "Platform" : null,
+    showVolumes.value && props.topology.volumes.length ? "Named volumes" : null,
+  ]
+    .filter(Boolean)
+    .join(" · "),
 );
 const selected = computed(
   () =>
@@ -117,9 +143,15 @@ function members(node: ServiceMapNode): number {
   return props.topology.services.filter((service) =>
     (node.kind === MapNodeKind.Network
       ? service.networks
-      : service.volumes
-    ).includes(node.name),
+      : node.kind === MapNodeKind.Platform
+        ? (service.needs ?? [])
+        : service.volumes
+    ).includes(node.name as never),
   ).length;
+}
+/** The release in which a service last changed, when the release declares it. @internal */
+function versionOf(name: string) {
+  return props.topology.services.find((service) => service.name === name)?.version ?? null;
 }
 /** Formats the limited Compose startup conditions as operator-facing labels. @internal */
 function condition(value: string | null): string {
@@ -164,6 +196,26 @@ function condition(value: string | null): string {
             order
           </Button>
           <Button
+            v-if="hasSites"
+            size="sm"
+            variant="outline"
+            tone="neutral"
+            :aria-pressed="showSites"
+            @click="showSites = !showSites"
+          >
+            <template #leading><Globe :size="14" /></template>Sites
+          </Button>
+          <Button
+            v-if="hasNeeds"
+            size="sm"
+            variant="outline"
+            tone="neutral"
+            :aria-pressed="showPlatform"
+            @click="showPlatform = !showPlatform"
+          >
+            <template #leading><Server :size="14" /></template>Platform
+          </Button>
+          <Button
             v-if="props.topology.volumes.length"
             size="sm"
             variant="outline"
@@ -195,6 +247,12 @@ function condition(value: string | null): string {
           <span v-if="showVolumes" class="inline-flex items-center gap-2"
             ><Database :size="12" />Named volume</span
           >
+          <span v-if="showSites && hasSites" class="inline-flex items-center gap-2"
+            ><span class="h-px w-5 bg-success" />Site the ingress routes</span
+          >
+          <span v-if="showPlatform && hasNeeds" class="inline-flex items-center gap-2"
+            ><span class="h-px w-5 bg-muted-foreground" />Platform service it needs</span
+          >
         </div>
         <p class="mb-2 text-xs text-muted-foreground">
           Scroll to explore · Select a service for details
@@ -223,10 +281,10 @@ function condition(value: string | null): string {
               Services
             </p>
             <p
-              v-if="showVolumes"
+              v-if="rightColumn"
               class="absolute left-[568px] top-4 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
             >
-              Named volumes
+              {{ rightColumn }}
             </p>
             <svg
               class="pointer-events-none absolute inset-0"
@@ -256,7 +314,11 @@ function condition(value: string | null): string {
                     ? 'var(--color-accent)'
                     : edge.kind === MapEdgeKind.Volume
                       ? 'var(--color-info)'
-                      : 'var(--color-primary)'
+                      : edge.kind === MapEdgeKind.Site
+                        ? 'var(--color-success)'
+                        : edge.kind === MapEdgeKind.Platform
+                          ? 'var(--color-muted-foreground)'
+                          : 'var(--color-primary)'
                 "
                 :stroke-width="
                   selected && edge.services.includes(selected.name) ? 2.5 : 1.25
@@ -278,28 +340,84 @@ function condition(value: string | null): string {
                 <title>{{ edge.description }}</title>
               </path>
             </svg>
-            <div
-              v-for="node in resourceNodes"
-              :key="node.id"
-              :style="position(node)"
-              class="absolute flex items-center gap-2 rounded-xl border border-border-strong bg-card px-3 shadow-sm"
-            >
-              <Network
-                v-if="node.kind === MapNodeKind.Network"
-                :size="17"
-                class="shrink-0 text-primary"
-              />
-              <Database v-else :size="17" class="shrink-0 text-info" />
-              <div class="min-w-0">
-                <p class="truncate text-xs font-medium" :title="node.name">
-                  {{ node.name }}
-                </p>
-                <p class="mt-1 text-[10px] text-muted-foreground">
-                  {{ node.external ? "External · " : ""
-                  }}{{ members(node) }} services
-                </p>
+            <template v-for="node in resourceNodes" :key="node.id">
+              <a
+                v-if="node.kind === MapNodeKind.Site && node.href"
+                :href="node.href"
+                target="_blank"
+                rel="noopener noreferrer"
+                :title="
+                  node.attention
+                    ? `${node.href} did not answer after the last deploy`
+                    : node.href
+                "
+                :style="position(node)"
+                class="absolute flex items-center gap-2 rounded-xl border bg-card px-3 shadow-sm transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
+                :class="node.attention ? 'border-warning' : 'border-border-strong'"
+              >
+                <AlertTriangle
+                  v-if="node.attention"
+                  :size="17"
+                  class="shrink-0 text-warning"
+                  aria-hidden="true"
+                />
+                <Lock
+                  v-else-if="node.subtitle === 'Private site'"
+                  :size="17"
+                  class="shrink-0 text-success"
+                  aria-hidden="true"
+                />
+                <Globe v-else :size="17" class="shrink-0 text-success" aria-hidden="true" />
+                <div class="min-w-0">
+                  <p class="flex items-center gap-1 truncate text-xs font-medium">
+                    {{ node.name }}<ExternalLink :size="11" aria-hidden="true" />
+                  </p>
+                  <p class="mt-1 text-[10px] text-muted-foreground">
+                    {{ node.attention ? "Did not answer" : node.subtitle }}
+                  </p>
+                </div>
+                <span class="sr-only">, opens in a new tab</span>
+              </a>
+              <div
+                v-else
+                :style="position(node)"
+                class="absolute flex items-center gap-2 rounded-xl border border-border-strong bg-card px-3 shadow-sm"
+              >
+                <Network
+                  v-if="node.kind === MapNodeKind.Network"
+                  :size="17"
+                  class="shrink-0 text-primary"
+                />
+                <Globe
+                  v-else-if="node.kind === MapNodeKind.Site"
+                  :size="17"
+                  class="shrink-0 text-muted-foreground"
+                />
+                <Server
+                  v-else-if="node.kind === MapNodeKind.Platform"
+                  :size="17"
+                  class="shrink-0 text-muted-foreground"
+                />
+                <Database v-else :size="17" class="shrink-0 text-info" />
+                <div class="min-w-0">
+                  <p class="truncate text-xs font-medium" :title="node.name">
+                    {{ node.name }}
+                  </p>
+                  <p class="mt-1 text-[10px] text-muted-foreground">
+                    <template v-if="node.kind === MapNodeKind.Site"
+                      >{{ node.subtitle }} · no host</template
+                    >
+                    <template v-else-if="node.kind === MapNodeKind.Platform"
+                      >Host service · {{ members(node) }} services</template
+                    >
+                    <template v-else
+                      >{{ node.external ? "External · " : ""
+                      }}{{ members(node) }} services</template
+                    >
+                  </p>
+                </div>
               </div>
-            </div>
+            </template>
             <button
               v-for="node in serviceNodes"
               :key="node.id"
@@ -320,7 +438,13 @@ function condition(value: string | null): string {
                 ><Box :size="16" class="shrink-0 text-primary" />
                 <span class="truncate" :title="node.name">{{
                   node.name
-                }}</span></span
+                }}</span
+                ><span
+                  v-if="versionOf(node.name)"
+                  class="ml-auto shrink-0 font-mono text-[10px] font-normal text-muted-foreground"
+                  :title="`Last changed in ${versionOf(node.name)!.changedIn}`"
+                  >{{ versionOf(node.name)!.version }}</span
+                ></span
               >
               <span
                 class="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground"
@@ -375,6 +499,44 @@ function condition(value: string | null): string {
             Runtime read {{ Measures.moment(props.observedAt) }}
           </p>
           <dl class="mt-4 grid gap-3 text-xs sm:grid-cols-2">
+            <div v-if="selected.version">
+              <dt class="font-medium">Version</dt>
+              <dd class="mt-1 break-words font-mono text-muted-foreground">
+                {{ selected.version.version }} · changed in
+                {{ selected.version.changedIn }}
+              </dd>
+            </div>
+            <div v-if="(selected.needs ?? []).length">
+              <dt class="font-medium">Platform services</dt>
+              <dd class="mt-1 break-words text-muted-foreground">
+                {{ selected.needs.join(", ") }}
+              </dd>
+            </div>
+            <div v-if="(selected.sites ?? []).length" class="sm:col-span-2">
+              <dt class="font-medium">Sites</dt>
+              <dd class="mt-1 text-muted-foreground">
+                <ul class="space-y-1">
+                  <li v-for="site in selected.sites" :key="site.name + site.path">
+                    <a
+                      v-if="site.url"
+                      :href="site.url"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="font-medium text-primary hover:underline"
+                      >{{ site.name }}{{ site.path === "/" ? "" : site.path }}</a
+                    ><span v-else class="font-medium">{{ site.name }}{{ site.path === "/" ? "" : site.path }}</span>
+                    · {{ site.exposure }} · port {{ site.port
+                    }}{{
+                      site.reachable === false
+                        ? " · did not answer after the last deploy"
+                        : site.reachable
+                          ? " · answered after the last deploy"
+                          : ""
+                    }}
+                  </li>
+                </ul>
+              </dd>
+            </div>
             <div>
               <dt class="font-medium">Networks</dt>
               <dd class="mt-1 break-words text-muted-foreground">

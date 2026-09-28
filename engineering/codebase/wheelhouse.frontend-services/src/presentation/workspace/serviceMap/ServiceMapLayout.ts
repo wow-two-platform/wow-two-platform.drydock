@@ -1,17 +1,23 @@
 import { TopologyAvailability, type ServiceTopology } from "@/domain/topology";
 
-/** Visual roles in a map of declared Compose resources. */
+/** Visual roles in a map of declared Compose resources and release facts. */
 export const MapNodeKind = {
   Service: "service",
   Network: "network",
   Volume: "volume",
+  /** A site the ingress routes to a service. */
+  Site: "site",
+  /** A host platform service the release declares it needs. */
+  Platform: "platform",
 } as const;
 export type MapNodeKind = (typeof MapNodeKind)[keyof typeof MapNodeKind];
-/** Relationships describe membership or startup ordering, never inferred calls. */
+/** Relationships describe membership, routing, declared needs or startup ordering, never inferred calls. */
 export const MapEdgeKind = {
   Network: "network",
   Volume: "volume",
   Dependency: "dependency",
+  Site: "site",
+  Platform: "platform",
 } as const;
 export type MapEdgeKind = (typeof MapEdgeKind)[keyof typeof MapEdgeKind];
 
@@ -25,6 +31,12 @@ export interface ServiceMapNode {
   readonly width: number;
   readonly height: number;
   readonly external: boolean;
+  /** A short second line: a site's exposure and path. */
+  readonly subtitle?: string;
+  /** Where a site node links; absent for every other kind. */
+  readonly href?: string | null;
+  /** Whether the node needs a look: a site that did not answer after its rollout. */
+  readonly attention?: boolean;
 }
 
 /** A connector with explicit endpoints and a plain-language equivalent. */
@@ -46,22 +58,50 @@ export interface ServiceMapLayout {
   readonly edges: readonly ServiceMapEdge[];
 }
 
-/** Places shared resource hubs beside service cards, routing cycles through a separate dependency gutter. */
+/** Which optional layers share the right-hand column. */
+export interface ServiceMapLayers {
+  readonly sites?: boolean;
+  readonly platform?: boolean;
+}
+
+/** Places shared resource hubs beside service cards, routing cycles through a separate dependency gutter.
+ * The right column stacks sites, then platform services, then named volumes. */
 export function buildServiceMapLayout(
   topology: ServiceTopology,
   showVolumes = false,
+  layers: ServiceMapLayers = {},
 ): ServiceMapLayout {
   if (topology.availability !== TopologyAvailability.Available)
     return { width: 600, height: 0, nodes: [], edges: [] };
   const services = [...topology.services].sort(byName);
   const networks = [...topology.networks].sort(byName);
   const volumes = showVolumes ? [...topology.volumes].sort(byName) : [];
+  const sites =
+    layers.sites === false
+      ? []
+      : services
+          .flatMap((service) =>
+            (service.sites ?? []).map((site) => ({ ...site, service: service.name })),
+          )
+          .sort(
+            (left, right) =>
+              compare(left.name, right.name) ||
+              compare(left.path, right.path) ||
+              compare(left.service, right.service),
+          );
+  const platform =
+    layers.platform === false
+      ? []
+      : [...new Set(services.flatMap((service) => service.needs ?? []))].sort();
+  const right = sites.length + platform.length + volumes.length;
   const contentHeight = Math.max(
     88,
     services.length * 112 - 24,
     networks.length * 88 - 24,
-    volumes.length * 88 - 24,
+    right * 88 - 24,
   );
+  const rightY = (index: number) =>
+    48 + (contentHeight - (right * 88 - 24)) / 2 + index * 88;
   const nodes: ServiceMapNode[] = [
     ...services.map((service, index) => ({
       id: resourceId(MapNodeKind.Service, service.name),
@@ -83,12 +123,36 @@ export function buildServiceMapLayout(
       height: 64,
       external: network.external,
     })),
+    ...sites.map((site, index) => ({
+      id: resourceId(MapNodeKind.Site, `${site.name}${site.path}:${site.service}`),
+      kind: MapNodeKind.Site,
+      name: site.path === "/" ? site.name : `${site.name}${site.path}`,
+      x: 568,
+      y: rightY(index),
+      width: 168,
+      height: 64,
+      external: false,
+      subtitle: site.exposure === "private" ? "Private site" : "Public site",
+      href: site.url,
+      attention: site.reachable === false,
+    })),
+    ...platform.map((need, index) => ({
+      id: resourceId(MapNodeKind.Platform, need),
+      kind: MapNodeKind.Platform,
+      name: need,
+      x: 568,
+      y: rightY(sites.length + index),
+      width: 168,
+      height: 64,
+      external: true,
+      subtitle: "Host platform service",
+    })),
     ...volumes.map((volume, index) => ({
       id: resourceId(MapNodeKind.Volume, volume.name),
       kind: MapNodeKind.Volume,
       name: volume.name,
       x: 568,
-      y: 48 + (contentHeight - (volumes.length * 88 - 24)) / 2 + index * 88,
+      y: rightY(sites.length + platform.length + index),
       width: 168,
       height: 64,
       external: volume.external,
@@ -119,20 +183,23 @@ export function buildServiceMapLayout(
     for (const name of [...service.volumes].sort()) {
       const hub = byId.get(resourceId(MapNodeKind.Volume, name));
       if (hub)
-        edges.push({
-          id: JSON.stringify([MapEdgeKind.Volume, service.name, name]),
-          kind: MapEdgeKind.Volume,
-          from: node.id,
-          to: hub.id,
-          services: [service.name],
-          path: curve(
-            node.x + node.width,
-            node.y + node.height / 2,
-            hub.x,
-            hub.y + hub.height / 2,
-          ),
-          description: `${service.name} mounts named volume ${name}`,
-        });
+        edges.push(rightEdge(MapEdgeKind.Volume, node, hub, service.name, name,
+          `${service.name} mounts named volume ${name}`));
+    }
+  }
+  for (const site of sites) {
+    const node = byId.get(resourceId(MapNodeKind.Service, site.service))!;
+    const hub = byId.get(resourceId(MapNodeKind.Site, `${site.name}${site.path}:${site.service}`))!;
+    edges.push(rightEdge(MapEdgeKind.Site, node, hub, site.service, `${site.name}${site.path}`,
+      `Site ${hub.name} routes to ${site.service} on port ${site.port}`));
+  }
+  for (const service of services) {
+    const node = byId.get(resourceId(MapNodeKind.Service, service.name))!;
+    for (const need of [...(service.needs ?? [])].sort()) {
+      const hub = byId.get(resourceId(MapNodeKind.Platform, need));
+      if (hub)
+        edges.push(rightEdge(MapEdgeKind.Platform, node, hub, service.name, need,
+          `${service.name} needs the host's ${need}`));
     }
   }
   const dependencies = [...topology.dependencies].sort(
@@ -161,7 +228,7 @@ export function buildServiceMapLayout(
     });
   });
   return {
-    width: showVolumes && volumes.length ? 752 : 584,
+    width: right ? 752 : 584,
     height: contentHeight + 72,
     nodes,
     edges,
@@ -184,4 +251,23 @@ function byName(left: { name: string }, right: { name: string }): number {
 function curve(fromX: number, fromY: number, toX: number, toY: number): string {
   const bend = (fromX + toX) / 2;
   return `M ${fromX} ${fromY} C ${bend} ${fromY}, ${bend} ${toY}, ${toX} ${toY}`;
+}
+/** Connects a service card to a right-column hub. @internal */
+function rightEdge(
+  kind: MapEdgeKind,
+  node: ServiceMapNode,
+  hub: ServiceMapNode,
+  service: string,
+  name: string,
+  description: string,
+): ServiceMapEdge {
+  return {
+    id: JSON.stringify([kind, service, name]),
+    kind,
+    from: node.id,
+    to: hub.id,
+    services: [service],
+    path: curve(node.x + node.width, node.y + node.height / 2, hub.x, hub.y + hub.height / 2),
+    description,
+  };
 }

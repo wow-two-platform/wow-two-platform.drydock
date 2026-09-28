@@ -37,6 +37,8 @@ LOG_LINE_LIMIT = 2000
 KEEP_RELEASES = 3
 PRUNED = "images-removed"
 KINDS = ("release", "candidate")
+# Host platform services a release may declare it needs; see the deploy descriptor convention.
+PLATFORM_SERVICES = ("postgres", "valkey", "broker")
 EXPOSURES = ("public", "private")
 TERMINAL = {"succeeded", "failed", "rolled_back", "rollback_failed", "interrupted", "rejected"}
 PROXIES = "Deployment:TrustedProxies"
@@ -865,6 +867,32 @@ def compose_topology(compose, manifest):
             "dependencies": sorted(dependencies, key=lambda item: (item["from"], item["to"])), "warnings": sorted(warnings)}
 
 
+def release_facts(projected, manifest, current):
+    """Adds what the release declares beside Compose: each service's version, the platform services it needs and
+    the sites it serves, with the URL and probe outcome the verified rollout recorded."""
+    versions, needs = manifest.get("versions", {}), manifest.get("needs", {})
+    published = {(site.get("name"), site.get("service")): site for site in current.get("sites") or []
+                 if isinstance(site, dict)}
+    declared = release_sites(manifest)
+    for service in projected["services"]:
+        name = service["name"]
+        entry = versions.get(name)
+        service["version"] = {"version": entry["version"], "changedIn": entry["changedIn"]} if entry else None
+        wanted = needs.get(name, []) if isinstance(needs, dict) else []
+        service["needs"] = sorted({need for need in wanted if need in PLATFORM_SERVICES}) if isinstance(wanted, list) else []
+        service["sites"] = []
+        for site in declared:
+            if site["service"] != name:
+                continue
+            record = published.get((site["site"], name), {})
+            url = record.get("url")
+            probe = record.get("probe") if isinstance(record.get("probe"), dict) else {}
+            service["sites"].append({"name": site["site"], "path": site["path"], "port": site["port"],
+                                     "exposure": site["exposure"],
+                                     "url": url if isinstance(url, str) and url.startswith(("http://", "https://")) else None,
+                                     "reachable": probe.get("ok") if type(probe.get("ok")) is bool else None})
+
+
 def topology(target):
     """Reads the current successful release snapshot, never the incoming bundle or artifact catalog."""
     root, project = validate_target(target)
@@ -891,6 +919,7 @@ def topology(target):
         contents = (bundle / "compose.json").read_bytes()
         require(hashlib.sha256(contents).hexdigest() == manifest["composeSha256"], "Topology snapshot changed")
         projected = compose_topology(json.loads(contents), manifest)
+        release_facts(projected, manifest, current)
         if state(target)["condition"] != "ready":
             projected["warnings"].append("The target is changing or needs reconciliation; this describes its last successful release.")
         require(read_json(current_path) == current, "Topology current release changed")

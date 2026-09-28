@@ -5,4 +5,7 @@ export type {
   TopologyNetwork,
   TopologyVolume,
   TopologyDependency,
+  TopologySite,
+  TopologyVersion,
+  PlatformService,
 } from "./ServiceTopology";

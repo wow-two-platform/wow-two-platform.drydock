@@ -28,6 +28,28 @@ export const ServiceTopologySchema = z
         networks: NamesSchema,
         volumes: NamesSchema,
         ports: z.array(PortSchema),
+        // Release facts beside Compose; an older runner omits them.
+        version: z
+          .object({ version: z.string(), changedIn: z.string() })
+          .nullable()
+          .default(null),
+        needs: z.array(z.enum(["postgres", "valkey", "broker"])).default([]),
+        sites: z
+          .array(
+            z.object({
+              name: ServiceNameSchema,
+              path: z.string().regex(/^\/[A-Za-z0-9._~/-]*$/),
+              port: z.number().int().min(1).max(65535),
+              exposure: z.enum(["public", "private"]),
+              // Opened in the operator's browser, so only http(s) survives decoding.
+              url: z
+                .string()
+                .regex(/^https?:\/\//)
+                .nullable(),
+              reachable: z.boolean().nullable(),
+            }),
+          )
+          .default([]),
       }),
     ),
     networks: z.array(z.object({ name: NameSchema, external: z.boolean() })),

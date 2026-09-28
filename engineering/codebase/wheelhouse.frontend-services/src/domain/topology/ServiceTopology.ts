@@ -7,6 +7,28 @@ export const TopologyAvailability = {
 export type TopologyAvailability =
   (typeof TopologyAvailability)[keyof typeof TopologyAvailability];
 
+/** A site a service serves through the ingress, with what the verified rollout recorded about it. */
+export interface TopologySite {
+  readonly name: string;
+  /** The path prefix the site routes to this service; `/` for the whole host. */
+  readonly path: string;
+  readonly port: number;
+  readonly exposure: "public" | "private";
+  /** The site's address; null when the target publishes no host for it. */
+  readonly url: string | null;
+  /** Whether the site answered through the ingress after the rollout; null when it was not probed. */
+  readonly reachable: boolean | null;
+}
+
+/** The release in which a service last changed; an older version means no change since. */
+export interface TopologyVersion {
+  readonly version: string;
+  readonly changedIn: string;
+}
+
+/** Host platform services a release may declare it needs. */
+export type PlatformService = "postgres" | "valkey" | "broker";
+
 /** One declared Compose service, with only safe operational metadata. */
 export interface TopologyService {
   readonly name: string;
@@ -14,6 +36,9 @@ export interface TopologyService {
   readonly networks: readonly string[];
   readonly volumes: readonly string[];
   readonly ports: readonly string[];
+  readonly version: TopologyVersion | null;
+  readonly needs: readonly PlatformService[];
+  readonly sites: readonly TopologySite[];
 }
 
 /** A logical Compose network; external resource names are deliberately absent. */

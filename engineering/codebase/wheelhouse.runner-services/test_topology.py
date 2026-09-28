@@ -127,7 +127,25 @@ class TopologyTests(unittest.TestCase):
         self.assertEqual(["5353:53/udp", "8080:80/tcp", "8443:443/tcp"], service["ports"])
         self.assertIn({"name": "private", "external": True}, result["networks"])
         self.assertEqual([{"name": "database", "external": True}], result["volumes"])
-        self.assertEqual({"name", "image", "networks", "volumes", "ports"}, set(service))
+        self.assertEqual({"name", "image", "networks", "volumes", "ports", "version", "needs", "sites"}, set(service))
+
+    def test_services_carry_their_version_platform_needs_and_sites(self):
+        self.manifest.update(versions={"api": {"version": "1.2.0", "changedIn": "v1.2.0"}},
+                             needs={"api": ["postgres", "mainframe"], "worker": ["valkey"]},
+                             sites={"api": {"app": {}, "admin": {"path": "/admin", "exposure": "private"}}})
+        self.save()
+        runner.write_json(self.base / "current.json", {"id": self.job, "release": "v1", "sites": [
+            {"name": "app", "service": "api", "exposure": "public", "url": "http://app-pilot.test.localhost:18080",
+             "probe": {"ok": False, "status": 404, "detail": "The ingress has no route for this host"}},
+            {"name": "admin", "service": "api", "exposure": "private", "url": "javascript:alert(1)"}]})
+        api, worker = self.read()["services"]
+        self.assertEqual({"version": "1.2.0", "changedIn": "v1.2.0"}, api["version"])
+        self.assertEqual((["postgres"], ["valkey"]), (api["needs"], worker["needs"]))
+        self.assertEqual([
+            {"name": "admin", "path": "/admin", "port": 8080, "exposure": "private", "url": None, "reachable": None},
+            {"name": "app", "path": "/", "port": 8080, "exposure": "public",
+             "url": "http://app-pilot.test.localhost:18080", "reachable": False}], api["sites"])
+        self.assertEqual((None, []), (worker["version"], worker["sites"]))
 
     def test_implicit_default_is_not_added_for_explicit_network_or_network_mode(self):
         self.compose["networks"] = {"private": None}
