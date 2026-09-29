@@ -1,0 +1,22 @@
+{
+  "brand": "WoW2",
+  "identity": "Panels",
+  "adopted_on": "2026-09-29",
+  "canonical_repository": "wow-two-ws",
+  "canonical_guide": "docs/brand/wow2/brand.md",
+  "approved_master": {
+    "path": "docs/brand/wow2/source/panels-approved.png",
+    "sha256": "345550fdb7b72576649a3601651249fbbdb8f178bd8dafee6072fe69aec5347a"
+  },
+  "files": {
+    "wow2-primary-navy.png": {
+      "upstream": "docs/brand/wow2/panels/wow2-primary-navy.png",
+      "sha256": "f3c4c19796090824b99079a6b0221b7e62617bfed0177b45fb1f71b2e0d69416"
+    },
+    "wow2-primary-white.png": {
+      "upstream": "docs/brand/wow2/panels/wow2-primary-white.png",
+      "sha256": "666be01413d63f4bee15a319fa7dc8e2f248586572f0da89785be749b2e00db0"
+    }
+  },
+  "composition": "Canonical horizontal symbol-plus-name PNGs copied byte-for-byte. The exporter tight-trims alpha and scales uniformly to 36 pixels of content height. White parent artwork accompanies both white and mint Wheelhouse; the parent artwork is never recolored."
+}
