@@ -94,12 +94,10 @@ aliases.set(
   asModule("export const Measures = { age: (value) => value };"),
 );
 aliases.set(
-  "@/presentation/common/components/LoadState.vue",
-  asModule("export default { render: () => null };"),
-);
-aliases.set(
-  "@/presentation/common/components/skeleton/SkeletonStateSlot.vue",
-  asModule("export default { render: () => null };"),
+  "@/presentation/common/components",
+  asModule(
+    "const Stub = { render: () => null }; export { Stub as LoadState, Stub as SkeletonStateSlot };",
+  ),
 );
 modals.TokensTable = (
   await import(
