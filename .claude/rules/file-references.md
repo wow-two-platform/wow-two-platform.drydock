@@ -7,46 +7,43 @@
 | Question about | Read |
 |---|---|
 | What it is, positioning | `product/product.md` |
-| Current state, decisions | `product/context.md` |
-| Features | `product/features/features.md` |
+| Current state, decisions, essential milestone | `product/context.md` |
 | Flows | `product/flows/flows.md` |
-| Product milestones / roadmap | `product/planning/planning.md` |
-| System architecture, deploy/domain flows, data model | `engineering/architecture/architecture.md` |
+| Brand assets, logo usage and sizes | `product/brand/brand.md` |
+| Features, deferred work, open decisions | `engineering/planning/backlog.md` |
+| Per-version progress (newest folder = active version) | `engineering/planning/version-track/v{X.Y}/v{X.Y}.md` |
+| Runtime, release contract, execution, artifacts, fleet, workspace | `engineering/architecture/architecture.md` |
 | Backend dev guidelines | `engineering/development/backend-guidelines.md` |
 | Frontend dev guidelines | `engineering/development/frontend-guidelines.md` |
-| Iteration / version workflow | `engineering/development/iteration-guide.md` |
-| Eng versions, phases, tracks | `engineering/planning/planning.md` |
-| Backlog (deferred / known issues) | `engineering/planning/backlog.md` |
-| Operational rules | `engineering/planning/rules.md` |
-| Deploy / ops | `engineering/deployment/deployment.md` |
-| Per-version progress | `engineering/planning/version-track/v{X.Y}/v{X.Y}.md` |
-| Deployment pilot / CI policy | `engineering/planning/deployment-pilot.md` · `ci-artifact-policy.md` |
-| Studio workspace / Vue migration | `engineering/planning/ui-workspace.md` |
-| Parked UI directions (Claude boards) | `engineering/research/design-directions/design-directions.md` |
+| Operational rules | `engineering/development/rules.md` |
+| Deploy / ops, local rig, VPS wiring checklist | `engineering/deployment/deployment.md` |
+| Next versions, close-out items | `engineering/research/next-versions.md` |
+| Feature completeness, decision Points, sweep | `engineering/research/feature-completeness.md` |
 | Deployment topology, environments, sites, builds | `engineering/research/deployment-topology.md` |
-| Feature completeness, shipping Wheelhouse, sweep | `engineering/research/feature-completeness.md` |
+| Parked UI directions (Claude boards) | `engineering/research/design-directions/design-directions.md` |
+| Brand and app logo export scripts | `engineering/scripts/export-brand-logos.py` · `export-app-icons.py` |
 
 ## Source projects (`engineering/codebase/`)
 
 > Individual files NOT listed — use `tree`/`find`/`grep`. Projects only.
 
-### `codebase/wheelhouse.backend-services/` (.NET Clean Arch — `Wheelhouse.BackendServices.slnx`, folders `services/` + `tests/`)
+### `codebase/wheelhouse.backend-services/` (.NET Clean Arch — `Wheelhouse.BackendServices.slnx`, folders `Services/` + `Tests/`)
 | Project | What it is |
 |---|---|
 | `Wheelhouse.Api` | HTTP host — control-plane controllers; single-host SPA serving |
-| `Wheelhouse.Application` | Use cases — MediatR handlers, repository abstractions, DTOs |
-| `Wheelhouse.Domain` | Entities (Server/Product/Deployment/ManagedDomain/SecretEntry) + enums + Result |
+| `Wheelhouse.Application` | Use cases — mediator handlers, repository abstractions, DTOs |
+| `Wheelhouse.Domain` | Entities (Server/Product/Deployment/ManagedDomain/SecretEntry, audit, operations) + enums |
 | `Wheelhouse.Infrastructure` | Adapters — runner process gateway, vault admin client, settings |
 | `Wheelhouse.Persistence` | EF Core + Postgres context, repositories, hand-authored SQL migrations |
 | `Wheelhouse.Tests.Unit` | **Unit** tier — pure logic (version-state machine, validators); Docker-free |
-| `Wheelhouse.Tests.Integration` | **Integration** tier — EF model below the pipeline (enum round-trip, repository predicates/ordering, constraints) over the SDK `RelationalTestDb`, no HTTP; PG↔SQLite |
+| `Wheelhouse.Tests.Integration` | **Integration** tier — EF model below the pipeline over the SDK `RelationalTestDb`, no HTTP; PG↔SQLite |
 | `Wheelhouse.Tests.E2E` | **E2E** tier — full host + Testcontainers PG (on `…Beta.Testing`) |
 | `Wheelhouse.Tests.Migrations` | **Migrations** tier — bespoke SQL migrator apply/idempotency/rollback over real PG, on the SDK `MigratorHarness` |
 
-### `codebase/wheelhouse.frontend-services/` (Vue)
+### `codebase/wheelhouse.frontend-services/` (pnpm workspace)
 | App | What it is |
 |---|---|
-| (root Vite app) | Control-plane dashboard — deployments, fleet, secrets, products |
+| `apps/web` (`@wheelhouse/web`) | Control-plane workspace — deployments, servers, secrets, products, activity |
 
 ### `codebase/wheelhouse.runner-services/` (Python)
 | File | What it is |

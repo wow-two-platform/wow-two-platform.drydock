@@ -1,6 +1,6 @@
 # Wheelhouse architecture
 
-*Last updated: 2026-09-26*
+*Last updated: 2026-09-29*
 
 ## Runtime
 
@@ -11,9 +11,9 @@ Production requires a nonempty owner allowlist.
 
 ```mermaid
 flowchart LR
-  CI[GitHub Actions] --> Images[Immutable GHCR images]
+  CI[Shared publish workflow] --> Images[Immutable GHCR images]
   CI --> Bundle[Release manifest + Compose]
-  Bundle --> Release[Published GitHub release asset]
+  Bundle --> Release[GitHub release asset or bundle artifact]
   Release --> Dock[Private Wheelhouse dashboard/API]
   Fleet[Code-owned provider and host catalog] --> Dock
   Dock --> SSH[Pinned OpenSSH adapter]
@@ -39,35 +39,61 @@ flowchart LR
 
 The pre-existing server/deployment/domain/secret database models are retained for compatibility.
 The current server API reads the code-owned fleet; it cannot create or delete hosts.
-The essential deployment execution journal lives on each target, with a durable local submission index.
-It is not yet projected into the old deployment table. This avoids pretending the placeholder's web/API image tags
-represent a verified multi-service release.
+The deployment execution journal lives on each target, with a durable local submission index.
 
-## Deployment contract
+## Release contract
 
-A reviewed bundle contains immutable service image references, one source commit, CPU platform,
-a hashed Compose definition, required configuration names and an explicit rollback-compatibility decision.
-A code-owned target binding supplies server identity, a provider enum, an environment enum, runtime setting file paths and smoke probes.
-The API accepts target/release IDs only. It cannot upload arbitrary Compose, run shell commands or disclose SSH keys.
+A release bundle holds `release.json` (schema version, product, release label, full source SHA, CPU platform, service
+image digests, Compose SHA-256, required setting names, sites and whether its schema permits the previous images) and
+`compose.json` (product-owned topology, named volumes, limits and health checks). Neither holds credentials,
+environment-specific domains or database values; a target supplies its settings, so promotion changes settings, not
+image bytes. The shared publish workflow builds bundles from each product's `deploy.yml`
+([descriptor convention](../../../../../conventions/deployment/descriptor/deploy-descriptor.md)).
 
-The dashboard lists published release assets from repositories declared in `artifacts.py`.
-Drafts, incomplete assets, branches and CI run states are excluded. Selection downloads and validates the archive,
-its GitHub checksum, source tag/commit and exact approved service registries before target mutation.
-The runner pulls the recorded digests before changing running containers. A release listing does not promise
-that an image subsequently deleted from the registry is still pullable.
+Bundles are privileged operator inputs: hashes bind files together, not publishers to identities.
+The API accepts target and release IDs only. It cannot upload arbitrary Compose, run shell commands or disclose SSH keys.
 
-`fleet.py` declares providers, hosts and environment bindings in code. Mounted files hold credentials only.
-No JSON file, database row or HTTP call can register a new host or provider.
-The old single-image version query remains a legacy diagnostic endpoint; the dashboard no longer calls it.
-Wheelhouse has no build, Git push, tag creation or CI-dispatch operation.
+## Execution model
 
-A target lock serializes dashboard and operator changes. Pulls precede mutation.
-The target saves intent before applying Compose, verifies exact image references and health, and records the result.
-An SSH disconnect or control-plane restart does not kill the detached target worker.
-Interrupted or unrecovered mutation requires explicit reconciliation.
+1. Validate the manifest, digests, Compose hash and environment identity; refuse a commit build on test or prod.
+2. Take the target lock that dashboard and operator share; refuse an unresolved interrupted rollout.
+3. Check Docker, Compose, required settings, free disk and release platform.
+4. Pull every image before replacing any running container.
+5. Save durable intent and the previous successful bundle on the target.
+6. Apply Compose, wait for every declared health check, then request each site through the ingress.
+7. Record the outcome with release, source commit, actor and previous release.
+8. On failure, keep the attempted release; restore previous images only under a declared schema-compatibility
+   guarantee. Never restore a database or delete volumes automatically.
 
-Image recovery requires a declared schema-compatibility guarantee. It does not restore the database.
-Compose replacement has a restart window; this implementation does not promise zero downtime.
+An SSH disconnect or control-plane restart does not stop the detached target worker; unknown or interrupted state
+needs explicit reconciliation, not a blind retry. SSH uses strict host-key checking against a pinned known-hosts file,
+batch authentication, explicit identities and a bounded timeout. Compose replacement has a restart window; there is
+no zero-downtime promise.
+
+## Artifacts and registry
+
+`artifacts.py` declares approved repositories, archive names and service-to-image mappings in code.
+The catalog lists published releases with a complete, checksummed asset and per-commit bundle artifacts;
+drafts and incomplete assets never appear. Discovery covers the 100 newest releases per source; deployed bundles
+stay in each target's journal. Selection downloads and validates the archive, its checksum, source commit and approved
+image names before any target changes. Wheelhouse dispatches a product's build workflow only for a commit that has
+no build; it never pushes, tags or builds on a host.
+
+Images live in GitHub Container Registry, one repository per service; the digest is the deployment identity.
+Keep every deployed digest and declared rollback dependency, and at least the 10 newest releases; candidate
+bundle artifacts expire after 14 days. Deleting a release image needs a cross-host reference inventory first.
+A read-only GitHub token (`Deployment:GitHubTokenFile` / `WHEELHOUSE_GITHUB_TOKEN_FILE`) goes only to the GitHub API
+and is stripped from cross-origin redirects. Release rules for every product:
+[deploy descriptor](../../../../../conventions/deployment/descriptor/deploy-descriptor.md) § *Builds and versions*.
+
+## Fleet
+
+`fleet.py` declares providers, hosts and environment bindings in code; mounted files hold credentials only.
+No JSON file, database row or HTTP call can register a host or provider. A new VPS is a reviewed fleet change and a
+Wheelhouse rebuild; a new provider also needs an enum member and its integration. Product images never change
+with the host. Every product runs `dev`, `test` and `prod` on one host, separated by Compose project, network alias,
+database, settings files and hostnames. Moving a stateful product needs a backup, a write freeze, a verified restore
+and an explicit cutover; a second host definition does not make a service redundant.
 
 ## Secrets vaults
 
@@ -77,27 +103,27 @@ and forwards namespace, secret, state and token operations. It never requests se
 Products keep reading secrets from their own vault on the private network, so an unavailable Wheelhouse
 cannot interrupt runtime reads. See the vault's own security analysis for the global-console trust boundary.
 
-## Infrastructure governance
+## Workspace
 
-Products and the code-owned fleet are the implemented inventory. Deployment is the essential operational slice.
-On-demand vitals, deployment metrics and vault hygiene feed one attention list. Domain registration/DNS automation,
-provisioning, capacity/cost inventory, vitals history and alerting remain separate capabilities in the [governance plan](../planning/deployment-pilot.md).
-The first product is ForeverPin: management API/SPA plus redirect API sharing a product database.
+The product rail selects the object being operated; the centre shows its environment, verified release, observed
+services, resource readings and recent deployments; a contextual inspector keeps the selected target, service or
+deployment. Workspace, Deployments, Servers, Secrets, Products and Activity share the top bar, primary-action
+placement, account menu and theme choice. Frontend invariants:
+[frontend guidelines](../development/frontend-guidelines.md#repo-specific-deltas).
 
-A different VPS requires a reviewed fleet code change and a new Wheelhouse build; product images remain unchanged.
-State relocation requires an explicit database/volume transfer and cutover plan.
+The service map draws the validated Compose definition of the target's last successful release. It never runs
+Compose interpolation or returns raw configuration: environment values, labels, commands, credentials and bind-mount
+paths stay out. Runtime readings are a separate, timestamped overlay; an unknown observation stays unavailable,
+never healthy or zero. `depends_on` shows declared startup order and shared networks show configuration, neither
+an observed call. Health attaches only when the runtime and target-state readings name the same release, and the
+runner withholds attribution when a rollout changes that state mid-read.
 
 ## Security and recovery
 
-Wheelhouse stays private through a tunnel/private network. OpenSSH requires a pinned known-hosts file.
-Runtime secrets live in protected host files, mounted read-only into applications.
-Persistent cookie key volumes survive container replacement.
-The dashboard receives safe failure categories; raw runtime logs remain on the target.
+Wheelhouse stays private through a tunnel or private network.
+Runtime secrets live in protected host files, mounted read-only into applications; cookie key volumes survive
+container replacement. The dashboard receives safe failure categories; raw runtime logs stay on the target.
+A database backup and the cookie and recovery keys must be recoverable without Wheelhouse.
 
-Release bundles are privileged operator inputs. Hash checks bind files together, not publishers to identities.
-Artifact repositories and expected image names are code-owned. Optional read-only GitHub authentication
-is sent only to the API origin and is stripped from cross-origin redirects.
-See the [CI and artifact policy](../planning/ci-artifact-policy.md) for publication and retention.
-A database backup and the cookie/recovery keys must be recoverable without Wheelhouse.
-
-Executable commands, directory layouts and VPS wiring gates are in [deployment operations](../deployment/deployment.md).
+Executable commands, directory layouts and the VPS wiring checklist are in
+[deployment operations](../deployment/deployment.md).

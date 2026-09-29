@@ -2,19 +2,57 @@
 
 *Last updated: 2026-09-29*
 
-Deferred work; top of each group = next. Version docs hold only the active version.
+Every unbuilt item; top of each group = next. The active version is the newest folder in
+[version-track](version-track/).
+
+## Features
+
+| Feature | State | Boundary today |
+|---|---|---|
+| Product inventory | shipped v0.1 | Create, list, update and delete portfolio metadata |
+| Server inventory | shipped v0.3 | Read-only hosts and provider filters; definitions in code |
+| Environments | shipped v0.3 | `dev`, `test` and `prod` per product on one host; the local server runs all three |
+| Release catalog | shipped v0.3 | Published releases and per-commit builds from approved repositories; a build starts for a commit without one |
+| Deployment execution | shipped v0.3 | Pinned SSH, serialized rollout, health gates, prod only after test, live rollout steps, durable outcomes |
+| Sites | shipped v0.3 | Products declare sites; the ingress routes them; each site is requested after a deploy |
+| Recovery | shipped v0.3 | Independent runner; compatible image rollback; reconcile and redeploy from the dashboard |
+| Service map | shipped v0.3 | Services, networks, volumes, startup order, sites, platform needs and versions; environment compare and promotion |
+| Diagnostics | shipped v0.3 | Read-only target check; a service's recent logs on request |
+| Audit | shipped v0.3 | Every operator action in a hash-chained trail, shown with its verification |
+| Secrets console | shipped v0.3 | Namespaces, write-only secrets, product tokens, rotation hygiene; mounted runtime settings |
+| Operations | shipped v0.3 | Host and container vitals, 30-day trends and deployment metrics, release drift, one attention list |
+| Self-shipping | shipped v0.3 | CI on every push; releases through the shared pipeline |
+| Domains | planned | Registrar and DNS integrations, expiry tracking; site hosts per target exist |
+| Data | planned | Platform PostgreSQL per host, managed backups and verified restores; a backup runbook exists |
+| Costs and capacity | planned | Provider billing and placement views; a manual host budget exists |
+
+Dynamic provider plugins and UI-based VPS registration are excluded by product decision.
+
+---
 
 ## Hosting
 
 | Item | Type | Notes |
 |---|---|---|
 | Prepare a VPS for deployments with one command | feature | Traefik (file provider on `/srv/wheelhouse/ingress`), PostgreSQL, `platform` network, deploy account, protected root, firewall |
+| Wire the first VPS: host, pinned SSH, ingress and domains | feature | Needs the wiring inputs under Open decisions |
+| Deploy ForeverPin to the first VPS and watch its redirect | check | Live editor, create and scan; restart; redirect monitoring and headroom |
 | Choose the shared preview domain for dev and test hosts | check | Topology point 25; one wildcard DNS record per environment |
 | Start and stop an environment from Wheelhouse | feature | Topology point 15; `compose stop/start` under the target lock |
 | Encrypted off-provider backups with a restore drill | feature | Product databases, key volumes, Wheelhouse state; decryption keys held off-host |
-| Uptime, backup-age and disk alerts | feature | The vitals sampler exists; needs the alert channel (completeness Point 6) and an external probe |
 | Host Wheelhouse privately and let it deploy itself | feature | CI and its release workflow exist; needs a control host (completeness Point 7) |
-| Retire `rehearse.py console` for the self-deployed console | check | `rehearse.py self` deploys Wheelhouse to `wheelhouse-dev`; it needs an OAuth app and the inventory mount to manage targets |
+| Retire `rehearse.py console` for the self-deployed console | check | `rehearse.py self` deploys Wheelhouse to `wheelhouse-dev`; it needs an OAuth app and the inventory mount |
+
+---
+
+## Operations
+
+| Item | Type | Notes |
+|---|---|---|
+| Uptime, backup-age and disk alerts | feature | The vitals sampler exists; needs the alert channel (completeness Point 6) and an external probe |
+| Notify deploy outcomes and alerts | feature | Needs the alert channel (completeness Point 6) |
+| Stream a service's logs live | feature | Recent lines on request exist |
+| Checkpoint the newest audit entries outside Wheelhouse | feature | The chain shows edits, not truncation of the newest entries |
 
 ---
 
@@ -23,6 +61,7 @@ Deferred work; top of each group = next. Version docs hold only the active versi
 | Item | Type | Notes |
 |---|---|---|
 | Grant a product environment its vault token during deployment | feature | Mint, then write into the target settings; never displayed |
+| Render a target's settings from the vault at deploy time | feature | Mounted setting files today |
 | Vault consumer in the backend SDK | feature | Startup resolution, bounded timeout, fail-closed; unblocks ForeverPin adoption |
 | Scoped management credential for Wheelhouse | check | Vault-side change; replaces the shared administrator password |
 | Mint expiring product tokens | feature | Vault API change: mint accepts only a name today; hygiene already flags expiry |
@@ -34,13 +73,13 @@ Deferred work; top of each group = next. Version docs hold only the active versi
 | Item | Type | Notes |
 |---|---|---|
 | Mount a GitHub token that can start product builds | check | `WHEELHOUSE_GITHUB_TOKEN_FILE` with Actions write on each product; the Build button needs it |
+| Pull private GHCR images on targets | check | Wheelhouse's console image is private; a read-only pull token per target, or public images |
 | Haven adopts `deploy.yml`, per-service versions and an edge health route | feature | Its Caddy edge has no health route; the runner requires one |
 | Show each service's version inside every product | feature | Haven shows its build version beside the logo; adopt across products |
 | Deploy a branch to its own temporary dev environment | feature | Topology point 17; from a code-owned template; later PR previews |
 | Browse releases older than the recent catalog | feature | The target journal already retains deployed bundles |
 | Per-service versions in the release catalog | feature | The catalog lists releases; versions need each bundle's manifest |
 | Delete `sha-*` candidate images older than 14 days | feature | A scheduled workflow per product; the descriptor convention names it |
-| Notify deploy outcomes and alerts | feature | Needs the alert channel (completeness Point 6) |
 | Signed provenance for release bundles | feature | Attestation check before selection |
 | Private release-asset download | feature | Token-authenticated catalog for private repositories |
 | Zero-downtime replacement | idea | Blue/green only when measured demand warrants it |
@@ -61,36 +100,30 @@ Deferred work; top of each group = next. Version docs hold only the active versi
 
 | Item | Type | Notes |
 |---|---|---|
+| One code-owned product catalog with ownership and kill-gate metrics | feature | Product identity lives in four places today (completeness Point 1) |
 | Second provider and a placement view | feature | Provider enum plus integration in code |
 | Cost per product and host | feature | Feeds the micro-SaaS kill gates |
+| Host view with capacity and a portfolio matrix | feature | Beside the per-environment service map |
 | Teardown with a final backup and archive | feature | |
 | Zero-to-live scaffold from the product template | feature | Repository, CI, first deployment |
 
 ---
 
-## Historical React SDK gaps
-
-These observations belong to the retired React frontend and are not current Wheelhouse blockers.
-The September 26 [Vue migration](ui-workspace.md) uses `@wow-two-beta/ui-vue@0.0.7`;
-React persistence peers, sidebar overrides, skeleton shim and exit-keyframe override were removed.
-The local refresh timing helper and page-action composition remain explicit Vue product adapters.
-SDK-wide follow-up ownership is independent of this migration; the original observations remain below.
+## SDK adoption
 
 | Item | Type | Notes |
 |---|---|---|
-| UI SDK `AlertModal.Action`/`Cancel` render as the corner close icon | issue | Fixed in the SDK working tree; tests pass in Chromium; needs a release and re-pin |
-| UI SDK `query` entry imports optional persistence peers | issue | Consumers must install both persister packages; move persistence to a subpath |
-| UI SDK `useAppQuery` has no polling interval | feature | Wheelhouse polls inside two hooks meanwhile |
-| UI SDK `useAppQuery` exposes no background-fetching flag | feature | Added in the SDK working tree (`fetching`, `useRefresh`); needs a release and re-pin |
-| Drop the exit-keyframe override in `bootstrap/index.css` | check | Masks the SDK Presence enter twitch at 0.0.108; the SDK fix is in its working tree, awaiting release and re-pin |
-| Swap the skeleton and `useRefresh` shims for the SDK's | check | `presentation/common/skeleton` + `application/common/useRefresh` copy the unreleased SDK parts; delete after the re-pin |
-| UI SDK `AppShell` has no user-collapsible rail or full-height sidebar | feature | Wheelhouse overrides the sidebar's classes and drawer padding |
-| Move the Wheelhouse palette into the UI SDK theme registry | check | Lives in the app's `index.css` today, beside `theme-smart-qr` |
-| UI SDK `Stat` trend has no inverse or custom format | feature | Durations fall as they improve; Wheelhouse's `KpiTile` composes `TrendIndicator` meanwhile |
-| UI SDK `Table` has no sticky-header option | feature | Its head is translucent; Wheelhouse's `TableStyles` pins an opaque one |
-| UI SDK `AppShell` has no page-header actions slot | feature | Wheelhouse portals them through `PageActions` |
-| UI SDK `DropdownMenu` has no radio items | feature | The theme choice uses plain items with a check |
-| UI SDK `Select` root is full-width inside a flex row | issue | The product form's provider select needed a fixed-width box |
+| Re-pin `@wow-two-beta/ui-vue` and delete the local copies | check | `CanvasArea`, skeleton slots, `useRefresh`, `RefreshButton` internals and per-modal height classes copy published or pending SDK parts |
+| Move the frame onto the SDK `AppShell` and `Navbar` | check | `AppLayout.vue` hand-builds the region-scrolling frame the SDK now ships |
+| Re-pin `WoW2.Sdk.Backend.Beta` past `10.0.40-beta` | check | `10.0.59-beta` is published |
+| Replace the E2E `TestAuth` with the SDK's `AddTestAuth` header gate | check | Keep anonymous → 401 and admin → 200 |
+| Replace the local `Stub*` and `Fake*` clients with the SDK testing fakes | check | `Tests.E2E/Harness`, `Tests.Unit/Fakes` |
+| Derive the product and server repositories from the SDK `EfRepository` | check | Keep the `Exists*` predicates and `CreatedAtUtc`/`Id` ordering |
+| Extract the vault admin client to the backend SDK | check | v0.3 proves it |
+| Extract repository tree and file reads to the backend SDK GitHub client | check | `Infrastructure/Products/GitHubProductIconSource.cs` calls the REST API inline |
+| UI SDK `Table` sticky-header option | feature | `TableStyles` pins an opaque head meanwhile |
+| UI SDK `AppShell` page-header actions slot | feature | `PageActions` teleports them meanwhile |
+| Move the Wheelhouse palette into the UI SDK theme registry | check | Lives in `bootstrap/index.css` today |
 
 ---
 
@@ -99,20 +132,13 @@ SDK-wide follow-up ownership is independent of this migration; the original obse
 | Item | Type | Notes |
 |---|---|---|
 | Retire the placeholder server, deployment, domain and secret tables | issue | Unused since the code-owned fleet |
-| Require the action header on product writes | issue | Every other write carries it; waits on the product catalog decision (completeness Point 1) |
-| Retire the single-image version-status query | issue | Replaced by the published artifact catalog |
-| Extract the vault admin client to the backend SDK | check | After `v0.3` proves it |
-| Swap the canvas copy for the SDK's `CanvasArea` | check | `presentation/common/components/canvasArea` copies the unreleased SDK part; delete after the re-pin |
-| Swap the skeleton copies and `RefreshButton` internals for the SDK's | check | `common/components/skeleton` copies `SkeletonStateSlot`/`Group`; `RefreshButton` becomes `Button` `isLoading` |
-| Move the frame onto the SDK `AppShell` and `Navbar` | check | `AppLayout.vue` hand-builds the region-scrolling frame the SDK now ships |
+| Require the action header on product writes | issue | Every other write carries it; waits on the product catalog (completeness Point 1) |
+| Retire the single-image version-status query | issue | Replaced by the release catalog |
 | Shape-keeping first loads on the remaining pages | feature | Workspace, Deployments, Servers, Products and Activity still show block skeletons on a first load |
 | Rename the runner's `fleet.py` and `rehearse.py` | check | The screen says Servers and local server; do it with the product catalog split (Point 1) |
-| Extract repository tree and file reads to the backend SDK GitHub client | check | `Infrastructure/Products/GitHubProductIconSource.cs` calls the REST API inline |
-| Drop the per-modal height classes after the re-pin | check | The UI SDK's `ModalContent` caps at the viewport and scrolls its body (in source) |
 | Stamp applied migrations with the product version | issue | `MigrationOptions.Version` keeps the SDK default `v1.0` |
 | Clear the transitive backend package advisories | issue | Five high, four moderate; they arrive through the backend SDK at `10.0.40-beta` |
-
-Route splitting and skeleton first loads were completed in the [Vue workspace migration](ui-workspace.md).
+| Adopt the product template's ESLint, Prettier config and `format:check` gates | check | 86 app files predate a formatter config; format once in a dedicated commit |
 
 ---
 
@@ -120,6 +146,7 @@ Route splitting and skeleton first loads were completed in the [Vue workspace mi
 
 | Item | Notes |
 |---|---|
+| First VPS wiring inputs | Existing or new host, architecture, RAM/disk and cost; management and redirect domains; Google and Stripe callbacks; recovery targets and backup destination; private pilot or public launch |
 | Registrar | Settle before the Domains group |
 | One vault per environment or one per host with namespaces | Vault docs assume one per product environment |
 | Prod Wheelhouse as the source of truth | The VPS instance owns settings and secrets; dev pulls from it and drops its own additions; secret flow prod → dev needs a security analysis first |

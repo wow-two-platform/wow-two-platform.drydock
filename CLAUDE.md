@@ -13,19 +13,20 @@ Named DryDock until 2026-09-26; history before then says DryDock.
 ## Structure
 
 ```
-product/                  ← the definition (what · why · features · flows) — no code
-└── product.md · context.md · features/ · flows/ · planning/
+product/                  ← the definition (what · why · flows · brand) — no code
+└── product.md · context.md · flows/ · brand/
 engineering/              ← the execution (build · ship · run)
-├── engineering.md · architecture/ · development/ · deployment/ · planning/ (incl. version-track/) · research/ · scripts/
+├── engineering.md · architecture/ · development/ · deployment/ · planning/ · research/ · scripts/
+│   └── planning/ = backlog.md + version-track/v{X.Y}/ (newest folder = active version)
 └── codebase/
     ├── wheelhouse.backend-services/   ← .NET 10 Clean Architecture solution (Wheelhouse.BackendServices.slnx)
-    ├── wheelhouse.frontend-services/  ← Vue 3 + Vite + Tailwind v4 + @wow-two-beta/ui-vue (layered, SDK query layer)
+    ├── wheelhouse.frontend-services/  ← pnpm workspace; apps/web = Vue 3 + Vite + Tailwind v4 + @wow-two-beta/ui-vue
     └── wheelhouse.runner-services/    ← Python operator runner: fleet, catalog, SSH transport, target executor
 ```
 
 Follows `wow-two-ws/conventions/development/repo/structure/repo-structure.md`.
 
-Backend layers: `Domain` (entities/enums/Result) → `Application` (MediatR CQRS + repository abstractions)
+Backend layers: `Domain` (entities/enums) → `Application` (SDK mediator CQRS + repository abstractions)
 → `Infrastructure` (adapters) + `Persistence` (EF Core + Postgres) → `Api` (slim host). Mirrors the
 `wow-two-platform.secrets-vault` sibling exactly.
 
@@ -47,11 +48,12 @@ dotnet run --project Wheelhouse.Api --launch-profile https   # 8210 https / 8211
 # DB migrations: hand-authored SQL (bespoke migrator, applied on boot). No EF tooling.
 # Add one → Wheelhouse.Persistence/Migrations/{NNN-name}/{Apply,Rollback}.sql
 
-# Frontend
-cd engineering/codebase/wheelhouse.frontend-services && npm install && npm run dev   # HTTPS 5174, proxies /api → HTTPS 8210; Node 22+
-npm run test    # inventory, selection, protocol and sensitive-form lifecycle checks
-npm run build   # vue-tsc + SFC compiler gate + route-split production bundle
-npm run deploy   # build + copy SPA into Wheelhouse.Api/wwwroot
+# Frontend (pnpm workspace; the app lives in apps/web)
+cd engineering/codebase/wheelhouse.frontend-services && pnpm install && pnpm dev   # HTTPS 5174, proxies /api → HTTPS 8210; Node 24
+pnpm dev:http   # plain HTTP for headless previews (GitHub sign-in needs HTTPS)
+pnpm test       # inventory, selection, protocol and sensitive-form lifecycle checks
+pnpm build      # vue-tsc + SFC compiler gate + route-split production bundle
+pnpm deploy     # build + copy apps/web/dist into Wheelhouse.Api/wwwroot
 
 # Local rig for an IDE run (then Wheelhouse.Api, profile https → https://localhost:8210)
 cd engineering/deployment/rehearsal && python3 rehearse.py dev
@@ -61,7 +63,8 @@ cd engineering/deployment/rehearsal && python3 rehearse.py console   # http://lo
 
 ## Testing
 
-4-tier `{Product}.Tests.{Type}`, e2e-first (run all: `dotnet test Wheelhouse.BackendServices.slnx`). Solution folders: `services/` + `tests/`.
+4-tier `{Product}.Tests.{Type}`, e2e-first (run all: `dotnet test Wheelhouse.BackendServices.slnx`). Solution folders: `Services/` + `Tests/`.
+Package versions are central in `Directory.Packages.props`; `global.json` pins the SDK band; `tests.runsettings` runs tests as `Development`.
 
 - **`Wheelhouse.Tests.Unit`** — pure logic (version-state machine, validators). Docker-free.
 - **`Wheelhouse.Tests.Integration`** — the EF model below the pipeline: `WheelhouseDbContext` over the SDK
@@ -76,9 +79,8 @@ Reserve unit for I/O-free logic; everything user-facing is covered e2e. Full rul
 
 ## Conventions
 
-- **File-per-type**, slim `Program.cs` (delegates to `Api/Configurations/*`), Result pattern in
-  `Domain/Results`, `ResultError` → HTTP status via `ApiResults`. Controllers send MediatR requests
-  via `ISender` and `Match` the `Result`.
+- **File-per-type**, slim `Program.cs` (delegates to `Api/Configurations/*`), SDK `AppResult` / `AppError`.
+  Controllers send requests via `ISender`, `Match` the result and map failures with `IErrorHttpStatusCodeMapper`.
 - **Ports:** HTTPS even (8210) + HTTP odd (8211), per the wow-two launch-profile rule.
 - **DB:** Postgres (Npgsql). Schema owned by the **bespoke SQL migrator**
   (`…Beta.Data.Migrations.Bespoke`) over hand-authored `Migrations/{NNN}/{Apply,Rollback}.sql`;
@@ -86,15 +88,15 @@ Reserve unit for I/O-free logic; everything user-facing is covered e2e. Full rul
 
 ## Beta SDK usage (per workspace direction)
 
-- **Frontend → `@wow-two-beta/ui-vue` (`0.0.7`).** Use its components (Button, Card, Badge, Heading, Text,
-  EmptyState, Alert, Spinner, TextInput, …) before hand-rolling. Tailwind v4 wiring: `index.css`
+- **Frontend → `@wow-two-beta/ui-vue` (`0.0.7`, in `apps/web/package.json`).** Use its components (Button, Card,
+  Badge, Heading, Text, EmptyState, Alert, Spinner, TextInput, …) before hand-rolling. Tailwind v4 wiring: `index.css`
   imports `tailwindcss` + `@wow-two-beta/ui-vue/styles.css` and `@source`s the package's `dist` so its
   utility classes are generated. Shared capability gaps belong in the SDK. Product composition stays local.
 - **Backend → `WoW.Two.Sdk.Backend.Beta` (adopted, `10.0.40-beta`).** `v0.2` migrated every layer onto
   the SDK: host floor (`AddApiDefaults`/`UseApiDefaults`), mediator + results + validation, identity
   (GitHub OAuth + cookie + allowlist/default-deny), `Integrations.GitHub`/`Ghcr` clients, the bespoke SQL
   migrator, and `…Beta.Testing` for the test harness. Products hold business logic only; new infra proves
-  inline then extracts to the SDK in the next `+0.1` (see `engineering/planning/backlog.md`).
+  inline then extracts to the SDK in the next `+0.1` (see `engineering/planning/backlog.md` § SDK adoption).
 
 ## Security
 
@@ -115,5 +117,5 @@ product's build workflow only for a commit that has no build, and never builds o
 Environments are `dev`, `test` and `prod`; dev takes any build, test takes releases and `test` branch builds, and
 prod only a release that succeeded on test (a typed target ID skips that). Every product builds through the shared
 `publish` workflow in `wow-two-platform.pipelines`: `main` releases `vX.Y.Z`, other branches build candidates.
-The detailed Git/CI/registry policy lives in `engineering/planning/ci-artifact-policy.md`.
+Artifact, registry and fleet rules live in `engineering/architecture/architecture.md`.
 Wheelhouse's own `engineering/deployment/deploy.yml` and `.github/workflows/` build and test it like any product.

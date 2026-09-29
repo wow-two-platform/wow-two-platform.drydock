@@ -5,7 +5,7 @@
 How wow-two products should build, version and run on Wheelhouse-managed hosts: the deployment pattern, environments
 on one host, routing and site links, per-service builds and versions, builds from any commit, databases, cache,
 messaging, networks, volumes and the local server. This is analysis. Each decision is a box in [Points](#points);
-a settled point moves into [deployment.md](../deployment/deployment.md), the [CI policy](../planning/ci-artifact-policy.md)
+a settled point moves into [deployment.md](../deployment/deployment.md), [architecture](../architecture/architecture.md#artifacts-and-registry)
 or a version track.
 
 ## Status

@@ -6,7 +6,7 @@
 
 GitHub Actions builds immutable images. Wheelhouse submits reviewed release bundles over pinned SSH.
 The target-side Python runner owns locks, durable intent, health gates and recovery. The same runner works without the dashboard.
-Git triggers, artifact publication and retention are defined in the [CI policy](../planning/ci-artifact-policy.md).
+Artifact publication and retention: [architecture](../architecture/architecture.md#artifacts-and-registry).
 A product declares its services, builds and sites in `engineering/deployment/deploy.yml`
 ([convention](../../../../../conventions/deployment/descriptor/deploy-descriptor.md));
 the release generator in `wow-two-platform.pipelines` (`generator/release.py`) turns it into the bundle Wheelhouse
@@ -43,7 +43,7 @@ platform-network alias, database, settings files and hostnames. No hardware sepa
 - A server's `Ingress.probe` names where the runner reaches the public entry points; it defaults to loopback on the scheme's port.
 - Private sites are probed only when the server sets `private_probe`; the local server probes `http://ingress:80`.
 
-The [pilot plan](../planning/deployment-pilot.md) owns scope, future VPS wiring and launch gates.
+Open VPS wiring and launch work waits in the [backlog](../planning/backlog.md) § Hosting.
 Local image builds use the current working tree; publishing requires all intended source/dependency changes committed together.
 
 ## Wheelhouse's own releases
@@ -400,8 +400,8 @@ The separate ForeverPin product track still owns incomplete content modes and va
 ```sh
 python3 -m unittest discover -s engineering/codebase/wheelhouse.runner-services
 dotnet test engineering/codebase/wheelhouse.backend-services/Wheelhouse.BackendServices.slnx -p:SkipSpaBuild=true -m:1
-(cd engineering/codebase/wheelhouse.frontend-services && npm run typecheck && npm run build)
+(cd engineering/codebase/wheelhouse.frontend-services && pnpm typecheck && pnpm build)
 ```
 
 The rehearsal rig exercises real SSH, Compose, health gates and recovery; hosted `linux/amd64`, TLS, OAuth and
-off-provider backups remain separate gates in the [pilot plan](../planning/deployment-pilot.md).
+off-provider backups remain open in the [backlog](../planning/backlog.md) § Hosting.

@@ -14,7 +14,7 @@
 - [x] User explicitly approved the full Vue migration.
 - [x] Typography and responsive light/dark composition verified at 1440, 1024 and 390 pixels.
 - [x] Application UI implemented with the published Vue SDK; typecheck, SFC compilation and production build pass.
-- [x] Final interaction verification recorded in the [implementation track](../../planning/ui-workspace.md).
+- [x] Final interaction verification recorded when the Vue migration shipped (v0.3).
 
 The layout decision below was explicitly approved by the user on September 26.
 The user delegated palette selection; the measured palette is specified below.
@@ -118,7 +118,7 @@ are removed. Page routes load lazily. The application uses the existing APIs thr
 - Thirteen browser checks verified selection, refresh, Fleet links, responsive themes, product create/edit, secret rotation/state, one-time token reveal and sign-out.
 - Nine deployment browser checks passed, including readiness, failed submit retention, outcome polling and typed reconciliation.
 - Browser tests recorded no runtime errors or unhandled API requests. All writes were intercepted fixtures, not live deployment or real vault mutation.
-- Final interaction evidence and runtime handover are maintained in the [implementation track](../../planning/ui-workspace.md).
+- The shipped workspace is described in [architecture](../../architecture/architecture.md#workspace).
 
 ---
 
@@ -308,7 +308,7 @@ Keep lifecycle `Draft` separate from runtime health, deployment readiness, and l
 
 Paths below are relative to this repository. They describe the pre-migration research snapshot;
 the React paths were retired by the Vue migration and are retained only as audit provenance.
-Current implementation anchors are listed in the [implementation track](../../planning/ui-workspace.md).
+Current implementation anchors are listed in [architecture](../../architecture/architecture.md#workspace).
 
 - `product/context.md:7`: essential deployment slice and local/live evidence boundary.
 - `product/context.md:18`: external builds, code-owned fleet, write-only secrets.

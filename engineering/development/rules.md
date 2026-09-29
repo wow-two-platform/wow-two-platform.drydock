@@ -1,6 +1,6 @@
 # Wheelhouse — Rules
 
-*Last updated: 2026-09-25*
+*Last updated: 2026-09-29*
 
 Operational rules specific to Wheelhouse. Shared code style lives in `wow-two-ws/conventions/`.
 
@@ -13,5 +13,5 @@ Operational rules specific to Wheelhouse. Shared code style lives in `wow-two-ws
 - **Deployment:** one private instance; bind to loopback and reach it over a private mesh or SSH tunnel.
 - **Outbound execution:** remote operations go through the Python runner over pinned OpenSSH, and HTTP calls only
   to code-owned endpoints — never ad-hoc shell commands or browser-supplied URLs.
-- **Versioning:** progress lives in [version docs](version-track/version-track.md).
+- **Versioning:** the newest `engineering/planning/version-track/v{X.Y}/` folder sets the code version; CI assigns the patch.
 - **Ports:** HTTPS 8210 / HTTP 8211 (dev) — even HTTPS, odd HTTP.

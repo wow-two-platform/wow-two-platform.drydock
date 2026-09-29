@@ -2,7 +2,7 @@
 
 *Last updated: 2026-09-27*
 
-Parked alternatives to the current [Studio workspace](../../planning/ui-workspace.md). The user kept the
+Parked alternatives to the current [Studio workspace](../../architecture/architecture.md#workspace). The user kept the
 Studio workspace on 2026-09-27; these boards return when the UI is revisited.
 
 ## Status

@@ -1,23 +1,23 @@
 # Wheelhouse — Frontend Development Guidelines
 
-*Last updated: 2026-09-26*
+*Last updated: 2026-09-29*
 
 Shared frontend conventions live in `wow-two-ws/conventions/development/frontend/`.
-This document records Wheelhouse-specific choices; the studio migration is tracked in
-[ui-workspace.md](../planning/ui-workspace.md).
+This document records Wheelhouse-specific choices; the workspace design is in
+[architecture](../architecture/architecture.md#workspace).
 
 ## Stack
 
-- Vue 3 Composition API · Vue Router · Vite 6 · TypeScript (strict) · Tailwind v4 · Node 22+.
+- Vue 3 Composition API · Vue Router · Vite 6 · TypeScript (strict) · Tailwind v4 · Node 24 · pnpm workspace.
 - UI: published **`@wow-two-beta/ui-vue@0.0.7`**. Use its components, forms, queries and Result contracts. Shared capability gaps belong in the SDK; product composition stays here.
 - `bootstrap/index.css` imports `tailwindcss` and `@wow-two-beta/ui-vue/styles.css`; its `@source` includes SDK utilities.
 - `bootstrap/query.ts` and `bootstrap/form.ts` are the application adapter pins. Integration functions decode wire payloads with Zod and return SDK `Result<T, ApiFailure>` values.
 
 ## Conventions
 
-- Single Vite app at `engineering/codebase/wheelhouse.frontend-services/`. API client is same-origin (`/api/...`); HTTPS dev server `:5174` proxies to HTTPS backend `:8210` (see `vite.config.ts`). Preserve secure cookies and forwarded origin during GitHub authentication.
-- Production: `npm run deploy` (`scripts/deploy.mjs`) builds the SPA and copies `dist/` into the API's `wwwroot` (single-host serving). Idempotent — `wwwroot` is wiped + repopulated each run.
-- `npm run typecheck` runs `vue-tsc` and the SFC compiler gate. `npm test` checks inventory/selection, API decoding and sensitive-form lifecycles. `npm run build` includes typechecking and lazy route bundling.
+- One app, `apps/web` (`@wheelhouse/web`), in the pnpm workspace at `engineering/codebase/wheelhouse.frontend-services/`. API client is same-origin (`/api/...`); HTTPS dev server `:5174` proxies to HTTPS backend `:8210` (see `apps/web/vite.config.ts`); `pnpm dev:http` serves plain HTTP for headless previews. Preserve secure cookies and forwarded origin during GitHub authentication.
+- Production: `pnpm deploy` (`scripts/deploy.mjs`) builds the app and copies `apps/web/dist/` into the API's `wwwroot` (single-host serving). Idempotent — `wwwroot` is wiped + repopulated each run.
+- `pnpm typecheck` runs `vue-tsc` and the SFC compiler gate. `pnpm test` checks inventory/selection, API decoding and sensitive-form lifecycles. `pnpm build` includes typechecking and lazy route bundling.
 
 ## Repo-specific deltas
 
