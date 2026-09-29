@@ -14,7 +14,7 @@
 - [x] seven unendorsed exports preserved byte-for-byte
 - [x] review symbol, primary, endorsed and tile sizes; [brand guide](../brand.md#size-review) records minimums and failed targets
 - [ ] create editable vector masters through a separate visual review
-- [ ] integrate the selected assets into the application when requested
+- [x] integrate the selected assets into the application: [brand guide § Application](../brand.md#application)
 
 ---
 

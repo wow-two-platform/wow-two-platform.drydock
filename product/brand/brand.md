@@ -92,6 +92,22 @@ These files are the saved brand assets. Application integration is separate.
 
 ---
 
+## Application
+
+The [app export script](../../engineering/scripts/export-app-icons.py) derives the web app's files from the exports
+above, after checking each against the manifest; an isolated replay matches byte for byte.
+
+| Placement | Source | App file |
+|---|---|---|
+| Top bar (26px), sign-in (40px), first-load splash | Default wordmark, black and white | `src/presentation/shell/assets/wordmark-{dark,light}-ink.png` (96px high, 64-colour palette) |
+| Browser tab, light and dark schemes | Standalone boat, black and white | `public/favicon.png`, `public/favicon-dark.png` (64px square) |
+| Home-screen icon | App tile, green extended to a full-bleed square | `public/apple-touch-icon.png` (180px) |
+
+- the header and sign-in show the wordmark without endorsement; the image carries the accessible name
+- the 16px tab slot sits below the reviewed `20px` symbol minimum; a micro symbol would need design review
+
+---
+
 ## Continuation
 
 - [Identity adoption handoff](handoff/handoff.md): adopted convention, exact parent provenance and remaining work
