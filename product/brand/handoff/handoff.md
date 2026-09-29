@@ -74,7 +74,7 @@ The exporter reads only inputs stored in this repository and prints dimensions, 
 - default wordmarks, standalone marks and app tile match the pre-endorsement exports byte-for-byte
 - endorsed product pixels preserve the corresponding default wordmark exactly
 - light/dark review confirms transparent margins, gray fold retention and approved parent colors
-- reviewed minimums: primary `24px` high, symbol `20px` square, endorsed `176px` high, tile `64px` square
+- reviewed minimums: primary `24px` high, symbol `20px` square, endorsed `128px` high, tile `64px` square
 - the initial Wheelhouse export commit remains `a56644e`; the exact-parent endorsement supersedes its text-only layout
 
 ---

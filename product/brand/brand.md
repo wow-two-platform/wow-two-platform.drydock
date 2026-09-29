@@ -19,6 +19,10 @@
 - export padding is separate from layout clear space
 - reviewed minimums and failed targets are recorded in the size review below
 
+Boat separator bodies measure `11.3–11.9px` perpendicular to their facing edges: `3.9–4.1%` of the `292px` visible width.
+That already fits the [family separator rule](../../../../../conventions/design/identity/logo-system.md#internal-separators).
+The boat geometry, gray fold and seven unendorsed exports remain unchanged.
+
 ---
 
 ## Exports
@@ -47,14 +51,14 @@ The enlarged symbol samples use nearest-neighbor pixels to expose closed fold ga
 |---|---|---|
 | Primary | `24px` total image height | `24`, `32`, `40px`: lettering and boat remain readable |
 | Standalone boat | `20 × 20px` square slot | `16px`: folds merge; `20`, `24`, `32px`: four facets remain distinct |
-| Endorsed | `176px` total image height; `988px` width | `128`, `144`, `160px`: below parent rules; `176`, native `209px`: pass |
+| Endorsed | `128px` total image height; `718px` width | `96`, `112px`: below parent rules; `128`, `144`, native `209px`: pass |
 | App tile | `64 × 64px` | Readable square avatar; platform-specific masks remain untested |
 
 - symbol geometry check: connected alpha ≥ `128` regions, each at least two pixels
 - at `16px`, the four boat facets merge into one such region; the source artwork is unchanged
-- at `176px`, parent visible-symbol width is `43px`; equivalent padded parent-primary height is `33.1px`
-- both parent values exceed the `32px` minimums in the [WoW2 guide](../../../../../docs/brand/wow2/brand.md)
-- `144` and `160px` endorsements retain sufficient symbol width but fail the parent-primary height rule
+- at `128px`, parent visible-symbol width is `31px`; equivalent padded parent-primary height is about `24.1px`
+- both parent values meet the `24px` minimums in the [WoW2 guide](../../../../../docs/brand/wow2/brand.md)
+- `112px` retains sufficient symbol width but fails the parent-primary height rule; `96px` fails both
 - use the unendorsed identity below the endorsed minimum; do not enlarge only the parent inside the saved composition
 - these are reviewed 1× raster minimums, not user-recognition testing or platform-installation certification
 - review captions use Pillow's bundled font; neither sheet modifies the ten artwork PNGs

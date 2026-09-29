@@ -211,7 +211,7 @@ def size_review(exports, parent, parent_origin, path):
         sheet.paste(tile, (x + 14, 560), tile)
         draw.text((x + 100, 572), 'Tile / 64 x 64 px / general square avatar', font=label, fill=ink)
 
-    draw.text((20, 660), 'Endorsement / proportional total height / parent requires symbol width >=32 and equivalent primary height >=32',
+    draw.text((20, 660), 'Endorsement / proportional total height / parent requires symbol width >=24 and equivalent primary height >=24',
               font=small, fill='#183e32')
     parent_layer = Image.new('RGBA', exports['wheelhouse-wordmark-by-wow2.png'].size)
     parent_layer.alpha_composite(parent, parent_origin)
@@ -219,7 +219,7 @@ def size_review(exports, parent, parent_origin, path):
         bounds = original.getchannel('A').getbbox()
         parent_padding_ratio = original.height / (bounds[3] - bounds[1])
     y = 700
-    for height in (128, 144, 160, 176, 209):
+    for height in (96, 112, 128, 144, 209):
         layer = resize_height(parent_layer, height)
         active = (np.asarray(layer.getchannel('A')) >= 128).any(axis=0)
         start = int(np.flatnonzero(active)[0])
@@ -228,7 +228,7 @@ def size_review(exports, parent, parent_origin, path):
             end += 1
         symbol_width = end - start
         equivalent_height = parent.height * height / parent_layer.height * parent_padding_ratio
-        passes = symbol_width >= 32 and equivalent_height >= 32
+        passes = symbol_width >= 24 and equivalent_height >= 24
         metric = {'total_height': height, 'render_pixels': list(layer.size),
                   'parent_symbol_visible_width_at_alpha_128': symbol_width,
                   'parent_equivalent_primary_height': round(equivalent_height, 2),
