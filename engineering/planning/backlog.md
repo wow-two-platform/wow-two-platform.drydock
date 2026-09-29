@@ -138,6 +138,7 @@ Dynamic provider plugins and UI-based VPS registration are excluded by product d
 | Rename the runner's `fleet.py` and `rehearse.py` | check | The screen says Servers and local server; do it with the product catalog split (Point 1) |
 | Stamp applied migrations with the product version | issue | `MigrationOptions.Version` keeps the SDK default `v1.0` |
 | Clear the transitive backend package advisories | issue | Five high, four moderate; they arrive through the backend SDK at `10.0.40-beta` |
+| Rename backend tests to `{Unit}_Should{Expectation}_When{Condition}` | check | 147 of 148 test methods predate the testing convention's naming rule |
 | Adopt the product template's ESLint, Prettier config and `format:check` gates | check | 86 app files predate a formatter config; format once in a dedicated commit |
 
 ---
