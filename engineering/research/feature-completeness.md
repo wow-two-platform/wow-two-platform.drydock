@@ -189,7 +189,7 @@ Placement options:
 | S6 | No CI: tests never run on push and no image is published | No `.github/` in the repository | v0.3 ✓ |
 | S7 | GitHub sign-in requests `repo` and `read:packages`; the runner holds a second token | `AuthConfigurationExtensions.cs`; `WHEELHOUSE_GITHUB_TOKEN_FILE` | Point 9 |
 | S8 | Wheelhouse's own credentials are plain files | Inventory `ssh/`, `vaults/` and the GitHub token file | Secrets |
-| S9 | The GitHub repository is public and still named `drydock` | `wow-two-platform/wow-two-platform.drydock` | Rename handed over; Point 8 |
+| S9 | The GitHub repository is public | `wow-two-platform/wow-two-platform.wheelhouse`, renamed from `drydock` on 2026-09-29 | Point 8 |
 | S10 | Settings files on a VPS are placed by hand | Target settings are host paths | Secrets |
 | S11 | Pausing or removing an environment needs SSH | `rehearse.py down` covers only the local server | Topology |
 | S12 | No log view; diagnosing a failed deploy needs SSH | No log action in the runner | v0.3 ✓ |

@@ -15,7 +15,7 @@ only when the developer opens that version. Feature waves and decision Points li
 | Behind it | v0.2 (Adoption): every build iteration done; its 2 verification checks await the developer |
 | Code version | CI injects `X.Y.Z`; `v0.3.0` is the latest release; local builds report `0.0.0-dev` |
 | Suites | Backend 218 (88 unit, 11 integration, 117 E2E, 2 migrations), frontend 75, runner 157: all green |
-| Repository | `ci` and `publish-docker-image` pass on every push; the remote is still `drydock` and public |
+| Repository | `wow-two-platform.wheelhouse` (renamed from `drydock`), public; `ci` and `publish-docker-image` pass on every push |
 | Backend SDK | Pinned `10.0.40-beta`; `10.0.59-beta` is published; its repository holds 103 unpushed commits |
 | UI SDK | Pinned `@wow-two-beta/ui-vue@0.0.9` for `SplashScreen`; its `CanvasArea`, skeleton slots and region-scrolling shell still sit beside local copies |
 | Dependency audit | Backend: 5 packages with high and 4 with moderate advisories, all transitive; frontend runtime: none |
@@ -34,7 +34,7 @@ Every item here is the developer's; none can be done from a chat.
 | C1 | Tick v0.2's verification: suites green, live smoke | v0.2 stays open beside v0.3; one version should be active |
 | C2 | Register a GitHub OAuth app for `http://localhost:18210` | The last open v0.3 build task |
 | C3 | Run v0.3's 29 verification checks | A version closes only on the developer's pass |
-| C4 | Rename the remote to `wheelhouse` and make it private | `fleet.py` will hold real hosts; the repository is public |
+| C4 | Make the repository private | `fleet.py` will hold real hosts; a private repository spends free Actions minutes |
 | C5 | Publish backend SDK `10.0.60` | The Adoption version can only re-pin published packages |
 
 ---
