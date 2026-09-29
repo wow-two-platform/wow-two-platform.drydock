@@ -1,15 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>dbd55018-bdcb-483c-89ed-a1738b7fac8f</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
     <!-- Mediator (ISender.SendAsync) + AppResult.Match — controllers dispatch + collapse the union. -->
-    <PackageReference Include="WoW2.Sdk.Backend.Beta" Version="10.0.40-beta" />
+    <PackageReference Include="WoW2.Sdk.Backend.Beta" />
   </ItemGroup>
 
   <ItemGroup>
@@ -20,7 +17,7 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <!-- wheelhouse.frontend-services is a sibling of wheelhouse.backend-services under engineering/codebase/. -->
+    <!-- wheelhouse.frontend-services (the pnpm workspace) is a sibling of wheelhouse.backend-services under engineering/codebase/. -->
     <SpaRoot>$(MSBuildProjectDirectory)\..\..\wheelhouse.frontend-services\</SpaRoot>
     <!-- The SPA builds with the Node pinned in .nvmrc when nvm has it, so an IDE launched from the Dock,
          whose PATH holds an older system Node, still builds. -->
@@ -32,12 +29,12 @@
   </PropertyGroup>
   <!-- Reinstalls packages only when the lockfile changed since the last install. -->
   <Target Name="RestoreSpa" Condition="'$(SpaEnabled)' == 'true'"
-          Inputs="$(SpaRoot)package-lock.json" Outputs="$(SpaRoot)node_modules/.package-lock.json">
-    <Exec Command="npm ci" WorkingDirectory="$(SpaRoot)" EnvironmentVariables="PATH=$(SpaPath)" />
+          Inputs="$(SpaRoot)pnpm-lock.yaml" Outputs="$(SpaRoot)node_modules/.modules.yaml">
+    <Exec Command="pnpm install --frozen-lockfile" WorkingDirectory="$(SpaRoot)" EnvironmentVariables="PATH=$(SpaPath)" />
   </Target>
   <Target Name="BuildSpa" DependsOnTargets="RestoreSpa" BeforeTargets="PrepareForBuild;ResolveProjectStaticWebAssets"
           Condition="'$(SpaEnabled)' == 'true'">
-    <Exec Command="npm run deploy" WorkingDirectory="$(SpaRoot)" EnvironmentVariables="PATH=$(SpaPath)" />
+    <Exec Command="pnpm run deploy" WorkingDirectory="$(SpaRoot)" EnvironmentVariables="PATH=$(SpaPath)" />
     <ItemGroup>
       <Content Remove="@(Content)" Condition="$([System.String]::Copy('%(Content.Identity)').Replace('\', '/').StartsWith('wwwroot/'))" />
       <Content Include="wwwroot/**/*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

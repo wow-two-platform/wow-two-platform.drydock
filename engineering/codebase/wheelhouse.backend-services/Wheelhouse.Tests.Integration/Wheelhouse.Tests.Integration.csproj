@@ -1,10 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
-        <ImplicitUsings>enable</ImplicitUsings>
-        <Nullable>enable</Nullable>
-        <IsPackable>false</IsPackable>
         <IsTestProject>true</IsTestProject>
     </PropertyGroup>
 
@@ -20,20 +16,20 @@
     -->
     <ItemGroup>
         <!-- ContainerFixtureBase + PostgresFixture (Testcontainers + Respawn) + transitive Testcontainers.PostgreSql / Npgsql / Respawn. -->
-        <PackageReference Include="WoW2.Sdk.Backend.Beta.Testing" Version="10.0.40-beta"/>
+        <PackageReference Include="WoW2.Sdk.Backend.Beta.Testing"/>
         <!-- RelationalTestDb<TContext> + TestSetupOptions (the provider-switchable EF-model harness) + transitive EFCore.Sqlite/Npgsql. -->
-        <PackageReference Include="WoW2.Sdk.Backend.Beta.Testing.Data" Version="10.0.40-beta"/>
-        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.*"/>
-        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.*"/>
-        <PackageReference Include="EFCore.NamingConventions" Version="10.*"/>
-        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.*"/>
-        <PackageReference Include="Microsoft.Extensions.Logging" Version="10.*"/>
-        <PackageReference Include="Npgsql" Version="10.*"/>
-        <PackageReference Include="Dapper" Version="2.1.66"/>
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0"/>
-        <PackageReference Include="xunit" Version="2.9.2"/>
-        <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2"/>
-        <PackageReference Include="AwesomeAssertions" Version="9.0.0"/>
+        <PackageReference Include="WoW2.Sdk.Backend.Beta.Testing.Data"/>
+        <PackageReference Include="Microsoft.EntityFrameworkCore"/>
+        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL"/>
+        <PackageReference Include="EFCore.NamingConventions"/>
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection"/>
+        <PackageReference Include="Microsoft.Extensions.Logging"/>
+        <PackageReference Include="Npgsql"/>
+        <PackageReference Include="Dapper"/>
+        <PackageReference Include="Microsoft.NET.Test.Sdk"/>
+        <PackageReference Include="xunit"/>
+        <PackageReference Include="xunit.runner.visualstudio"/>
+        <PackageReference Include="AwesomeAssertions"/>
     </ItemGroup>
 
     <ItemGroup>

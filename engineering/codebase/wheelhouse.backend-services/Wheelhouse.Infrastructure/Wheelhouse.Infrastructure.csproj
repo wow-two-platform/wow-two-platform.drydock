@@ -1,11 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
-
   <!-- The GitHub adapter reads the per-request OAuth token from the HTTP context
        (IHttpContextAccessor + AuthenticationHttpContextExtensions.GetTokenAsync) and calls the
        REST API via a typed HttpClient (AddHttpClient). The shared framework also supplies the

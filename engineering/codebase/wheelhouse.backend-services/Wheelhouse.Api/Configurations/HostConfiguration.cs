@@ -28,7 +28,7 @@ public static class HostConfiguration
     /// <summary>Configures the middleware pipeline and maps endpoints.</summary>
     public static WebApplication Configure(this WebApplication app)
     {
-        // Serve the React dashboard from wwwroot (single-deploy: API + UI in one host) via the SDK SPA-hosting helper.
+        // Serve the Vue workspace from wwwroot (single-deploy: API + UI in one host) via the SDK SPA-hosting helper.
         // Static assets stay public so the sign-in screen loads before auth, and are registered before the SDK pipeline
         // so they short-circuit.
         app.UseSpaHosting();

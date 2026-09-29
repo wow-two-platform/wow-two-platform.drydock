@@ -1,10 +1,13 @@
 # codebase/
 
+*Last updated: 2026-09-29*
+
 The code — the only place code lives.
 
 | Dir | What |
 |---|---|
-| `wheelhouse.backend-services/` | .NET 10 Clean-Arch solution (`Wheelhouse.BackendServices.slnx`) — `Wheelhouse.{Api,Application,Domain,Infrastructure,Persistence}` (+ `tests/` when added) |
-| `wheelhouse.frontend-services/` | React 19 + Vite + Tailwind v4 control-plane dashboard |
+| `wheelhouse.backend-services/` | .NET 10 Clean-Arch solution (`Wheelhouse.BackendServices.slnx`) — `Wheelhouse.{Api,Application,Domain,Infrastructure,Persistence}` plus four test tiers; central package versions and the SDK pin beside the solution |
+| `wheelhouse.frontend-services/` | Private pnpm workspace; `apps/web/` (`@wheelhouse/web`) owns the Vue workspace, its tests and Vite output |
+| `wheelhouse.runner-services/` | Python runner — code-owned fleet, release catalog, SSH transport and target executor |
 
-Build / run: see root `README.md`. Architecture: `../architecture/architecture.md`.
+Build / run: root `README.md`. Architecture: `../architecture/architecture.md`.

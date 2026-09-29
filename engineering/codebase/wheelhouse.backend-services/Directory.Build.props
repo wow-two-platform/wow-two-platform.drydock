@@ -1,5 +1,16 @@
 <Project>
 
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="$(MSBuildProjectName.Contains('.Tests.')) Or $(MSBuildProjectName.EndsWith('.Tests'))">
+    <RunSettingsFilePath>$(MSBuildThisFileDirectory)tests.runsettings</RunSettingsFilePath>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
   <!-- Product version: CI passes X.Y.Z (X.Y from the newest version-track folder, Z from the release tags) as
        APP_VERSION; a local build reports 0.0.0-dev.
        See wow-two-ws/conventions/development/repo/versioning/versioning.md. -->

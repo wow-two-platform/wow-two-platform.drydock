@@ -1,12 +1,12 @@
 <Solution>
-  <Folder Name="/services/">
+  <Folder Name="/Services/">
     <Project Path="Wheelhouse.Api/Wheelhouse.Api.csproj" />
     <Project Path="Wheelhouse.Application/Wheelhouse.Application.csproj" />
     <Project Path="Wheelhouse.Domain/Wheelhouse.Domain.csproj" />
     <Project Path="Wheelhouse.Infrastructure/Wheelhouse.Infrastructure.csproj" />
     <Project Path="Wheelhouse.Persistence/Wheelhouse.Persistence.csproj" />
   </Folder>
-  <Folder Name="/tests/">
+  <Folder Name="/Tests/">
     <Project Path="Wheelhouse.Tests.Unit/Wheelhouse.Tests.Unit.csproj" />
     <Project Path="Wheelhouse.Tests.Integration/Wheelhouse.Tests.Integration.csproj" />
     <Project Path="Wheelhouse.Tests.E2E/Wheelhouse.Tests.E2E.csproj" />

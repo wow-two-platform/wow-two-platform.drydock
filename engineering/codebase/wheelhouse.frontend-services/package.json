@@ -1,40 +1,20 @@
 {
   "name": "wheelhouse-frontend",
   "private": true,
-  "engines": {
-    "node": ">=22"
-  },
   "version": "0.0.0",
   "type": "module",
-  "description": "Vue workspace for Wheelhouse, the product operations and deployment control plane.",
+  "packageManager": "pnpm@10.33.2",
+  "engines": {
+    "node": ">=24.11.0 <25"
+  },
   "scripts": {
-    "dev": "vite",
-    "typecheck": "vue-tsc -p tsconfig.app.json --noEmit && node scripts/check-sfc.mjs",
-    "build": "npm run typecheck && vite build",
-    "preview": "vite preview",
-    "deploy": "npm run build && node ./scripts/deploy.mjs",
-    "test": "node --test tests/workspace/*.test.mjs",
-    "format": "prettier --write \"src/**/*.{ts,vue,css}\" scripts/check-sfc.mjs *.json vite.config.ts index.html"
-  },
-  "dependencies": {
-    "@tanstack/vue-query": "^5.103.2",
-    "@wow-two-beta/ui-vue": "0.0.7",
-    "lucide-vue-next": "^0.460.0",
-    "vue": "^3.5.13",
-    "vue-router": "^4.5.0",
-    "zod": "^4.4.3"
-  },
-  "devDependencies": {
-    "@tailwindcss/vite": "^4.1.0",
-    "tailwindcss": "^4.1.0",
-    "typescript": "^5.7.2",
-    "vite": "^6.0.0",
-    "vite-plugin-mkcert": "^2.1.0",
-    "@vitejs/plugin-vue": "^5.2.1",
-    "@vue/compiler-sfc": "^3.5.13",
-    "@types/node": "^24.0.0",
-    "vue-tsc": "^2.2.0",
-    "prettier": "^3.6.0",
-    "esbuild": "^0.25.12"
+    "dev": "pnpm --filter @wheelhouse/web dev",
+    "dev:http": "pnpm --filter @wheelhouse/web dev:http",
+    "build": "pnpm -r --if-present build",
+    "deploy": "node scripts/deploy.mjs",
+    "preview": "pnpm --filter @wheelhouse/web preview",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "pnpm -r --if-present test",
+    "format": "pnpm -r --if-present format"
   }
 }

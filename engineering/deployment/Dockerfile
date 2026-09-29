@@ -1,19 +1,22 @@
 # syntax=docker/dockerfile:1
 FROM node:24.11.0-alpine AS spa
-WORKDIR /spa
-COPY wheelhouse.frontend-services/package.json wheelhouse.frontend-services/package-lock.json ./
-RUN npm ci
+RUN npm install --global pnpm@10.33.2
+WORKDIR /src/wheelhouse.frontend-services
+COPY wheelhouse.frontend-services/package.json wheelhouse.frontend-services/pnpm-lock.yaml wheelhouse.frontend-services/pnpm-workspace.yaml ./
+COPY wheelhouse.frontend-services/apps/web/package.json ./apps/web/package.json
+RUN pnpm install --frozen-lockfile
 COPY wheelhouse.frontend-services/ ./
 # The build's version from the shared publish workflow (X.Y.Z or a pre-release); unset in a local build. Declared
 # after the dependency layers, since a changed build argument misses the cache of every RUN after it.
 ARG APP_VERSION
-RUN npm run build
+RUN pnpm build
 
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+# Stays in global.json's 10.0.3xx band; the floating 10.0 tag moved to 10.0.4xx, which the pin refuses.
+FROM mcr.microsoft.com/dotnet/sdk:10.0.302 AS build
 ARG TARGETARCH
 WORKDIR /src
 COPY wheelhouse.backend-services/ ./
-COPY --from=spa /spa/dist ./Wheelhouse.Api/wwwroot
+COPY --from=spa /src/wheelhouse.frontend-services/apps/web/dist ./Wheelhouse.Api/wwwroot
 # MSBuild reads APP_VERSION from the environment; Directory.Build.props turns it into the product version.
 ARG APP_VERSION
 RUN case "$TARGETARCH" in amd64) rid=linux-x64 ;; arm64) rid=linux-arm64 ;; *) exit 1 ;; esac \

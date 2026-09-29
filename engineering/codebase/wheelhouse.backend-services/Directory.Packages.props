@@ -1,0 +1,40 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <BackendSdkVersion>10.0.40-beta</BackendSdkVersion>
+  </PropertyGroup>
+
+  <!-- Backend SDK: one family, bumped together. -->
+  <ItemGroup>
+    <PackageVersion Include="WoW2.Sdk.Backend.Beta" Version="$(BackendSdkVersion)" />
+    <PackageVersion Include="WoW2.Sdk.Backend.Beta.Testing" Version="$(BackendSdkVersion)" />
+    <PackageVersion Include="WoW2.Sdk.Backend.Beta.Testing.Data" Version="$(BackendSdkVersion)" />
+    <PackageVersion Include="WoW2.Sdk.Backend.Beta.Testing.Integrations" Version="$(BackendSdkVersion)" />
+  </ItemGroup>
+
+  <!-- Data access. -->
+  <ItemGroup>
+    <PackageVersion Include="Dapper" Version="2.1.66" />
+    <PackageVersion Include="EFCore.NamingConventions" Version="10.0.1" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.12" />
+    <PackageVersion Include="Npgsql" Version="10.0.3" />
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+  </ItemGroup>
+
+  <!-- Hosting abstractions. -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.12" />
+  </ItemGroup>
+
+  <!-- Tests. -->
+  <ItemGroup>
+    <PackageVersion Include="AwesomeAssertions" Version="9.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="9.1.0" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageVersion Include="xunit" Version="2.9.2" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+</Project>
