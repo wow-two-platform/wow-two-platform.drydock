@@ -1,0 +1,489 @@
+{
+  "schema_version": 1,
+  "brand": "Wheelhouse",
+  "identity": "Soft folds",
+  "status": "approved-final",
+  "master_format": "raster",
+  "application_integration": "separate",
+  "exports": [
+    {
+      "file": "soft-folds/wheelhouse-wordmark.png",
+      "width": 1173,
+      "height": 163,
+      "format": "PNG",
+      "mode": "RGBA",
+      "bytes": 103025,
+      "sha256": "7affb7ea86fe0951fc6d593b41e316d85b7e27d9a3a05def8a0b7941e558778c",
+      "alpha_bbox": [
+        8,
+        8,
+        1165,
+        155
+      ],
+      "opaque_pixels": 78824,
+      "partial_pixels": 7782
+    },
+    {
+      "file": "soft-folds/wheelhouse-wordmark-by-wow2.png",
+      "width": 1173,
+      "height": 209,
+      "format": "PNG",
+      "mode": "RGBA",
+      "bytes": 114219,
+      "sha256": "137809fc18392056632f2bb99dfa8025e92c1b088ed3187a6c52c6818481b976",
+      "alpha_bbox": [
+        8,
+        8,
+        1165,
+        201
+      ],
+      "opaque_pixels": 80608,
+      "partial_pixels": 10240
+    },
+    {
+      "file": "soft-folds/wheelhouse-mark.png",
+      "width": 308,
+      "height": 163,
+      "format": "PNG",
+      "mode": "RGBA",
+      "bytes": 27107,
+      "sha256": "c3f5ef0b236a295bff2cd6a5aaf57736a993a0678a371cb86d862b373279916f",
+      "alpha_bbox": [
+        8,
+        8,
+        300,
+        155
+      ],
+      "opaque_pixels": 20984,
+      "partial_pixels": 1758
+    },
+    {
+      "file": "soft-folds/wheelhouse-app-icon.png",
+      "width": 312,
+      "height": 312,
+      "format": "PNG",
+      "mode": "RGBA",
+      "bytes": 72104,
+      "sha256": "ce1a751f33fec3e99b6b470ce7bc3ae18348a0e90cc3735abb6e9c7f5d3342ee",
+      "alpha_bbox": [
+        8,
+        11,
+        304,
+        301
+      ],
+      "opaque_pixels": 80021,
+      "partial_pixels": 1509
+    },
+    {
+      "file": "soft-folds/wheelhouse-wordmark-white.png",
+      "width": 1173,
+      "height": 163,
+      "format": "PNG",
+      "mode": "RGBA",
+      "bytes": 30235,
+      "sha256": "7865eaabf6ebbae6ec1e70e710f893f16984e7b13fc2969bb302de33307a8ecb",
+      "alpha_bbox": [
+        8,
+        8,
+        1165,
+        155
+      ],
+      "opaque_pixels": 78824,
+      "partial_pixels": 7782
+    },
+    {
+      "file": "soft-folds/wheelhouse-wordmark-by-wow2-white.png",
+      "width": 1173,
+      "height": 209,
+      "format": "PNG",
+      "mode": "RGBA",
+      "bytes": 36266,
+      "sha256": "a774a168c20904ce00afa6f7443e20d970a2ef2e21656fbe9b99725938cd683a",
+      "alpha_bbox": [
+        8,
+        8,
+        1165,
+        201
+      ],
+      "opaque_pixels": 80608,
+      "partial_pixels": 10240
+    },
+    {
+      "file": "soft-folds/wheelhouse-mark-white.png",
+      "width": 308,
+      "height": 163,
+      "format": "PNG",
+      "mode": "RGBA",
+      "bytes": 11543,
+      "sha256": "d8bf332cb85268b9cf3d31c4aa19ad2d9d0c0a983b2c8842131cba192da49d20",
+      "alpha_bbox": [
+        8,
+        8,
+        300,
+        155
+      ],
+      "opaque_pixels": 20984,
+      "partial_pixels": 1758
+    },
+    {
+      "file": "soft-folds/wheelhouse-wordmark-mint.png",
+      "width": 1173,
+      "height": 163,
+      "format": "PNG",
+      "mode": "RGBA",
+      "bytes": 31099,
+      "sha256": "a16b4f8e2cadba1e448a3f3877ed71c3640e7a00ffa6ad3f4e340f4824d235ee",
+      "alpha_bbox": [
+        8,
+        8,
+        1165,
+        155
+      ],
+      "opaque_pixels": 78824,
+      "partial_pixels": 7782
+    },
+    {
+      "file": "soft-folds/wheelhouse-wordmark-by-wow2-mint.png",
+      "width": 1173,
+      "height": 209,
+      "format": "PNG",
+      "mode": "RGBA",
+      "bytes": 37255,
+      "sha256": "17f07d6595b59fb7b1d263f5437ac133dbbf41e856386b4348a728a2657b848c",
+      "alpha_bbox": [
+        8,
+        8,
+        1165,
+        201
+      ],
+      "opaque_pixels": 80608,
+      "partial_pixels": 10240
+    },
+    {
+      "file": "soft-folds/wheelhouse-mark-mint.png",
+      "width": 308,
+      "height": 163,
+      "format": "PNG",
+      "mode": "RGBA",
+      "bytes": 11932,
+      "sha256": "40d45f7482b7654b734a42b6134d656f96a4dae185e0271f681fdc8efc448fa6",
+      "alpha_bbox": [
+        8,
+        8,
+        300,
+        155
+      ],
+      "opaque_pixels": 20984,
+      "partial_pixels": 1758
+    }
+  ],
+  "review_sheets": [
+    {
+      "file": "preview.png",
+      "width": 1500,
+      "height": 2950,
+      "format": "PNG",
+      "mode": "RGB",
+      "bytes": 566555,
+      "sha256": "74f8d29e36d0194b43820328666ee1eea56412392ebf9e51143536c8921cfb36"
+    },
+    {
+      "file": "size-review.png",
+      "width": 2048,
+      "height": 2048,
+      "format": "PNG",
+      "mode": "RGB",
+      "bytes": 731622,
+      "sha256": "dab23330e63466e0ec284c864e5fddb89cf65a8ee543424b023d7b3b1ef7ef39"
+    }
+  ],
+  "sources": [
+    {
+      "file": "source/soft-folds-selection.png",
+      "width": 1774,
+      "height": 444,
+      "format": "PNG",
+      "mode": "RGB",
+      "bytes": 506492,
+      "sha256": "dd33d9bff2112a9485b8949daee7e399d9049ba59a12493d0b17d6b5c30e790e"
+    },
+    {
+      "file": "source/by-wow2-attribution.png",
+      "width": 160,
+      "height": 37,
+      "format": "PNG",
+      "mode": "RGB",
+      "bytes": 8526,
+      "sha256": "ec732aaade9d5b728177dbbe93fed477791ec1e699bc5496ace9c9e468d60a4b"
+    },
+    {
+      "file": "source/wow2/wow2-primary-navy.png",
+      "width": 864,
+      "height": 192,
+      "format": "PNG",
+      "mode": "RGBA",
+      "bytes": 45712,
+      "sha256": "c031fe72c3ee13d293ed8a027c6606cdb1cbc51241985d40853fa0fbd128aefb"
+    },
+    {
+      "file": "source/wow2/wow2-primary-white.png",
+      "width": 864,
+      "height": 192,
+      "format": "PNG",
+      "mode": "RGBA",
+      "bytes": 28843,
+      "sha256": "aeccb881bdd7b8ef7ec4839aa55c5956ec71780dbad9a4016998518a3b47e773"
+    }
+  ],
+  "composition": {
+    "wordmark_source_crop": [
+      95,
+      185,
+      1285,
+      365
+    ],
+    "tile_source_crop": [
+      1340,
+      100,
+      1668,
+      420
+    ],
+    "by_source_crop": [
+      0,
+      0,
+      52,
+      37
+    ],
+    "transparent_export_padding": 8,
+    "by_content_size": [
+      38,
+      31
+    ],
+    "parent_content_size": [
+      173,
+      36
+    ],
+    "byline_offset_x": 311,
+    "product_byline_gap": 10,
+    "by_parent_gap": 12,
+    "parent_surface_variants": {
+      "black": "navy",
+      "white": "white",
+      "mint": "white"
+    }
+  },
+  "parent_provenance": {
+    "brand": "WoW2",
+    "identity": "Panels",
+    "adopted_on": "2026-09-29",
+    "canonical_repository": "wow-two-ws",
+    "canonical_guide": "docs/brand/wow2/brand.md",
+    "approved_master": {
+      "path": "docs/brand/wow2/source/panels-approved.png",
+      "sha256": "345550fdb7b72576649a3601651249fbbdb8f178bd8dafee6072fe69aec5347a"
+    },
+    "files": {
+      "wow2-primary-navy.png": {
+        "upstream": "docs/brand/wow2/panels/wow2-primary-navy.png",
+        "sha256": "c031fe72c3ee13d293ed8a027c6606cdb1cbc51241985d40853fa0fbd128aefb"
+      },
+      "wow2-primary-white.png": {
+        "upstream": "docs/brand/wow2/panels/wow2-primary-white.png",
+        "sha256": "aeccb881bdd7b8ef7ec4839aa55c5956ec71780dbad9a4016998518a3b47e773"
+      }
+    },
+    "source_transform": "Canonical Panels exports use internal seam bodies of approximately 1/24 of the visible symbol's maximum extent, with the approved panel ends retained. See the canonical guide and manifest for the parent export transform.",
+    "composition": "Canonical horizontal symbol-plus-name PNGs copied byte-for-byte. The exporter tight-trims alpha and scales uniformly to 36 pixels of content height. White parent artwork accompanies both white and mint Wheelhouse; the parent artwork is never recolored."
+  },
+  "source_components": [
+    [
+      113,
+      17,
+      217,
+      95
+    ],
+    [
+      320,
+      19,
+      422,
+      161
+    ],
+    [
+      624,
+      19,
+      656,
+      161
+    ],
+    [
+      663,
+      19,
+      765,
+      161
+    ],
+    [
+      18,
+      45,
+      152,
+      152
+    ],
+    [
+      177,
+      45,
+      309,
+      152
+    ],
+    [
+      424,
+      60,
+      622,
+      163
+    ],
+    [
+      768,
+      60,
+      878,
+      163
+    ],
+    [
+      984,
+      60,
+      1071,
+      164
+    ],
+    [
+      1070,
+      60,
+      1174,
+      163
+    ],
+    [
+      880,
+      64,
+      981,
+      164
+    ],
+    [
+      88,
+      110,
+      239,
+      164
+    ]
+  ],
+  "size_review": {
+    "symbols": [
+      {
+        "square_size": 16,
+        "render_pixels": [
+          16,
+          8
+        ],
+        "facets_at_alpha_128_min_2_pixels": 1
+      },
+      {
+        "square_size": 20,
+        "render_pixels": [
+          20,
+          11
+        ],
+        "facets_at_alpha_128_min_2_pixels": 4
+      },
+      {
+        "square_size": 24,
+        "render_pixels": [
+          24,
+          13
+        ],
+        "facets_at_alpha_128_min_2_pixels": 4
+      },
+      {
+        "square_size": 32,
+        "render_pixels": [
+          32,
+          17
+        ],
+        "facets_at_alpha_128_min_2_pixels": 4
+      }
+    ],
+    "primary": [
+      {
+        "total_height": 24,
+        "render_pixels": [
+          173,
+          24
+        ]
+      },
+      {
+        "total_height": 32,
+        "render_pixels": [
+          230,
+          32
+        ]
+      },
+      {
+        "total_height": 40,
+        "render_pixels": [
+          288,
+          40
+        ]
+      }
+    ],
+    "endorsement": [
+      {
+        "total_height": 96,
+        "render_pixels": [
+          539,
+          96
+        ],
+        "parent_symbol_visible_width_at_alpha_128": 23,
+        "parent_equivalent_primary_height": 18.04,
+        "meets_parent_size_rules": false
+      },
+      {
+        "total_height": 112,
+        "render_pixels": [
+          629,
+          112
+        ],
+        "parent_symbol_visible_width_at_alpha_128": 27,
+        "parent_equivalent_primary_height": 21.05,
+        "meets_parent_size_rules": false
+      },
+      {
+        "total_height": 128,
+        "render_pixels": [
+          718,
+          128
+        ],
+        "parent_symbol_visible_width_at_alpha_128": 31,
+        "parent_equivalent_primary_height": 24.05,
+        "meets_parent_size_rules": true
+      },
+      {
+        "total_height": 144,
+        "render_pixels": [
+          808,
+          144
+        ],
+        "parent_symbol_visible_width_at_alpha_128": 34,
+        "parent_equivalent_primary_height": 27.06,
+        "meets_parent_size_rules": true
+      },
+      {
+        "total_height": 209,
+        "render_pixels": [
+          1173,
+          209
+        ],
+        "parent_symbol_visible_width_at_alpha_128": 50,
+        "parent_equivalent_primary_height": 39.27,
+        "meets_parent_size_rules": true
+      }
+    ],
+    "tile": {
+      "canvas": [
+        64,
+        64
+      ]
+    }
+  }
+}

@@ -2,7 +2,7 @@
 """Replay the approved Soft folds exports from read-only repository source images.
 
 Requires Pillow and NumPy. By default, writes product/brand/soft-folds/*.png
-and the preview.png and size-review.png review sheets. Use --output-dir for an isolated replay.
+and the preview.png, size-review.png and manifest.json files. Use --output-dir for an isolated replay.
 Only review labels use Pillow's bundled font; exported logos retain the source lettering.
 """
 
@@ -252,11 +252,18 @@ def size_review(exports, parent, parent_origin, path):
     return measurements
 
 
+def image_record(path, base):
+    with Image.open(path) as image:
+        return {'file': path.relative_to(base).as_posix(), 'width': image.width, 'height': image.height,
+                'format': image.format, 'mode': image.mode, 'bytes': path.stat().st_size,
+                'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         '--output-dir', type=Path, default=BRAND,
-        help='Destination for artwork PNGs and review sheets (default: repository product/brand).',
+        help='Destination for artwork, review sheets and manifest (default: repository product/brand).',
     )
     args = parser.parse_args()
     destination = args.output_dir.expanduser().resolve()
@@ -315,9 +322,10 @@ def main():
         assert a.min() == 0 and a.max() == 255, name
         assert (a[0, :] == 0).all() and (a[-1, :] == 0).all(), name
         assert (a[:, 0] == 0).all() and (a[:, -1] == 0).all(), name
-        manifest.append({'file': name, 'width': im.width, 'height': im.height, 'bytes': path.stat().st_size,
-                         'alpha_bbox': list(im.getchannel('A').getbbox()),
-                         'opaque_pixels': int((a == 255).sum()), 'partial_pixels': int(((a > 0) & (a < 255)).sum())})
+        record = image_record(path, destination)
+        record.update({'alpha_bbox': list(im.getchannel('A').getbbox()),
+                       'opaque_pixels': int((a == 255).sum()), 'partial_pixels': int(((a > 0) & (a < 255)).sum())})
+        manifest.append(record)
 
     # A review-only sheet displays every exported PNG on its intended contrast background.
     sheet = Image.new('RGB', (1500, 150 + len(exports) * 280), '#e9ece9')
@@ -337,9 +345,30 @@ def main():
     measurements = size_review(exports, parents['navy'],
                                (first_letter_x + by_label.width + 12, wordmark_bounds[3] + 10),
                                destination / 'size-review.png')
-    print(json.dumps({'exports': manifest, 'components': parts, 'byline_offset_x': first_letter_x,
-                      'parent_content_height': 36, 'by_parent_gap': 12,
-                      'parent_provenance': parent_provenance, 'size_review': measurements}, indent=2))
+    final_set = {
+        'schema_version': 1, 'brand': 'Wheelhouse', 'identity': 'Soft folds', 'status': 'approved-final',
+        'master_format': 'raster', 'application_integration': 'separate',
+        'exports': manifest,
+        'review_sheets': [image_record(destination / name, destination)
+                         for name in ('preview.png', 'size-review.png')],
+        'sources': [image_record(SOURCE / name, BRAND) for name in (
+            'soft-folds-selection.png', 'by-wow2-attribution.png',
+            'wow2/wow2-primary-navy.png', 'wow2/wow2-primary-white.png',
+        )],
+        'composition': {
+            'wordmark_source_crop': [95, 185, 1285, 365], 'tile_source_crop': [1340, 100, 1668, 420],
+            'by_source_crop': [0, 0, 52, 37], 'transparent_export_padding': 8,
+            'by_content_size': list(by_label.size), 'parent_content_size': list(parents['navy'].size),
+            'byline_offset_x': first_letter_x, 'product_byline_gap': 10, 'by_parent_gap': 12,
+            'parent_surface_variants': {'black': 'navy', 'white': 'white', 'mint': 'white'},
+        },
+        'parent_provenance': parent_provenance,
+        'source_components': parts,
+        'size_review': measurements,
+    }
+    serialized = json.dumps(final_set, indent=2) + '\n'
+    (destination / 'manifest.json').write_text(serialized)
+    print(serialized, end='')
 
 
 if __name__ == '__main__':

@@ -29,6 +29,8 @@ The boat geometry, gray fold and seven unendorsed exports remain unchanged.
 
 All ten files are cropped RGBA PNGs, with eight pixels of transparent safety padding.
 The app icon uses a square canvas and centers the original tile without stretching it.
+The approved final set is saved with two review sheets and a [complete manifest](manifest.json).
+The manifest records every asset's dimensions and SHA-256, source hashes, exact parent provenance and composition.
 
 | Asset | Size | Files |
 |---|---|---|
@@ -94,4 +96,4 @@ These files are the saved brand assets. Application integration is separate.
 
 - [Identity adoption handoff](handoff/handoff.md): adopted convention, exact parent provenance and remaining work
 - [Exploration archive](exploration/exploration.md): previous directions and complete comparison boards
-- [Export script](../../engineering/scripts/export-brand-logos.py): reproducible crops and transparency from the saved source images
+- [Export script](../../engineering/scripts/export-brand-logos.py): reproduces all ten PNGs, both review sheets and the manifest

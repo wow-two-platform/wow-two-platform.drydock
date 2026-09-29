@@ -10,7 +10,7 @@
 - [x] shared composition rules adopted in the [logo system](../../../../../../conventions/design/identity/logo-system.md)
 - [x] canonical WoW2 Panels shape selected; [parent guide](../../../../../../docs/brand/wow2/brand.md) owns its artwork
 - [x] Wheelhouse endorsements composed from hash-verified copies of the approved parent primary assets
-- [x] ten transparent PNGs and preview reproduced from portable repository inputs
+- [x] approved final set saved: ten transparent PNGs, two review sheets and [complete manifest](../manifest.json)
 - [x] seven unendorsed exports preserved byte-for-byte
 - [x] review symbol, primary, endorsed and tile sizes; [brand guide](../brand.md#size-review) records minimums and failed targets
 - [ ] create editable vector masters through a separate visual review
@@ -67,10 +67,10 @@ From the Wheelhouse repository, an isolated replay is:
 python3 engineering/scripts/export-brand-logos.py --output-dir /tmp/wheelhouse-brand-replay
 ```
 
-Omitting `--output-dir` writes the current `product/brand/soft-folds/` PNGs and both review sheets.
-The exporter reads only inputs stored in this repository and prints dimensions, placement and parent provenance.
+Omitting `--output-dir` writes the current `product/brand/soft-folds/` PNGs, both review sheets and `manifest.json`.
+The exporter reads only repository inputs; the deterministic manifest records dimensions, hashes, placement and parent provenance.
 
-- saved exports, preview and size review match the isolated replay byte-for-byte
+- all ten exports, both review sheets and the final manifest match isolated replay byte-for-byte
 - default wordmarks, standalone marks and app tile match the pre-endorsement exports byte-for-byte
 - endorsed product pixels preserve the corresponding default wordmark exactly
 - light/dark review confirms transparent margins, gray fold retention and approved parent colors
