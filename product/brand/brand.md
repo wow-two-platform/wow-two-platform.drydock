@@ -8,6 +8,7 @@
 
 - default: compact wordmark without a flag or attribution
 - optional endorsement: `by wow2`, beneath the lettering
+- current endorsement is ordinary text; replacing it with the exact approved WoW2 artwork remains pending
 - standalone mark: compact navigation, app lists and icon contexts
 - black: light surfaces; white or mint: dark surfaces
 - lower triangle: gray in every variant
@@ -48,3 +49,11 @@ The app icon uses a square canvas and centers the original tile without stretchi
 - `preview.png` is a presentation sheet, not a transparent logo asset
 
 These files are the saved brand assets. Application integration is separate.
+
+---
+
+## Continuation
+
+- [Logo patterns and separate-chat handoff](handoff/handoff.md): shared composition proposal, fixed decisions and exact WoW2 endorsement workflow
+- [Exploration archive](exploration/exploration.md): previous directions and complete comparison boards
+- [Export script](../../engineering/scripts/export-brand-logos.py): reproducible crops and transparency from the saved source images
