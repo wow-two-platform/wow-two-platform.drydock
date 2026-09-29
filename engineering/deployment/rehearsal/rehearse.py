@@ -35,8 +35,6 @@ SELF_TARGET = "wheelhouse-dev"
 SELF_HOST = "console-wheelhouse.dev.localhost"
 PRODUCT = "foreverpin"
 PRODUCT_REPO = WORKBENCH / "ventures" / "10x-venture-forever-pin"
-# ForeverPin carries no deploy.yml yet; the local server holds one for it.
-DESCRIPTOR = HERE / "foreverpin.deploy.yml"
 LOCAL_IMAGES = {"management": "foreverpin-management:local", "redirect": "foreverpin-redirect:local"}
 SITES = {"management": "app", "redirect": "go"}
 ENVIRONMENTS = ("dev", "test", "prod")
@@ -232,7 +230,7 @@ def bundle(tag=None, broken=False):
     output = private_dir(STATE / "build") / bundle_id
     archive = STATE / "build" / (bundle_id + ".tar.gz")
     arguments = [yaml_python(), str(RELEASE), "build", "--repo", str(PRODUCT_REPO), "--commit", commit,
-                 "--descriptor", str(DESCRIPTOR), "--registry", REGISTRY + "/" + PRODUCT, "--platform", platform(),
+                 "--registry", REGISTRY + "/" + PRODUCT, "--platform", platform(),
                  "--output", str(output), "--archive", str(archive)]
     if branch != "HEAD":
         arguments += ["--branch", branch]
@@ -254,14 +252,15 @@ def settings(bundle_id, name):
     password = (SECRETS / "database-password").read_text().strip()
     hosts = {service: site + "-" + PRODUCT + "." + name + ".localhost" for service, site in SITES.items()}
     values = {
-        "DatabaseOptions": {"ConnectionString": "Host=rehearsal-database;Database=" + PRODUCT + "_" + name
+        "DatabaseSettings": {"ConnectionString": "Host=rehearsal-database;Database=" + PRODUCT + "_" + name
                                                 + ";Username=" + PRODUCT + ";Password=" + password},
         "ApiSettings": {"RedirectBaseUrl": INGRESS.format(site=SITES["redirect"], environment=name)},
         "Auth": {"Google": {"ClientId": "local.apps.googleusercontent.com"}},
         "Billing": {"SecretKey": "sk_test_local", "WebhookSecret": "whsec_local",
                     "Prices": {"Solo": "price_local_solo", "Pro": "price_local_pro", "Agency": "price_local_agency"},
                     "SuccessUrl": INGRESS.format(site=SITES["management"], environment=name) + "/billing/success",
-                    "CancelUrl": INGRESS.format(site=SITES["management"], environment=name) + "/billing/cancel"},
+                    "CancelUrl": INGRESS.format(site=SITES["management"], environment=name) + "/billing/cancel",
+                    "PortalReturnUrl": INGRESS.format(site=SITES["management"], environment=name) + "/app/billing"},
         "Deployment": {"TrustedProxies": ["127.0.0.1"]},
     }
 

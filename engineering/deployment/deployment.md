@@ -1,6 +1,6 @@
 # Deployment operations
 
-*Last updated: 2026-09-28*
+*Last updated: 2026-09-29*
 
 ## Ownership and current boundary
 
@@ -284,7 +284,7 @@ python3 rehearse.py down --volumes
 - Chromium and Firefox resolve `*.localhost` to loopback; verify Safari before relying on it.
 - Bundles come from `release.py` with the local `foreverpin-{management,redirect}:local` images; a candidate keeps the
   services unchanged since the newest imported release.
-- ForeverPin carries no `deploy.yml` yet, so the local server holds `foreverpin.deploy.yml` for it.
+- The bundle reads ForeverPin's own `engineering/deployment/deploy.yml` at the checkout's commit.
 - The generator needs PyYAML; `rehearse.py` uses the system Python when the current one lacks it.
 - The server generates its own SSH and vault keys under `rehearsal/state/` (ignored by Git) and pins the host key it generated.
 - Each environment gets its own database (`foreverpin_<environment>`) and settings folder (`state/secrets/<environment>/`).

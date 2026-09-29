@@ -82,11 +82,11 @@ class DescriptorTests(unittest.TestCase):
             "engineering/codebase/pilot.backend-services/Directory.Packages.props"]))
 
     @unittest.skipUnless(HAS_YAML, "PyYAML is not installed for this interpreter")
-    def test_the_local_server_foreverpin_descriptor_parses(self):
-        path = Path(__file__).resolve().parents[2] / "deployment" / "rehearsal" / "foreverpin.deploy.yml"
+    def test_wheelhouse_own_descriptor_parses(self):
+        path = Path(__file__).resolve().parents[2] / "deployment" / "deploy.yml"
         descriptor = release.validate(release.parse(path.read_text()))
-        self.assertEqual(["management", "redirect"], list(descriptor["services"]))
-        self.assertEqual({"app"}, set(descriptor["services"]["management"]["sites"]))
+        self.assertEqual(["console"], list(descriptor["services"]))
+        self.assertEqual("private", descriptor["services"]["console"]["sites"]["console"]["exposure"])
 
 
 class PlanTests(unittest.TestCase):

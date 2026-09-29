@@ -1,3 +1,4 @@
+from dataclasses import replace
 import hashlib
 import io
 import json
@@ -18,7 +19,10 @@ class ArtifactTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
-        self.source = artifacts.SOURCES[0]
+        # Published releases only; CandidateTests covers the per-commit builds a workflow adds.
+        self.source = replace(artifacts.SOURCES[0], workflow=None)
+        self.sources = patch.object(artifacts, 'SOURCES', (self.source,))
+        self.sources.start()
         images = {service: image + '@sha256:' + 'a' * 64 for service, image in self.source.images}
         compose = {'services': {name: {'image': image, 'platform': 'linux/amd64',
                     'healthcheck': {'test': ['CMD', 'true']}} for name, image in images.items()}}
@@ -33,6 +37,7 @@ class ArtifactTests(unittest.TestCase):
         self.pack()
 
     def tearDown(self):
+        self.sources.stop()
         self.temp.cleanup()
 
     def pack(self):
