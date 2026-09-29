@@ -122,3 +122,4 @@ Route splitting and skeleton first loads were completed in the [Vue workspace mi
 |---|---|
 | Registrar | Settle before the Domains group |
 | One vault per environment or one per host with namespaces | Vault docs assume one per product environment |
+| Prod Wheelhouse as the source of truth | The VPS instance owns settings and secrets; dev pulls from it and drops its own additions; secret flow prod → dev needs a security analysis first |
