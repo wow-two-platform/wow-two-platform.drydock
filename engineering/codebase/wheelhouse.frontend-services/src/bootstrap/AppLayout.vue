@@ -26,6 +26,8 @@ const system = useApiConnection();
 const theme = useColorScheme();
 const current = computed(() => AppPlaces.find((place) => place.path === route.path));
 const consoleVersion = __APP_VERSION__;
+/** A numbered build shows as `v0.3.4`; a local build shows `dev`. @internal */
+const versionLabel = /^\d/.test(consoleVersion) ? `v${consoleVersion}` : consoleVersion;
 const mainElement = useTemplateRef<HTMLElement>('main');
 
 /** The main region is the scroll container, so a new page starts at its top. */
@@ -57,7 +59,7 @@ watch(
           <span
             class="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[11px] font-medium text-muted-foreground"
             :title="`Console ${consoleVersion}`"
-            >v{{ consoleVersion }}</span
+            >{{ versionLabel }}</span
           >
         </RouterLink>
         <nav

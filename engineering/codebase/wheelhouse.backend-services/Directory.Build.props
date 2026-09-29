@@ -1,9 +1,11 @@
 <Project>
 
-  <!-- Product version = the active version track (X.Y) plus its patch (Z); the build appends the commit.
+  <!-- Product version: CI passes X.Y.Z (X.Y from the newest version-track folder, Z from the release tags) as
+       APP_VERSION; a local build reports 0.0.0-dev.
        See wow-two-ws/conventions/development/repo/versioning/versioning.md. -->
   <PropertyGroup>
-    <Version>0.3.0</Version>
+    <Version Condition="'$(APP_VERSION)' != ''">$(APP_VERSION)</Version>
+    <Version Condition="'$(APP_VERSION)' == ''">0.0.0-dev</Version>
   </PropertyGroup>
 
 </Project>

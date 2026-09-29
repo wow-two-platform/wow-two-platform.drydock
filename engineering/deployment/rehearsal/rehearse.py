@@ -27,8 +27,9 @@ SECRETS = STATE / "secrets"
 KEYS = STATE / "keys"
 RUNNERS = HERE.parents[1] / "codebase" / "wheelhouse.runner-services"
 TRANSPORT = RUNNERS / "transport.py"
-RELEASE = RUNNERS / "release.py"
 WORKBENCH = HERE.parents[4]
+# The release generator lives in wow-two-platform.pipelines, a sibling checkout in the workbench.
+RELEASE = WORKBENCH / "wow-two-platform" / "wow-two-platform.pipelines" / "generator" / "release.py"
 REPOSITORY = HERE.parents[2]
 SELF = "wheelhouse"
 SELF_TARGET = "wheelhouse-dev"
@@ -196,6 +197,8 @@ def up(console=False, dev=False):
 
 def yaml_python():
     """An interpreter with PyYAML for the deploy.yml generator: this one, else the system Python."""
+    if not RELEASE.is_file():
+        sys.exit("The release generator is missing: clone wow-two-platform.pipelines beside Wheelhouse (" + str(RELEASE) + ")")
     for candidate in (sys.executable, "/usr/bin/python3", "python3"):
         if subprocess.run([candidate, "-c", "import yaml"], capture_output=True).returncode == 0:
             return candidate

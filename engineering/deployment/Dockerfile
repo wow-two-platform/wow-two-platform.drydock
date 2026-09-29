@@ -4,6 +4,9 @@ WORKDIR /spa
 COPY wheelhouse.frontend-services/package.json wheelhouse.frontend-services/package-lock.json ./
 RUN npm ci
 COPY wheelhouse.frontend-services/ ./
+# The build's version from the shared publish workflow (X.Y.Z or a pre-release); unset in a local build. Declared
+# after the dependency layers, since a changed build argument misses the cache of every RUN after it.
+ARG APP_VERSION
 RUN npm run build
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
@@ -11,6 +14,8 @@ ARG TARGETARCH
 WORKDIR /src
 COPY wheelhouse.backend-services/ ./
 COPY --from=spa /spa/dist ./Wheelhouse.Api/wwwroot
+# MSBuild reads APP_VERSION from the environment; Directory.Build.props turns it into the product version.
+ARG APP_VERSION
 RUN case "$TARGETARCH" in amd64) rid=linux-x64 ;; arm64) rid=linux-arm64 ;; *) exit 1 ;; esac \
     && dotnet publish Wheelhouse.Api/Wheelhouse.Api.csproj -c Release -o /app -r "$rid" --self-contained false -p:BuildSpa=false
 

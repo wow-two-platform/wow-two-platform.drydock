@@ -161,7 +161,7 @@ Wheelhouse ships like a product: a catalog entry, a `deploy.yml`, candidate and 
 | Host | A small control VPS, Tailscale only, no public ports, separate from product hosts |
 | Access | `tailscale serve` gives HTTPS on the tailnet name; a GitHub OAuth app registered for that URL; the allowlist names the owner |
 | Image | The existing `engineering/deployment/Dockerfile`; one service `console`, volumes `keys` and `deployments`, `needs: [postgres]` |
-| CI | Built in v0.3: `ci.yml` runs every tier; `publish-docker-image.yml` builds candidates and releases with `release.py` (unrun on GitHub until the next push) |
+| CI | Built in v0.3: `ci.yml` runs every tier; `publish-docker-image.yml` calls the shared `publish` workflow in `wow-two-platform.pipelines` |
 | Bootstrap | Prepare the control host, submit the first release from the laptop with `transport.py`, copy the inventory once over SSH |
 | Updates | Wheelhouse deploys its own releases; the target-side runner completes while the container is replaced |
 | Break-glass | The laptop keeps the operator CLI and an inventory copy; it deploys or rolls back Wheelhouse and every product |

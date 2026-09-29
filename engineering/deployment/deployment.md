@@ -9,7 +9,8 @@ The target-side Python runner owns locks, durable intent, health gates and recov
 Git triggers, artifact publication and retention are defined in the [CI policy](../planning/ci-artifact-policy.md).
 A product declares its services, builds and sites in `engineering/deployment/deploy.yml`
 ([convention](../../../../../conventions/deployment/descriptor/deploy-descriptor.md));
-`wheelhouse.runner-services/release.py` turns it into the bundle Wheelhouse deploys.
+the release generator in `wow-two-platform.pipelines` (`generator/release.py`) turns it into the bundle Wheelhouse
+deploys.
 
 ## Environments
 
@@ -52,13 +53,13 @@ with its settings keys, `keys` and `deployments` volumes, a private `console` si
 
 | Workflow | Runs on | Does |
 |---|---|---|
-| `.github/workflows/ci.yml` | Every push and pull request | Backend tiers (building the SPA into `wwwroot`), runner tests, frontend tests and build |
-| `.github/workflows/publish-docker-image.yml` | Every push, a published release, or a dispatched commit | `release.py build` with the previous release as base; a candidate artifact `bundle-<sha>` or the release asset `wheelhouse-release.tar.gz` |
+| `.github/workflows/ci.yml` | Every push and pull request | Backend tiers (building the SPA into `wwwroot`), runner tests with the bundle contract against the pinned generator, frontend tests and build |
+| `.github/workflows/publish-docker-image.yml` | Every push, or a dispatched commit | Calls the shared `publish` workflow in `wow-two-platform.pipelines`: `main` releases `vX.Y.Z` with the asset `wheelhouse-release.tar.gz`; other branches publish a `bundle-<sha>` artifact |
 
 A local build proves the path without GitHub:
 
 ```sh
-python3 engineering/codebase/wheelhouse.runner-services/release.py build --repo . --checkout \
+python3 ../wow-two-platform.pipelines/generator/release.py build --repo . --checkout \
   --platform linux/arm64 --registry 127.0.0.1:15000/wheelhouse --output /tmp/wheelhouse-bundle
 ```
 
@@ -282,7 +283,7 @@ python3 rehearse.py down --volumes
 
 - Sites answer at `http://<site>-foreverpin.<environment>.localhost:18080` (`app` and `go`).
 - Chromium and Firefox resolve `*.localhost` to loopback; verify Safari before relying on it.
-- Bundles come from `release.py` with the local `foreverpin-{management,redirect}:local` images; a candidate keeps the
+- Bundles come from the pipelines generator (`../wow-two-platform.pipelines/generator/release.py`, a sibling checkout) with the local `foreverpin-{management,redirect}:local` images; a candidate keeps the
   services unchanged since the newest imported release.
 - The bundle reads ForeverPin's own `engineering/deployment/deploy.yml` at the checkout's commit.
 - The generator needs PyYAML; `rehearse.py` uses the system Python when the current one lacks it.

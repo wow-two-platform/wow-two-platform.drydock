@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=../../../../../conventions/deployment/descriptor/deploy.schema.json
-# Wheelhouse ships like the products it deploys: this descriptor feeds CI, release.py and the runner.
+# Wheelhouse ships like the products it deploys: this descriptor feeds the shared publish workflow and the runner.
 # Format: wow-two-ws/conventions/deployment/descriptor/deploy-descriptor.md
 descriptor: 1
 product: wheelhouse

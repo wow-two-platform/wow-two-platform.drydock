@@ -20,9 +20,9 @@ Decided 2026-09-27; products adopt the candidate workflow one by one.
 
 The live repository `sulton-max/10x-venture-forever-pin` is public and uses `main`.
 On September 29 GitHub held two `Validate main` runs and no releases, images or build runs.
-ForeverPin now carries `deploy.yml` and the standard build workflow in local commits, awaiting a push.
+ForeverPin carries `deploy.yml` and a build workflow; its first run on September 29 built both images.
 The runner dispatches that workflow and expects `ghcr.io/sulton-max/10x-venture-forever-pin/<service>` images.
-Its workflow reads `release.py` from Wheelhouse by git blob, so Wheelhouse must be pushed first.
+Products move to the shared `publish` workflow in `wow-two-platform.pipelines`, which carries the release generator.
 A local build includes uncommitted files. GitHub Actions can only build files committed and pushed to its selected revision.
 Before a release, include every required code, dependency, Dockerfile and workflow change in the published revision.
 Unrelated product work can stay local; required uncommitted runtime fixes cannot be omitted from a release and still be claimed as tested.
