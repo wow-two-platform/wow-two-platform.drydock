@@ -4,11 +4,13 @@
 
 ## Decision
 
-Use `main` for development and explicit version tags for deployable releases.
-Every push, to `main` or any branch, builds a candidate of the services it changed: images tagged `sha-<commit>`
-and the Actions artifact `bundle-<commit>`, kept 14 days. Dev deploys any candidate; test and prod deploy releases.
-A version tag on a commit already in `main` verifies, publishes and smoke-tests the changed service images,
-then publishes one complete release bundle. Wheelhouse lists releases and candidates and deploys their recorded digests.
+Every product builds through the shared `publish` workflow in `wow-two-platform.pipelines`, per the
+[deploy descriptor](../../../../../conventions/deployment/descriptor/deploy-descriptor.md) § *Builds and versions*.
+A push to `main` that changes a service or the descriptor releases `vX.Y.Z` (`X.Y` from the newest version-track
+folder, `Z` from the tags) with its bundle on the GitHub release. `dev` and `test` replace their builds under
+`dev-latest` / `test-latest`; other branches build candidates tagged `sha-<commit>`, kept 14 days as Actions
+artifacts. Dev deploys any build; test deploys releases and `test` builds; prod deploys releases.
+Wheelhouse lists releases and candidates and deploys their recorded digests.
 
 Wheelhouse starts the build workflow for a commit that has no build, and never for one that has.
 Images carry no environment values, so a settings change is a new commit and a new build.

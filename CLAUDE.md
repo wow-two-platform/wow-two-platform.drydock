@@ -112,7 +112,8 @@ Providers and individual VPS bindings are defined in `engineering/codebase/wheel
 Provider/environment choices use enums; no dynamic provider plugins or Add VPS UI/API.
 `artifacts.py` owns approved release sources. Wheelhouse deploys published releases and per-commit builds; it starts a
 product's build workflow only for a commit that has no build, and never builds on a target host.
-Environments are `dev`, `test` and `prod`; dev takes any build, test and prod take releases, and prod
-only a release that succeeded on test (a typed target ID skips that).
+Environments are `dev`, `test` and `prod`; dev takes any build, test takes releases and `test` branch builds, and
+prod only a release that succeeded on test (a typed target ID skips that). Every product builds through the shared
+`publish` workflow in `wow-two-platform.pipelines`: `main` releases `vX.Y.Z`, other branches build candidates.
 The detailed Git/CI/registry policy lives in `engineering/planning/ci-artifact-policy.md`.
 Wheelhouse's own `engineering/deployment/deploy.yml` and `.github/workflows/` build and test it like any product.

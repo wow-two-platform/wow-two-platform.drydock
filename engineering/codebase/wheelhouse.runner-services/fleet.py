@@ -149,8 +149,13 @@ def servers():
 
 
 def accepts_candidates(target):
-    """Dev takes a build of any commit or branch; test and prod take published releases only."""
+    """Dev takes a build of any commit or branch; test and prod take published releases."""
     return target.environment is DeploymentEnvironment.DEV
+
+
+def accepts_test_builds(target):
+    """Test also takes a build of the product's `test` branch; prod takes published releases only."""
+    return target.environment is DeploymentEnvironment.TEST
 
 
 def requires_test_pass(target):
@@ -188,7 +193,8 @@ def resolve_target(root, identifier):
     require(server is not None, "Server is not defined in code")
     identity = Path(root) / "ssh" / server.id
     return {"serverId": server.id, "provider": server.provider.value,
-            "acceptsCandidates": accepts_candidates(target), "needsConfirmation": needs_confirmation(server, target),
+            "acceptsCandidates": accepts_candidates(target), "acceptsTestBuilds": accepts_test_builds(target),
+            "needsConfirmation": needs_confirmation(server, target),
             "requiresTestPass": requires_test_pass(target),
             "ssh": {"host": server.host, "user": server.ssh_user, "port": server.ssh_port,
                     "keyFile": str(identity / "identity"), "knownHostsFile": str(identity / "known_hosts")},

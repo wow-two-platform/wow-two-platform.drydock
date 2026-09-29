@@ -102,6 +102,7 @@ def targets(root):
                        "environment": config["target"]["environment"],
                        "serverId": config["serverId"], "provider": config["provider"], "host": config["ssh"]["host"],
                        "acceptsCandidates": config["acceptsCandidates"],
+                       "acceptsTestBuilds": config["acceptsTestBuilds"],
                        "needsConfirmation": config["needsConfirmation"],
                        "requiresTestPass": config["requiresTestPass"]})
     return result
@@ -126,9 +127,11 @@ def test_pass(root, product, release):
 
 
 def admits(config, manifest):
-    """Dev takes a build of any commit or branch; test and prod take published releases only."""
-    require(config["acceptsCandidates"] or manifest.get("kind", "release") == "release",
-            "Only dev takes a build that is not a release")
+    """Dev takes a build of any commit or branch; test also takes a `test` branch build; prod takes releases only."""
+    if config["acceptsCandidates"] or manifest.get("kind", "release") == "release":
+        return
+    require(config.get("acceptsTestBuilds") and manifest.get("channel") == "test",
+            "Only dev takes a build that is not a release; test also takes a `test` branch build")
 
 
 def releases(root):

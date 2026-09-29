@@ -53,6 +53,7 @@ export const DeploymentTargetSchema = z.object({
   provider: z.string(),
   host: z.string(),
   acceptsCandidates: z.boolean().default(false),
+  acceptsTestBuilds: z.boolean().default(false),
   needsConfirmation: z.boolean().default(false),
   requiresTestPass: z.boolean().default(false),
 });

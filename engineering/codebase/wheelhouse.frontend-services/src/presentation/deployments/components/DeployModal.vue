@@ -81,7 +81,7 @@ const outcome = useDeploymentOutcome(jobId);
 const selectedTarget = computed(() =>
   targets.data.value?.find((item) => item.id === target.value),
 );
-// Dev takes a build of any commit or branch; test and prod take published releases only.
+// Dev takes a build of any commit or branch; test also takes a `test` branch build; prod takes releases only.
 const takesBuilds = computed(
   () => selectedTarget.value?.acceptsCandidates === true,
 );
@@ -89,7 +89,10 @@ const available = computed(() =>
   (releases.data.value ?? []).filter(
     (item) =>
       item.product === selectedTarget.value?.product &&
-      (takesBuilds.value || item.kind === "release"),
+      (takesBuilds.value ||
+        item.kind === "release" ||
+        (selectedTarget.value?.acceptsTestBuilds === true &&
+          item.branch === "test")),
   ),
 );
 const typed = ref("");

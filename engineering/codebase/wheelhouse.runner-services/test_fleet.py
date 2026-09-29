@@ -60,6 +60,9 @@ class FleetTests(unittest.TestCase):
                       for config in [fleet.resolve_target(Path('/data'), 'foreverpin-' + environment)]}
             self.assertEqual({'dev': (True, False, False), 'test': (False, False, False), 'prod': (False, True, True)},
                              policy)
+            self.assertEqual({'dev': False, 'test': True, 'prod': False},
+                             {environment: fleet.resolve_target(Path('/data'), 'foreverpin-' + environment)
+                              ['acceptsTestBuilds'] for environment in ('dev', 'test', 'prod')})
 
     def test_local_sites_follow_the_localhost_pattern_on_every_environment(self):
         with patch.dict('os.environ', {'WHEELHOUSE_REHEARSAL': '1'}):

@@ -336,6 +336,16 @@ class TransportTests(unittest.TestCase):
                 self.assertEqual((False, "Release kind"), (result["ok"], result["checks"][0]["name"]))
                 ssh.assert_not_called()
 
+    def test_test_takes_a_test_branch_build_and_nothing_else_does(self):
+        tester = {"acceptsCandidates": False, "acceptsTestBuilds": True}
+        transport.admits(tester, {"kind": "candidate", "channel": "test"})
+        for config, manifest in ((tester, {"kind": "candidate", "channel": "dev"}),
+                                 (tester, {"kind": "candidate"}),
+                                 ({"acceptsCandidates": False, "acceptsTestBuilds": False},
+                                  {"kind": "candidate", "channel": "test"})):
+            with self.subTest(config=config, manifest=manifest), self.assertRaisesRegex(ValueError, "Only dev takes"):
+                transport.admits(config, manifest)
+
     def release_bundle(self, release="v1.0.0"):
         bundle = self.candidate_bundle()
         manifest = json.loads((bundle / "release.json").read_text())
