@@ -33,7 +33,7 @@ Deferred work; top of each group = next. Version docs hold only the active versi
 
 | Item | Type | Notes |
 |---|---|---|
-| ForeverPin adopts `deploy.yml` and the candidate workflow | feature | Local server holds its descriptor today; per-service image names via `image` |
+| Mount a GitHub token that can start product builds | check | `WHEELHOUSE_GITHUB_TOKEN_FILE` with Actions write on each product; the Build button needs it |
 | Haven adopts `deploy.yml`, per-service versions and an edge health route | feature | Its Caddy edge has no health route; the runner requires one |
 | Show each service's version inside every product | feature | Haven shows its build version beside the logo; adopt across products |
 | Deploy a branch to its own temporary dev environment | feature | Topology point 17; from a code-owned template; later PR previews |
