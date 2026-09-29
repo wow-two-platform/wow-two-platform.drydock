@@ -11,13 +11,13 @@ only when the developer opens that version. Feature waves and decision Points li
 
 | Fact | State on 2026-09-29 |
 |---|---|
-| Active version | v0.3 (Feature): 77 capabilities built; open are the local OAuth app, the boot splash and 42 verification checks |
+| Active version | v0.3 (Feature): 78 capabilities built; open are the local OAuth app and 42 verification checks |
 | Behind it | v0.2 (Adoption): every build iteration done; its 2 verification checks await the developer |
 | Code version | CI injects `X.Y.Z`; `v0.3.0` is the latest release; local builds report `0.0.0-dev` |
 | Suites | Backend 218 (88 unit, 11 integration, 117 E2E, 2 migrations), frontend 75, runner 157: all green |
 | Repository | `ci` and `publish-docker-image` pass on every push; the remote is still `drydock` and public |
 | Backend SDK | Pinned `10.0.40-beta`; `10.0.59-beta` is published; its repository holds 103 unpushed commits |
-| UI SDK | Pinned `@wow-two-beta/ui-vue@0.0.7`; `0.0.8` is published with `CanvasArea`, skeleton slots and the region-scrolling shell; `SplashScreen` waits for the next release |
+| UI SDK | Pinned `@wow-two-beta/ui-vue@0.0.9` for `SplashScreen`; its `CanvasArea`, skeleton slots and region-scrolling shell still sit beside local copies |
 | Dependency audit | Backend: 5 packages with high and 4 with moderate advisories, all transitive; frontend runtime: none |
 
 The version docs matched the code except for the Studio workspace, the base service map and the sidebar lines the
@@ -35,7 +35,7 @@ Every item here is the developer's; none can be done from a chat.
 | C2 | Register a GitHub OAuth app for `http://localhost:18210` | The last open v0.3 build task |
 | C3 | Run v0.3's 29 verification checks | A version closes only on the developer's pass |
 | C4 | Rename the remote to `wheelhouse` and make it private | `fleet.py` will hold real hosts; the repository is public |
-| C5 | Release the UI SDK's `SplashScreen` and publish backend SDK `10.0.60` | The Adoption version can only re-pin published packages |
+| C5 | Publish backend SDK `10.0.60` | The Adoption version can only re-pin published packages |
 
 ---
 
@@ -49,7 +49,7 @@ has it, or will once published), **extract** (build it in the SDK from Wheelhous
 
 | Block | Wheelhouse today | SDK target | Verdict |
 |---|---|---|---|
-| Re-pin | `@wow-two-beta/ui-vue@0.0.7` | The next `0.0.y` release | adopt: sweep its renames |
+| Re-pin | `@wow-two-beta/ui-vue@0.0.9` | The latest `0.0.y` release | adopt: sweep its renames |
 | Canvas | `presentation/common/components/canvasArea/` copy | `CanvasArea` in `presentation/layout` | adopt: delete the copy |
 | Loading | `common/components/skeleton/` copies, `RefreshButton` | `SkeletonStateSlot` / `Group`, `useRefresh`, `Button` `isLoading` | adopt: delete the copies |
 | Frame | Hand-built region-scrolling `AppLayout.vue` | `AppShell` (`scroll: 'region'`) + horizontal `Navbar` | adopt |

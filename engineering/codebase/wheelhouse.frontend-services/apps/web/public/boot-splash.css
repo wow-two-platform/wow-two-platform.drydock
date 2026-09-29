@@ -1,0 +1,82 @@
+/* The first paint's splash, shown before any script runs. It draws what BootSplash renders — the ambient
+   surface, the 40px wordmark and a 12rem bar — so the mounted splash takes over without a visible change.
+   Colours mirror the tokens in src/bootstrap/index.css. A file rather than an inline style, so a strict
+   Content-Security-Policy keeps it working. */
+.boot-splash {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 0 1.5rem;
+  background-color: #f4f4ef;
+  background-image:
+    radial-gradient(ellipse 70rem 42rem at 0% 0%, #80aa9210, transparent 72%),
+    radial-gradient(ellipse 58rem 42rem at 100% 10%, #d6b6750f, transparent 74%);
+}
+
+.boot-splash-track {
+  width: 12rem;
+  max-width: 100%;
+  height: 0.25rem;
+  overflow: hidden;
+  border-radius: 9999px;
+  background-color: #eaece5;
+}
+
+/* Fills to the first stage BootSplash reports, easing out, and holds there until the app mounts. */
+.boot-splash-fill {
+  width: 35%;
+  height: 100%;
+  border-radius: 9999px;
+  background-color: #285c4b;
+  animation: boot-splash-fill 1.2s cubic-bezier(0, 0, 0.2, 1) both;
+}
+
+.boot-splash-wordmark-light {
+  display: none;
+}
+
+.dark .boot-splash {
+  background-color: #121917;
+  background-image:
+    radial-gradient(ellipse 70rem 42rem at 0% 0%, #3d7b6229, transparent 72%),
+    radial-gradient(ellipse 58rem 42rem at 100% 10%, #aa854d1a, transparent 74%);
+}
+
+.dark .boot-splash-track {
+  background-color: #29352e;
+}
+
+.dark .boot-splash-fill {
+  background-color: #a6d4bd;
+}
+
+.dark .boot-splash-wordmark-dark {
+  display: none;
+}
+
+.dark .boot-splash-wordmark-light {
+  display: block;
+}
+
+@keyframes boot-splash-fill {
+  from {
+    width: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .boot-splash-fill {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .boot-splash,
+  .dark .boot-splash {
+    background-image: none;
+  }
+}

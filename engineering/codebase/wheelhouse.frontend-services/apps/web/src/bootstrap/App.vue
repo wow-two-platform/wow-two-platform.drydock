@@ -1,20 +1,39 @@
 <script setup lang="ts">
-import { RouterView } from 'vue-router';
-import { Spinner } from '@wow-two-beta/ui-vue/presentation/feedback';
+import { computed, ref, watch } from 'vue';
+import { RouterView, useRouter } from 'vue-router';
 import { useAuth } from '@/application/auth';
 import SignInScreen from '@/presentation/auth/SignInScreen.vue';
+import { BootSplash } from '@/presentation/shell';
 import AppLayout from './AppLayout.vue';
 
-/** Gates every private workspace route on the operator's GitHub session. */
+/** Names the boot stages the splash bar reports; the static splash in `index.html` stops at `Scripts`. */
+const BootProgress = { Scripts: 35, Session: 70, Ready: 100 } as const;
+
+/** Holds the full bar long enough for its width transition to finish before the splash fades. */
+const SettleMs = 250;
+
+/** Gates every private workspace route on the operator's GitHub session, behind the first-load splash. */
 defineOptions({ name: 'App' });
 const auth = useAuth();
+const routed = ref(false);
+const booting = ref(true);
+
+void useRouter()
+  .isReady()
+  .finally(() => (routed.value = true));
+
+const progress = computed(() =>
+  auth.loading.value ? BootProgress.Scripts : routed.value ? BootProgress.Ready : BootProgress.Session,
+);
+
+watch(progress, (value) => {
+  if (value === BootProgress.Ready) setTimeout(() => (booting.value = false), SettleMs);
+});
 </script>
 <template>
-  <div v-if="auth.loading.value" class="flex min-h-svh items-center justify-center bg-background">
-    <Spinner label="Loading Wheelhouse" />
-  </div>
-  <AppLayout v-else-if="auth.user.value" :user="auth.user.value" @sign-out="auth.signOut">
+  <AppLayout v-if="auth.user.value" :user="auth.user.value" @sign-out="auth.signOut">
     <RouterView />
   </AppLayout>
-  <SignInScreen v-else :error="auth.error.value" @sign-in="auth.signIn" />
+  <SignInScreen v-else-if="!auth.loading.value" :error="auth.error.value" @sign-in="auth.signIn" />
+  <BootSplash :is-open="booting" :value="progress" />
 </template>

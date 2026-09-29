@@ -113,7 +113,7 @@ Dynamic provider plugins and UI-based VPS registration are excluded by product d
 
 | Item | Type | Notes |
 |---|---|---|
-| Re-pin `@wow-two-beta/ui-vue` and delete the local copies | check | `CanvasArea`, skeleton slots, `useRefresh`, `RefreshButton` internals and per-modal height classes copy published or pending SDK parts |
+| Delete the local copies of published UI SDK parts | check | `CanvasArea`, skeleton slots, `useRefresh`, `RefreshButton` internals and per-modal height classes; pinned `0.0.9` ships them |
 | Move the frame onto the SDK `AppShell` and `Navbar` | check | `AppLayout.vue` hand-builds the region-scrolling frame the SDK now ships |
 | Re-pin `WoW2.Sdk.Backend.Beta` past `10.0.40-beta` | check | `10.0.59-beta` is published |
 | Replace the E2E `TestAuth` with the SDK's `AddTestAuth` header gate | check | Keep anonymous → 401 and admin → 200 |

@@ -9,9 +9,29 @@
     <link rel="icon" type="image/png" href="/favicon-dark.png" media="(prefers-color-scheme: dark)" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <script src="/theme.js"></script>
+    <link rel="stylesheet" href="/boot-splash.css" />
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- The splash before any script runs; mounting the app replaces it with BootSplash, which looks the same. -->
+      <div class="boot-splash" role="status" aria-label="Loading Wheelhouse">
+        <img
+          class="boot-splash-wordmark-dark"
+          src="/src/presentation/shell/assets/wordmark-dark-ink.png"
+          alt="Wheelhouse"
+          width="288"
+          height="40"
+        />
+        <img
+          class="boot-splash-wordmark-light"
+          src="/src/presentation/shell/assets/wordmark-light-ink.png"
+          alt="Wheelhouse"
+          width="288"
+          height="40"
+        />
+        <div class="boot-splash-track"><div class="boot-splash-fill"></div></div>
+      </div>
+    </div>
     <script type="module" src="/src/bootstrap/main.ts"></script>
   </body>
 </html>
