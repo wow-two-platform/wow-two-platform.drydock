@@ -282,18 +282,20 @@ def request_build(product, commit):
 
 
 def branches(product):
-    source = source_of(product)
-    listing = json.loads(fetch(API + source.repository + "/branches?per_page=100"))
+    # Any catalog product lists its branches; a release source is needed only to build or deploy them.
+    repository = catalog.product(product).repository
+    listing = json.loads(fetch(API + repository + "/branches?per_page=100"))
     return sorted(item["name"] for item in listing if isinstance(item, dict)
                   and isinstance(item.get("name"), str) and BRANCH.fullmatch(item["name"]))
 
 
 def commits(product, branch):
     """A branch's recent commits, each with its build when one exists."""
-    source = source_of(product)
+    repository = catalog.product(product).repository
+    source = next((item for item in SOURCES if item.product == product), None)
     require(isinstance(branch, str) and BRANCH.fullmatch(branch), "Invalid branch")
-    listing = json.loads(fetch(API + source.repository + "/commits?per_page=30&sha=" + quote(branch, safe="")))
-    built = {item["commit"]: item["id"] for item in candidates(source)}
+    listing = json.loads(fetch(API + repository + "/commits?per_page=30&sha=" + quote(branch, safe="")))
+    built = {item["commit"]: item["id"] for item in candidates(source)} if source else {}
     result = []
     for item in listing if isinstance(listing, list) else []:
         sha = item.get("sha") if isinstance(item, dict) else None
@@ -305,6 +307,6 @@ def commits(product, branch):
         # The permalink is built from the code-owned repository and the validated SHA, never taken from the response.
         result.append({"sha": sha, "message": message.splitlines()[0][:120] if message else "",
                        "author": str(author.get("name") or "")[:80], "date": author.get("date"),
-                       "buildId": built.get(sha), "canBuild": source.workflow is not None,
-                       "url": "https://github.com/" + source.repository + "/commit/" + sha})
+                       "buildId": built.get(sha), "canBuild": source is not None and source.workflow is not None,
+                       "url": "https://github.com/" + repository + "/commit/" + sha})
     return result

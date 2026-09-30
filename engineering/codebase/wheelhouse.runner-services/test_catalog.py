@@ -41,6 +41,15 @@ class CatalogTests(unittest.TestCase):
                              (source.repository, source.asset_name, source.images))
 
 
+    def test_a_product_without_a_release_source_still_lists_its_commits(self):
+        def fake_fetch(url, *args, **kwargs):
+            self.assertIn('wow-two-platform/wow-two-platform.wheelhouse/commits', url)
+            return json.dumps([{'sha': 'a' * 40, 'commit': {'message': 'feat: x', 'author': {'name': 'Max'}}}])
+        with patch.object(artifacts, 'fetch', fake_fetch):
+            listed = artifacts.commits('wheelhouse', 'main')
+        self.assertEqual([(None, False)], [(item['buildId'], item['canBuild']) for item in listed])
+        self.assertTrue(listed[0]['url'].startswith('https://github.com/wow-two-platform/wow-two-platform.wheelhouse/'))
+
 class ProductsResourceTests(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
