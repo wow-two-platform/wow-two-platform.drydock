@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using Wheelhouse.Domain.Integrations.Entities;
 using Wheelhouse.Domain.Products.Entities;
 using Wheelhouse.Domain.Products.Enums;
 using Wheelhouse.Domain.Servers.Entities;
@@ -8,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Wheelhouse.Tests.Integration.Tests;
 
 /// <summary>
-/// Repository behavior over a real relational DB — the read paths <c>EfProductRepository</c> / <c>EfServerRepository</c> rely on.
+/// Repository behavior over a real relational DB — the read paths <c>IntegrationKeyRepository</c>, <c>ProductMetadataRepository</c> and <c>EfServerRepository</c> rely on.
 /// The repositories are <c>internal</c> to <c>Wheelhouse.Persistence</c> (only <c>Wheelhouse.Api</c> sees them), so these exercise
 /// the exact EF query shapes those repositories wrap — <c>AnyAsync</c> existence predicates and
 /// <c>OrderByDescending(CreatedAt)</c> listing — through the public <see cref="Wheelhouse.Persistence.WheelhouseDbContext"/>.
@@ -24,18 +25,63 @@ public sealed class StoreTests(WheelhouseTestDb db) : IAsyncLifetime
     public Task DisposeAsync() => Task.CompletedTask;
 
     [Fact]
-    public async Task ExistsBySlug_IsTrueOnlyForAPersistedSlug()
+    public async Task LiveKeyLookup_ShouldFindOnlyAnUnrevokedKey_WhenMatchedByHash()
     {
         await using (var ctx = db.NewContext())
         {
-            ctx.Products.Add(NewProduct("smart-qr"));
+            ctx.IntegrationKeys.Add(NewKey("live", "hash-live"));
+            ctx.IntegrationKeys.Add(NewKey("revoked", "hash-revoked") with { RevokedAt = DateTimeOffset.UtcNow });
             await ctx.SaveChangesAsync();
         }
 
         await using var read = db.NewContext();
-        // The EfProductRepository.ExistsBySlugAsync predicate.
-        (await read.Products.AnyAsync(p => p.Slug == "smart-qr")).Should().BeTrue();
-        (await read.Products.AnyAsync(p => p.Slug == "does-not-exist")).Should().BeFalse();
+        // The IntegrationKeyRepository.FindLiveByHashAsync predicate.
+        async Task<string?> FindLiveAsync(string hash) => (await read.IntegrationKeys.AsNoTracking()
+            .FirstOrDefaultAsync(key => key.Hash == hash && key.RevokedAt == null))?.Name;
+
+        (await FindLiveAsync("hash-live")).Should().Be("live");
+        (await FindLiveAsync("hash-revoked")).Should().BeNull();
+        (await FindLiveAsync("hash-unknown")).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task KeyTouch_ShouldWriteOnlyThatKeysLastUse_WhenRecorded()
+    {
+        var used = NewKey("used", "hash-used");
+        var idle = NewKey("idle", "hash-idle");
+        await using (var ctx = db.NewContext())
+        {
+            ctx.IntegrationKeys.AddRange(used, idle);
+            await ctx.SaveChangesAsync();
+        }
+
+        var at = DateTimeOffset.UtcNow;
+        await using (var ctx = db.NewContext())
+        {
+            // The IntegrationKeyRepository.TouchAsync shape: one set-based update, no read.
+            await ctx.IntegrationKeys.Where(key => key.Id == used.Id)
+                .ExecuteUpdateAsync(set => set.SetProperty(key => key.LastUsedAt, (DateTimeOffset?)at));
+        }
+
+        await using var read = db.NewContext();
+        (await read.IntegrationKeys.FindAsync(used.Id))!.LastUsedAt.Should().BeCloseTo(at, TimeSpan.FromMilliseconds(1));
+        (await read.IntegrationKeys.FindAsync(idle.Id))!.LastUsedAt.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ProductMetadata_ShouldReadBackBySlug_WhenRecorded()
+    {
+        await using (var ctx = db.NewContext())
+        {
+            ctx.ProductMetadata.Add(new ProductMetadataEntity { Id = "foreverpin", Lifecycle = ProductLifecycle.Paused });
+            await ctx.SaveChangesAsync();
+        }
+
+        await using var read = db.NewContext();
+        // The ProductMetadataRepository.FindAsync predicate.
+        (await read.ProductMetadata.AsNoTracking().FirstOrDefaultAsync(row => row.Id == "foreverpin"))!.Lifecycle
+            .Should().Be(ProductLifecycle.Paused);
+        (await read.ProductMetadata.AsNoTracking().FirstOrDefaultAsync(row => row.Id == "unknown")).Should().BeNull();
     }
 
     [Fact]
@@ -54,24 +100,24 @@ public sealed class StoreTests(WheelhouseTestDb db) : IAsyncLifetime
     }
 
     [Fact]
-    public async Task ListProducts_OrdersByCreatedAtDescending()
+    public async Task ListKeys_ShouldReturnNewestFirst_WhenCreatedAtDiffers()
     {
         var now = DateTimeOffset.UtcNow;
 
         await using (var ctx = db.NewContext())
         {
             // Insert out of chronological order to prove the ORDER BY (not insertion order).
-            ctx.Products.Add(NewProduct("middle", now.AddMinutes(-5)));
-            ctx.Products.Add(NewProduct("newest", now));
-            ctx.Products.Add(NewProduct("oldest", now.AddMinutes(-10)));
+            ctx.IntegrationKeys.Add(NewKey("middle", "hash-m", now.AddMinutes(-5)));
+            ctx.IntegrationKeys.Add(NewKey("newest", "hash-n", now));
+            ctx.IntegrationKeys.Add(NewKey("oldest", "hash-o", now.AddMinutes(-10)));
             await ctx.SaveChangesAsync();
         }
 
         await using var read = db.NewContext();
-        // The EfProductRepository.ListAsync shape: AsNoTracking + OrderByDescending(CreatedAt).
-        var listed = await read.Products.AsNoTracking().OrderByDescending(p => p.CreatedAt).ToListAsync();
+        // The IntegrationKeyRepository.ListAsync shape: AsNoTracking + OrderByDescending(CreatedAt).
+        var listed = await read.IntegrationKeys.AsNoTracking().OrderByDescending(key => key.CreatedAt).ToListAsync();
 
-        listed.Select(p => p.Slug).Should().Equal("newest", "middle", "oldest");
+        listed.Select(key => key.Name).Should().Equal("newest", "middle", "oldest");
     }
 
     [Fact]
@@ -91,37 +137,6 @@ public sealed class StoreTests(WheelhouseTestDb db) : IAsyncLifetime
         var listed = await read.Servers.AsNoTracking().OrderByDescending(s => s.CreatedAt).ToListAsync();
 
         listed.Select(s => s.Host).Should().Equal("10.0.0.3", "10.0.0.2", "10.0.0.1");
-    }
-
-    [Fact]
-    public async Task ListProducts_SameInstant_TieBreaksByIdDescending()
-    {
-        // All rows share the exact same CreatedAt → CreatedAt alone leaves the order undefined.
-        // The store's ThenByDescending(Id) tiebreaker makes it deterministic: highest Id first.
-        var instant = DateTimeOffset.UtcNow;
-        var ids = new[] { Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid() };
-
-        await using (var ctx = db.NewContext())
-        {
-            // Insert in an order unrelated to Id so a pass can't be insertion-order luck.
-            foreach (var (id, i) in ids.Select((id, i) => (id, i)))
-                ctx.Products.Add(NewProductWithId(id, $"same-tick-{i}", instant));
-            await ctx.SaveChangesAsync();
-        }
-
-        await using var read = db.NewContext();
-        // The EfProductRepository.ListAsync shape: OrderByDescending(CreatedAt).ThenByDescending(Id).
-        async Task<List<Guid>> ListIdsAsync() => await read.Products.AsNoTracking()
-            .OrderByDescending(p => p.CreatedAt)
-            .ThenByDescending(p => p.Id)
-            .Select(p => p.Id)
-            .ToListAsync();
-
-        var listed = await ListIdsAsync();
-        // The Id tiebreaker makes the equal-timestamp order deterministic — provider-agnostic: every row comes back,
-        // and a second identical query yields the exact same order (the DB's uuid/text byte-ordering is stable).
-        listed.Should().BeEquivalentTo(ids); // all rows came back, none dropped by the equal-timestamp sort
-        listed.Should().Equal(await ListIdsAsync()); // stable across re-query → the tiebreak is deterministic
     }
 
     [Fact]
@@ -150,17 +165,15 @@ public sealed class StoreTests(WheelhouseTestDb db) : IAsyncLifetime
         listed.Should().Equal(await ListIdsAsync()); // stable across re-query → the tiebreak is deterministic
     }
 
-    private static Product NewProduct(string slug, DateTimeOffset? createdAt = null) =>
-        NewProductWithId(Guid.NewGuid(), slug, createdAt ?? DateTimeOffset.UtcNow);
-
-    private static Product NewProductWithId(Guid id, string slug, DateTimeOffset createdAt) => new()
+    private static IntegrationKeyEntity NewKey(string name, string hash, DateTimeOffset? createdAt = null) => new()
     {
-        Id = id,
-        Slug = slug,
-        Name = slug,
-        Repo = $"wow-two-platform/{slug}",
-        Status = ProductStatus.Draft,
-        CreatedAt = createdAt,
+        Id = Guid.NewGuid(),
+        Name = name,
+        Prefix = "wh_abcdefgh",
+        Hash = hash,
+        Scopes = "catalog:read",
+        CreatedBy = "test-admin",
+        CreatedAt = createdAt ?? DateTimeOffset.UtcNow,
     };
 
     private static Server NewServer(string name, string host, DateTimeOffset? createdAt = null) =>

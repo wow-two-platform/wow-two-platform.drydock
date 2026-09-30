@@ -15,7 +15,7 @@ public sealed class ServerDeleteCommandHandler(IServerRepository store)
     {
         var server = await store.FindAsync(request.Id, cancellationToken);
         if (server is null)
-            return AppResult<ServerDeleteResult>.Fail(AppErrors.NotFound($"Server '{request.Id}' was not found."));
+            return AppResult<ServerDeleteResult>.Fail(AppErrorFactory.NotFound($"Server '{request.Id}' was not found."));
 
         await store.RemoveAsync(server, cancellationToken);
 

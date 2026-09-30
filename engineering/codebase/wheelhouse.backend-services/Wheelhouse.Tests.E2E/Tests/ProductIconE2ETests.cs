@@ -2,8 +2,6 @@ using System.Net;
 using AwesomeAssertions;
 using Wheelhouse.Application.Abstractions;
 using Wheelhouse.Tests.E2E.Harness;
-using Wheelhouse.Tests.E2E.Support;
-using WoW.Two.Sdk.Backend.Beta.Testing.Web;
 
 namespace Wheelhouse.Tests.E2E.Tests;
 
@@ -11,21 +9,14 @@ namespace Wheelhouse.Tests.E2E.Tests;
 [Collection(WheelhouseCollection.Name)]
 public sealed class ProductIconE2ETests(WheelhouseAppFixture fixture) : WheelhouseE2EBase(fixture)
 {
-    private async Task<Guid> RegisterAsync(string slug, string repo)
-    {
-        var response = await AdminClient.PostJsonAsync("api/products", new { slug, name = slug, repo });
-        response.StatusCode.Should().Be(HttpStatusCode.Created);
-        return (await response.ReadEnvelopeAsync<ProductResponse>()).Id;
-    }
-
     [Fact]
-    public async Task Get_RepositoryWithIcon_ServesItAsADownload()
+    public async Task GetIcon_ShouldReturn200AsADownload_WhenTheRepositoryCarriesAnIcon()
     {
         var svg = "<svg xmlns=\"http://www.w3.org/2000/svg\"/>"u8.ToArray();
-        Fixture.ProductIcons.Icons["owner/iconic"] = new ProductIconImage(svg, "image/svg+xml", "web/public/favicon.svg");
-        var id = await RegisterAsync("iconic", "owner/iconic");
+        Fixture.ProductIcons.Icons["sulton-max/10x-venture-forever-pin"] =
+            new ProductIconImage(svg, "image/svg+xml", "web/public/favicon.svg");
 
-        var response = await AdminClient.GetAsync($"api/products/{id}/icon");
+        var response = await AdminClient.GetAsync("api/products/foreverpin/icon");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         response.Content.Headers.ContentType!.MediaType.Should().Be("image/svg+xml");
@@ -35,19 +26,25 @@ public sealed class ProductIconE2ETests(WheelhouseAppFixture fixture) : Wheelhou
     }
 
     [Fact]
-    public async Task Get_RepositoryWithoutIcon_Returns404()
+    public async Task GetIcon_ShouldReturn404_WhenTheRepositoryCarriesNone()
     {
-        var id = await RegisterAsync("plain", "owner/plain");
-
-        var response = await AdminClient.GetAsync($"api/products/{id}/icon");
+        var response = await AdminClient.GetAsync("api/products/wheelhouse/icon");
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     [Fact]
-    public async Task Get_Anonymous_Returns401()
+    public async Task GetIcon_ShouldReturn404_WhenTheCatalogLacksTheProduct()
     {
-        var response = await Fixture.CreateAnonymousClient().GetAsync($"api/products/{Guid.NewGuid()}/icon");
+        var response = await AdminClient.GetAsync("api/products/ghost/icon");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetIcon_ShouldReturn401_WhenTheCallerIsAnonymous()
+    {
+        var response = await AnonymousClient.GetAsync("api/products/foreverpin/icon");
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }

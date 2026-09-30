@@ -36,7 +36,7 @@ public sealed class VaultHygieneQueryHandler(IVaultGateway gateway, TimeProvider
         }
         catch (Exception exception) when (exception is JsonException or InvalidOperationException or KeyNotFoundException)
         {
-            return AppResult<VaultHygiene>.Fail(AppErrors.ExternalUnavailable("The vault returned unreadable metadata."));
+            return AppResult<VaultHygiene>.Fail(AppErrorFactory.ExternalUnavailable("The vault returned unreadable metadata."));
         }
     }
 }

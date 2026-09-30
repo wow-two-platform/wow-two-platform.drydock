@@ -28,7 +28,7 @@ public sealed class AuditE2ETests(WheelhouseAppFixture fixture) : WheelhouseE2EB
         Assert.Equal(HttpStatusCode.Accepted, (await Deploy("pilot", "v1")).StatusCode);
 
         var entry = Assert.Single(await Entries());
-        Assert.Equal((1L, "test-admin", "deployment.start", "pilot", "Succeeded", "v1"),
+        Assert.Equal((1L, "test-admin", "deployment.start", "pilot", "succeeded", "v1"),
             (entry.GetProperty("sequence").GetInt64(), entry.GetProperty("actor").GetString(),
                 entry.GetProperty("action").GetString(), entry.GetProperty("subject").GetString(),
                 entry.GetProperty("outcome").GetString(), entry.GetProperty("detail").GetString()));
@@ -43,21 +43,54 @@ public sealed class AuditE2ETests(WheelhouseAppFixture fixture) : WheelhouseE2EB
         Assert.Equal(HttpStatusCode.Conflict, (await Deploy("pilot-prod", "v2")).StatusCode);
 
         var entry = Assert.Single(await Entries());
-        Assert.Equal(("Failed", Fixture.Deployments.StartRefusal),
+        Assert.Equal(("failed", Fixture.Deployments.StartRefusal),
             (entry.GetProperty("outcome").GetString(), entry.GetProperty("reason").GetString()));
     }
 
     [Fact]
     public async Task InvalidRequest_IsRecordedAsFailedBeforeItReachesTheHandler()
     {
-        var response = await AdminClient.PostAsJsonAsync("/api/products",
-            new { slug = "bad-repo", name = "Bad Repo", repo = "not-a-valid-repo" });
+        var client = AdminClient;
+        client.DefaultRequestHeaders.Add("X-Wheelhouse-Action", "key-create");
+        var response = await client.PostAsJsonAsync("/api/integration-keys",
+            new { name = "Claude", scopes = new[] { "deployments:write" } });
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
         var entry = Assert.Single(await Entries());
-        Assert.Equal(("product.create", "bad-repo", "Failed"),
+        Assert.Equal(("integration-key.create", "Claude", "failed"),
             (entry.GetProperty("action").GetString(), entry.GetProperty("subject").GetString(),
                 entry.GetProperty("outcome").GetString()));
+    }
+
+    [Fact]
+    public async Task KeyCreation_IsRecordedWithItsScopesButNeverItsSecret()
+    {
+        var client = AdminClient;
+        client.DefaultRequestHeaders.Add("X-Wheelhouse-Action", "key-create");
+        var response = await client.PostAsJsonAsync("/api/integration-keys", new { name = "Codex", scopes = new[] { "catalog:read" } });
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var secret = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("data").GetProperty("secret").GetString()!;
+
+        Assert.DoesNotContain(secret, await AdminClient.GetStringAsync("/api/audit"));
+        var entry = Assert.Single(await Entries());
+        Assert.Equal(("test-admin", "integration-key.create", "Codex", "succeeded", "catalog:read"),
+            (entry.GetProperty("actor").GetString(), entry.GetProperty("action").GetString(),
+                entry.GetProperty("subject").GetString(), entry.GetProperty("outcome").GetString(),
+                entry.GetProperty("detail").GetString()));
+    }
+
+    [Fact]
+    public async Task LifecycleChange_IsRecordedAgainstTheProduct()
+    {
+        var client = AdminClient;
+        client.DefaultRequestHeaders.Add("X-Wheelhouse-Action", "lifecycle");
+        Assert.Equal(HttpStatusCode.OK,
+            (await client.PutAsJsonAsync("/api/products/foreverpin/lifecycle", new { lifecycle = "live" })).StatusCode);
+
+        var entry = Assert.Single(await Entries());
+        Assert.Equal(("product.lifecycle", "foreverpin", "succeeded", "Live"),
+            (entry.GetProperty("action").GetString(), entry.GetProperty("subject").GetString(),
+                entry.GetProperty("outcome").GetString(), entry.GetProperty("detail").GetString()));
     }
 
     [Fact]

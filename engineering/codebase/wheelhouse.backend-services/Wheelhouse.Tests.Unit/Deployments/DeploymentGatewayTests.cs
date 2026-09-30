@@ -36,6 +36,18 @@ public sealed class DeploymentGatewayTests : IDisposable
     }
 
     [Fact]
+    public async Task ReadAsync_ShouldRunTheProductsAction_WhenTheCatalogIsRead()
+    {
+        File.WriteAllText(_transport, "import json, sys\nprint(json.dumps({'action': sys.argv[1]}))\n");
+        var gateway = new DeploymentGateway(new DeploymentSettings() with { TransportPath = _transport, Root = _root }, new RunnerFailureParser());
+
+        var result = await gateway.ReadAsync("products", null, CancellationToken.None);
+
+        result.Should().BeOfType<AppResult<JsonElement>.Success>().Subject.Data.GetProperty("action").GetString()
+            .Should().Be("products");
+    }
+
+    [Fact]
     public async Task An_inherited_rig_variable_never_reaches_the_runner()
     {
         var inherited = Environment.GetEnvironmentVariable("WHEELHOUSE_REHEARSAL");

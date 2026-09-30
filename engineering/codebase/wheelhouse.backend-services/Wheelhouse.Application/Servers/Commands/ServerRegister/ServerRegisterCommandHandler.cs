@@ -17,7 +17,7 @@ public sealed class ServerRegisterCommandHandler(IServerRepository store)
         ServerRegisterCommand request, CancellationToken cancellationToken)
     {
         if (await store.ExistsByHostAsync(request.Host.Trim(), cancellationToken))
-            return AppResult<ServerRegisterResult>.Fail(AppErrors.Conflict($"A server with host '{request.Host}' already exists."));
+            return AppResult<ServerRegisterResult>.Fail(AppErrorFactory.Conflict($"A server with host '{request.Host}' already exists."));
 
         var server = new Server
         {

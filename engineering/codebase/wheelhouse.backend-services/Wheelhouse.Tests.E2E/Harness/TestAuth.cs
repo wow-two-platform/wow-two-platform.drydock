@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using WoW.Two.Sdk.Backend.Beta.Identity.ApiKeys;
 
 namespace Wheelhouse.Tests.E2E.Harness;
 
@@ -46,6 +47,8 @@ public sealed class TestAuthHandler(
         {
             new Claim(ClaimTypes.NameIdentifier, "test-admin-id"),
             new Claim(ClaimTypes.Name, Options.AdminLogin),
+            // The login as the claim normalizer writes it, which the allowlist reads.
+            new Claim("wt:username", Options.AdminLogin),
         };
         var identity = new ClaimsIdentity(claims, SchemeName);
         var principal = new ClaimsPrincipal(identity);
@@ -90,7 +93,11 @@ public static class TestAuthExtensions
 
         services.AddAuthorizationBuilder()
             .AddPolicy(AuthConfigurationExtensions.AdminPolicy, adminPolicy)
-            .SetFallbackPolicy(adminPolicy);
+            .SetFallbackPolicy(adminPolicy)
+            // Catalog reads keep the real integration key scheme beside the test session.
+            .AddPolicy(AuthConfigurationExtensions.ProductsReadPolicy, policy => policy
+                .AddAuthenticationSchemes(TestAuthHandler.SchemeName, ApiKeyAuthenticationDefaults.Scheme)
+                .AddRequirements(new ProductsReadRequirement()));
 
         return services;
     }

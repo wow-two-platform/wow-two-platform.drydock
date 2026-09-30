@@ -2,17 +2,28 @@ using Wheelhouse.Domain.Products.Enums;
 
 namespace Wheelhouse.Application.Products.Models;
 
-/// <summary>Read model for a portfolio product.</summary>
-/// <param name="Id">Product id.</param>
-/// <param name="Slug">URL-safe slug (unique).</param>
-/// <param name="Name">Display name.</param>
-/// <param name="Repo">The GitHub <c>{owner}/{repo}</c> that defines the product.</param>
-/// <param name="Status">Lifecycle state.</param>
-/// <param name="CreatedAtUtc">When the product was registered.</param>
-public sealed record ProductDto(
-    Guid Id,
-    string Slug,
-    string Name,
-    string Repo,
-    ProductStatus Status,
-    DateTimeOffset CreatedAtUtc);
+/// <summary>Represents a catalog product as integrations read it: identity, lifecycle and where each environment is
+/// reached — no targets, releases or deployment state.</summary>
+public sealed record ProductDto
+{
+    /// <summary>Gets the product's identifier.</summary>
+    public required string Slug { get; init; }
+
+    /// <summary>Gets the display name.</summary>
+    public required string Name { get; init; }
+
+    /// <summary>Gets one line on what the product does.</summary>
+    public required string Description { get; init; }
+
+    /// <summary>Gets where the product stands in the portfolio.</summary>
+    public required ProductLifecycle Lifecycle { get; init; }
+
+    /// <summary>Gets the product's source repository.</summary>
+    public required ProductRepositoryDto Repository { get; init; }
+
+    /// <summary>Gets the path of the product's icon; it answers not found when the repository carries none.</summary>
+    public required string IconUrl { get; init; }
+
+    /// <summary>Gets the product's environments, in dev, test, prod order.</summary>
+    public required IReadOnlyList<ProductEnvironmentDto> Environments { get; init; }
+}

@@ -16,14 +16,14 @@ public sealed class DeploymentGateway(DeploymentSettings settings, RunnerFailure
     public Task<AppResult<JsonElement>> ReadAsync(string resource, string? id, CancellationToken ct) =>
         resource switch
         {
-            "servers" or "targets" or "vaults" or "releases" or "jobs" => RunAsync([resource], ct),
+            "products" or "servers" or "targets" or "vaults" or "releases" or "jobs" => RunAsync([resource], ct),
             "status" when Guid.TryParse(id, out _) => RunAsync(["status", "--job", id], ct),
             "state" when id is not null => RunAsync(["state", "--target", id], ct),
             "topology" when id is not null => RunAsync(["topology", "--target", id], ct),
             "branches" when id is not null => RunAsync(["branches", "--product", id], ct),
             "vitals" => RunAsync(id is null ? ["vitals"] : ["vitals", "--target", id], ct),
             "stats" when int.TryParse(id, out var days) => RunAsync(["stats", "--days", days.ToString(CultureInfo.InvariantCulture)], ct),
-            _ => Task.FromResult(AppResult<JsonElement>.Fail(AppErrors.NotFound("Unknown deployment resource.")))
+            _ => Task.FromResult(AppResult<JsonElement>.Fail(AppErrorFactory.NotFound("Unknown deployment resource.")))
         };
 
     /// <inheritdoc />
@@ -61,7 +61,7 @@ public sealed class DeploymentGateway(DeploymentSettings settings, RunnerFailure
     private async Task<AppResult<JsonElement>> RunAsync(string[] arguments, CancellationToken ct)
     {
         if (!File.Exists(settings.TransportPath))
-            return AppResult<JsonElement>.Fail(AppErrors.Unexpected("Deployment runner is not installed."));
+            return AppResult<JsonElement>.Fail(AppErrorFactory.Unexpected("Deployment runner is not installed."));
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeout.CancelAfter(TimeSpan.FromSeconds(110));
@@ -97,18 +97,18 @@ public sealed class DeploymentGateway(DeploymentSettings settings, RunnerFailure
             var standardError = await error;
             if (process.ExitCode != 0)
                 return AppResult<JsonElement>.Fail(failures.Parse(standardError)
-                    ?? AppErrors.Unexpected("Deployment operation failed. Inspect the target privately."));
+                    ?? AppErrorFactory.Unexpected("Deployment operation failed. Inspect the target privately."));
             using var document = JsonDocument.Parse(await output);
             return AppResult<JsonElement>.Ok(document.RootElement.Clone());
         }
         catch (OperationCanceledException)
         {
             if (!process.HasExited) process.Kill(entireProcessTree: true);
-            return AppResult<JsonElement>.Fail(AppErrors.Unexpected("Deployment response timed out. Reconcile target state before retrying."));
+            return AppResult<JsonElement>.Fail(AppErrorFactory.Unexpected("Deployment response timed out. Reconcile target state before retrying."));
         }
         catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or JsonException or IOException)
         {
-            return AppResult<JsonElement>.Fail(AppErrors.Unexpected("Deployment runner is unavailable."));
+            return AppResult<JsonElement>.Fail(AppErrorFactory.Unexpected("Deployment runner is unavailable."));
         }
     }
 }

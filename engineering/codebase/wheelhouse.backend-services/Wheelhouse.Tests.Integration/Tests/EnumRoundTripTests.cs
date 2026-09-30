@@ -83,33 +83,23 @@ public sealed class EnumRoundTripTests(WheelhouseTestDb db) : IAsyncLifetime
     }
 
     [Fact]
-    public async Task ProductStatus_DefaultDraft_IsStoredSnakeCaseText_AndRoundTrips()
+    public async Task ProductLifecycle_ShouldBeStoredAsSnakeCaseTextAndReadBack_WhenRecorded()
     {
-        var id = Guid.NewGuid();
-
         await using (var ctx = db.NewContext())
         {
-            ctx.Products.Add(new Product
-            {
-                Id = id,
-                Slug = "smart-qr",
-                Name = "Smart QR",
-                Repo = "wow-two-platform/wow-two-platform.smart-qr",
-                Status = ProductStatus.Active,
-                CreatedAt = DateTimeOffset.UtcNow,
-            });
+            ctx.ProductMetadata.Add(new ProductMetadataEntity { Id = "smart-qr", Lifecycle = ProductLifecycle.Live });
             await ctx.SaveChangesAsync();
         }
 
-        (await ReadScalarAsync<string>("select status from products where id = @id", id))
-            .Should().Be("active");
+        (await ReadScalarAsync<string>("select lifecycle from product_metadata where slug = @id", "smart-qr"))
+            .Should().Be("live");
 
         await using var read = db.NewContext();
-        (await read.Products.FindAsync(id))!.Status.Should().Be(ProductStatus.Active);
+        (await read.ProductMetadata.FindAsync("smart-qr"))!.Lifecycle.Should().Be(ProductLifecycle.Live);
     }
 
     /// <summary>Reads a single scalar via the context's own ADO connection (bypasses EF; provider-agnostic — asserts the raw column on Postgres or SQLite).</summary>
-    private async Task<T?> ReadScalarAsync<T>(string sql, Guid id)
+    private async Task<T?> ReadScalarAsync<T>(string sql, object id)
     {
         await using var ctx = db.NewContext();
         var conn = ctx.Database.GetDbConnection();

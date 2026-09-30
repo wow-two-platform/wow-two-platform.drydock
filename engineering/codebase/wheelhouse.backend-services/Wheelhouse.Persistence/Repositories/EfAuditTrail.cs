@@ -3,13 +3,14 @@ using Wheelhouse.Application.Abstractions;
 using Wheelhouse.Application.Audit;
 using Wheelhouse.Domain.Audit.Entities;
 using WoW.Two.Sdk.Backend.Beta.Foundation.Audit;
+using WoW.Two.Sdk.Backend.Beta.Foundation.Audit.Validators;
 
 namespace Wheelhouse.Persistence.Repositories;
 
 /// <summary>EF Core implementation of <see cref="IAuditTrail"/>: one transaction per append, serialized so each entry
 /// chains to the one committed before it.</summary>
 internal sealed class EfAuditTrail(
-    WheelhouseDbContext db, IHashChainSealer<AuditEntry> sealer, IHashChainVerifier<AuditEntry> verifier, TimeProvider time)
+    WheelhouseDbContext db, IHashChainSealer<AuditEntry> sealer, IHashChainValidator<AuditEntry> validator, TimeProvider time)
     : IAuditTrail
 {
     private const string PostgresProviderName = "Npgsql.EntityFrameworkCore.PostgreSQL";
@@ -54,7 +55,7 @@ internal sealed class EfAuditTrail(
     public async Task<AuditVerification> VerifyAsync(CancellationToken ct = default)
     {
         var entries = await db.AuditEntries.AsNoTracking().OrderBy(e => e.Sequence).ToListAsync(ct);
-        var result = verifier.Verify(entries);
+        var result = validator.Validate(entries);
         return result.IsIntact
             ? new AuditVerification(true, entries.Count, null, null)
             : new AuditVerification(false, entries.Count, result.BrokenSequence, result.Reason.ToString());

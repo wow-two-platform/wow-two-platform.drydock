@@ -1,6 +1,5 @@
 using AwesomeAssertions;
-using Wheelhouse.Domain.Products.Entities;
-using Wheelhouse.Domain.Products.Enums;
+using Wheelhouse.Domain.Integrations.Entities;
 using Wheelhouse.Domain.Servers.Entities;
 using Wheelhouse.Tests.Integration.Harness;
 using Microsoft.EntityFrameworkCore;
@@ -8,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Wheelhouse.Tests.Integration.Tests;
 
 /// <summary>
-/// The unique-index constraints declared on the EF model (<c>ix_products_slug</c>, <c>ix_servers_host</c>) are enforced
+/// The unique-index constraints declared on the EF model (<c>ix_integration_keys_hash</c>, <c>ix_servers_host</c>) are enforced
 /// by the real database — a duplicate insert surfaces as a <see cref="DbUpdateException"/>. Runs on the SDK
 /// <see cref="WheelhouseTestDb"/> (Postgres container or in-memory SQLite); the schema is created by EF from <c>OnModelCreating</c>.
 /// </summary>
@@ -22,16 +21,16 @@ public sealed class ConstraintTests(WheelhouseTestDb db) : IAsyncLifetime
     public Task DisposeAsync() => Task.CompletedTask;
 
     [Fact]
-    public async Task DuplicateProductSlug_ViolatesUniqueIndex()
+    public async Task IntegrationKeyHash_ShouldBeRejected_WhenAnotherKeyHasIt()
     {
         await using (var ctx = db.NewContext())
         {
-            ctx.Products.Add(NewProduct("smart-qr"));
+            ctx.IntegrationKeys.Add(NewKey("first", "hash-1"));
             await ctx.SaveChangesAsync();
         }
 
         await using var ctx2 = db.NewContext();
-        ctx2.Products.Add(NewProduct("smart-qr")); // same slug, different id.
+        ctx2.IntegrationKeys.Add(NewKey("second", "hash-1")); // same secret hash, different key.
 
         var act = async () => await ctx2.SaveChangesAsync();
 
@@ -56,13 +55,14 @@ public sealed class ConstraintTests(WheelhouseTestDb db) : IAsyncLifetime
         await act.Should().ThrowAsync<DbUpdateException>();
     }
 
-    private static Product NewProduct(string slug) => new()
+    private static IntegrationKeyEntity NewKey(string name, string hash) => new()
     {
         Id = Guid.NewGuid(),
-        Slug = slug,
-        Name = slug,
-        Repo = $"wow-two-platform/{slug}",
-        Status = ProductStatus.Draft,
+        Name = name,
+        Prefix = "wh_abcdefgh",
+        Hash = hash,
+        Scopes = "catalog:read",
+        CreatedBy = "test-admin",
         CreatedAt = DateTimeOffset.UtcNow,
     };
 

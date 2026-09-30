@@ -17,7 +17,7 @@ public static class ProblemDetailsExtensions
     /// <exception cref="InvalidOperationException">The body could not be read as ProblemDetails.</exception>
     public static async Task<ProblemDetails> ReadProblemAsync(this HttpResponseMessage response)
     {
-        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(TestJson.Options);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(TestJsonConstants.Options);
         if (problem is null)
         {
             var raw = await response.Content.ReadAsStringAsync();

@@ -85,7 +85,7 @@ public sealed class VaultGateway(
             return AppResult<VaultEndpoint>.Fail(((AppResult<JsonElement>.Failure)catalogResult).Error);
         var endpoint = entries.EnumerateArray().Select(VaultEndpoint.From).FirstOrDefault(item => item.Id == vault);
         return endpoint is null
-            ? AppResult<VaultEndpoint>.Fail(AppErrors.NotFound("The vault is not defined in code."))
+            ? AppResult<VaultEndpoint>.Fail(AppErrorFactory.NotFound("The vault is not defined in code."))
             : AppResult<VaultEndpoint>.Ok(endpoint);
     }
 
@@ -139,7 +139,7 @@ public sealed class VaultGateway(
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
         {
-            return AppResult<JsonElement>.Fail(AppErrors.ExternalUnavailable("The vault is unreachable from Wheelhouse."));
+            return AppResult<JsonElement>.Fail(AppErrorFactory.ExternalUnavailable("The vault is unreachable from Wheelhouse."));
         }
     }
 
@@ -147,7 +147,7 @@ public sealed class VaultGateway(
     {
         var file = Path.Combine(settings.Root, "vaults", vault.Id, "password");
         if (!File.Exists(file))
-            return AppResult<string>.Fail(AppErrors.ExternalUnavailable("Wheelhouse has no administrator credential for this vault."));
+            return AppResult<string>.Fail(AppErrorFactory.ExternalUnavailable("Wheelhouse has no administrator credential for this vault."));
         var password = (await File.ReadAllTextAsync(file, ct)).Trim();
         using var response = await clients.CreateClient(ClientName)
             .PostAsJsonAsync(vault.Url + "/api/identity/sign-in", new { password }, ct);
@@ -171,14 +171,14 @@ public sealed class VaultGateway(
         var detail = await DetailAsync(response, ct);
         return AppResult<JsonElement>.Fail(response.StatusCode switch
         {
-            HttpStatusCode.BadRequest => AppErrors.Validation(detail ?? "The vault rejected the request."),
-            HttpStatusCode.NotFound => AppErrors.NotFound(detail ?? "The vault has no such item."),
-            HttpStatusCode.Conflict => AppErrors.Conflict(detail ?? "The vault item already exists."),
-            HttpStatusCode.TooManyRequests => AppErrors.TooManyRequests("The vault is throttling Wheelhouse's sign-in."),
+            HttpStatusCode.BadRequest => AppErrorFactory.Validation(detail ?? "The vault rejected the request."),
+            HttpStatusCode.NotFound => AppErrorFactory.NotFound(detail ?? "The vault has no such item."),
+            HttpStatusCode.Conflict => AppErrorFactory.Conflict(detail ?? "The vault item already exists."),
+            HttpStatusCode.TooManyRequests => AppErrorFactory.TooManyRequests("The vault is throttling Wheelhouse's sign-in."),
             HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden =>
-                AppErrors.ExternalUnavailable("The vault rejected Wheelhouse's administrator credential."),
-            HttpStatusCode.ServiceUnavailable => AppErrors.ExternalUnavailable("The vault is sealed or unavailable."),
-            _ => AppErrors.ExternalUnavailable("The vault failed the request.")
+                AppErrorFactory.ExternalUnavailable("The vault rejected Wheelhouse's administrator credential."),
+            HttpStatusCode.ServiceUnavailable => AppErrorFactory.ExternalUnavailable("The vault is sealed or unavailable."),
+            _ => AppErrorFactory.ExternalUnavailable("The vault failed the request.")
         });
     }
 

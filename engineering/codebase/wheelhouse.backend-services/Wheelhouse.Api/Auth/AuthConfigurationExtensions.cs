@@ -1,6 +1,8 @@
 using Wheelhouse.Infrastructure.Settings;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
 using WoW.Two.Sdk.Backend.Beta.Foundation.Configuration;
+using WoW.Two.Sdk.Backend.Beta.Identity.ApiKeys;
 using WoW.Two.Sdk.Backend.Beta.Identity.Authorization;
 using WoW.Two.Sdk.Backend.Beta.Identity.Claims;
 using WoW.Two.Sdk.Backend.Beta.Identity.Cookies;
@@ -23,6 +25,12 @@ public static class AuthConfigurationExtensions
     /// <summary>The authorization policy protected endpoints require.</summary>
     public const string AdminPolicy = "WheelhouseAdmin";
 
+    /// <summary>The policy catalog reads require: the operator's session, or an integration key granting the scope.</summary>
+    public const string ProductsReadPolicy = "ProductsRead";
+
+    /// <summary>The marker every integration key secret starts with, so a leaked one is recognizable.</summary>
+    public const string KeyMarker = "wh_";
+
     /// <summary>Binds the identity settings and wires cookie auth, GitHub OAuth, claim normalization, the login allowlist, and default-deny authorization.</summary>
     /// <param name="builder">The web application builder.</param>
     public static WebApplicationBuilder AddAuthentication(this WebApplicationBuilder builder)
@@ -31,8 +39,8 @@ public static class AuthConfigurationExtensions
         // GitHubOAuthSettings is also registered as IOptions<T> — IdentityController reads it to gate sign-in on IsConfigured.
         builder.Services.AddEnvironmentOverlaidOptions<GitHubOAuthSettings>(builder.Configuration, "Identity:GitHub");
 
-        var gitHub = ConfigurationLoader.Load<GitHubOAuthSettings>(builder.Configuration, "Identity:GitHub");
-        var authSettings = ConfigurationLoader.Load<AuthSettings>(builder.Configuration, "Identity");
+        var gitHub = ConfigurationMapper.Load<GitHubOAuthSettings>(builder.Configuration, "Identity:GitHub");
+        var authSettings = ConfigurationMapper.Load<AuthSettings>(builder.Configuration, "Identity");
         if (builder.Environment.IsProduction() && !authSettings.AllowedGitHubLogins.Any(login => !string.IsNullOrWhiteSpace(login)))
             throw new InvalidOperationException("Production requires Identity:AllowedGitHubLogins.");
 
@@ -70,6 +78,15 @@ public static class AuthConfigurationExtensions
 
         // Every endpoint requires the signed-in, allowlisted admin by default; /health opts out via [AllowAnonymous].
         builder.Services.AddDefaultDenyAuthorization(CookieScheme, withAllowlist: true);
+
+        // Integration keys: another program reads the catalog with a scoped key. A key reaches only an endpoint whose
+        // policy names the key scheme; the default-deny fallback above stays cookie-only.
+        builder.Services.AddApiKeyAuthentication(keys => keys.Marker = KeyMarker);
+        builder.Services.AddSingleton<IAuthorizationHandler, ProductsReadAuthorizationHandler>();
+        builder.Services.AddAuthorizationBuilder()
+            .AddPolicy(ProductsReadPolicy, policy => policy
+                .AddAuthenticationSchemes(CookieScheme, ApiKeyAuthenticationDefaults.Scheme)
+                .AddRequirements(new ProductsReadRequirement()));
 
         return builder;
     }

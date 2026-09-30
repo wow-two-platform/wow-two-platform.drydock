@@ -40,8 +40,8 @@ public sealed class RunnerFailureParser
             var refused = root.TryGetProperty("failure", out var failure)
                 && failure.ValueKind == JsonValueKind.String && failure.GetString() == "Rejected";
             return refused
-                ? AppErrors.Conflict("Deployment rejected: " + text)
-                : AppErrors.ExternalUnavailable("Deployment step failed: " + text);
+                ? AppErrorFactory.Conflict("Deployment rejected: " + text)
+                : AppErrorFactory.ExternalUnavailable("Deployment step failed: " + text);
         }
         catch (JsonException)
         {

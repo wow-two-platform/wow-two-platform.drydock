@@ -14,12 +14,17 @@ namespace Wheelhouse.Tests.E2E.Tests;
 [Collection(WheelhouseCollection.Name)]
 public sealed class ValidationProblemDetailsE2ETests(WheelhouseAppFixture fixture) : WheelhouseE2EBase(fixture)
 {
-    private const string Repo = "wow-two-platform/wow-two-platform.wheelhouse";
+    private HttpClient ActionClient(string action)
+    {
+        var client = AdminClient;
+        client.DefaultRequestHeaders.Add("X-Wheelhouse-Action", action);
+        return client;
+    }
 
     [Fact]
-    public async Task Post_Product_InvalidRepo_Returns400ProblemDetails()
+    public async Task CreateKey_ShouldReturn400ProblemDetails_WhenTheNameIsEmpty()
     {
-        var response = await AdminClient.PostJsonAsync("api/products", new { slug = "bad-repo", name = "Bad Repo", repo = "not-a-valid-repo" });
+        var response = await ActionClient("key-create").PostJsonAsync("api/integration-keys", new { name = "", scopes = new[] { "catalog:read" } });
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         var problem = await response.ReadProblemAsync();
@@ -28,26 +33,20 @@ public sealed class ValidationProblemDetailsE2ETests(WheelhouseAppFixture fixtur
     }
 
     [Fact]
-    public async Task Post_Product_EmptySlug_Returns400ProblemDetails()
+    public async Task CreateKey_ShouldReturn400ProblemDetails_WhenNoScopeIsChosen()
     {
-        var response = await AdminClient.PostJsonAsync("api/products", new { slug = "", name = "No Slug", repo = Repo });
+        var response = await ActionClient("key-create").PostJsonAsync("api/integration-keys", new { name = "Claude", scopes = Array.Empty<string>() });
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        var problem = await response.ReadProblemAsync();
-        problem.Status.Should().Be(400);
+        (await response.ReadProblemAsync()).Status.Should().Be(400);
     }
 
     [Fact]
-    public async Task Put_Product_InvalidRepo_Returns400ProblemDetails()
+    public async Task UpdateLifecycle_ShouldReturn400ProblemDetails_WhenTheBodyIsMissingTheLifecycle()
     {
-        var create = await AdminClient.PostJsonAsync("api/products", new { slug = "put-bad-repo", name = "OK", repo = Repo });
-        create.StatusCode.Should().Be(HttpStatusCode.Created);
-        var id = (await create.ReadEnvelopeAsync<ProductResponse>()).Id;
-
-        var response = await AdminClient.PutJsonAsync($"api/products/{id}", new { name = "OK", repo = "https://github.com/owner/repo", status = "Active" });
+        var response = await ActionClient("lifecycle").PutJsonAsync("api/products/foreverpin/lifecycle", new { });
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        var problem = await response.ReadProblemAsync();
-        problem.Status.Should().Be(400);
+        (await response.ReadProblemAsync()).Status.Should().Be(400);
     }
 }

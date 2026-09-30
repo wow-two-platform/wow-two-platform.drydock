@@ -16,7 +16,7 @@ namespace Wheelhouse.Infrastructure.Products;
 /// </remarks>
 public sealed partial class GitHubProductIconSource(
     IHttpClientFactory clients,
-    IAccessTokenProvider tokens,
+    IAccessTokenService tokens,
     IMemoryCache cache,
     ILogger<GitHubProductIconSource> logger) : IProductIconSource
 {
@@ -33,17 +33,19 @@ public sealed partial class GitHubProductIconSource(
         if (cache.TryGetValue(key, out ProductIconImage? cached))
             return cached;
 
-        var icon = await ReadAsync(repository, ct);
-        cache.Set(key, icon, icon is null ? MissingFor : FoundFor);
+        var token = await tokens.GetAccessTokenAsync(ct);
+        var icon = await ReadAsync(repository, token, ct);
+        // Without the operator's token only public repositories answer, so a miss then is no verdict on the repository.
+        if (icon is not null || !string.IsNullOrWhiteSpace(token))
+            cache.Set(key, icon, icon is null ? MissingFor : FoundFor);
         return icon;
     }
 
-    private async Task<ProductIconImage?> ReadAsync(string repository, CancellationToken ct)
+    private async Task<ProductIconImage?> ReadAsync(string repository, string? token, CancellationToken ct)
     {
         try
         {
             var client = clients.CreateClient(ClientName);
-            var token = await tokens.GetAccessTokenAsync(ct);
 
             using var repo = await GetJsonAsync(client, token, $"repos/{repository}", ct);
             var branch = repo is not null && repo.RootElement.TryGetProperty("default_branch", out var name)

@@ -6,9 +6,8 @@ using WoW.Two.Sdk.Backend.Beta.Data;
 using WoW.Two.Sdk.Backend.Beta.Foundation.Audit;
 using WoW.Two.Sdk.Backend.Beta.Foundation.Time;
 using WoW.Two.Sdk.Backend.Beta.Foundation.Validation;
+using WoW.Two.Sdk.Backend.Beta.Identity.ApiKeys;
 using WoW.Two.Sdk.Backend.Beta.Integrations;
-using WoW.Two.Sdk.Backend.Beta.Integrations.Ghcr;
-using WoW.Two.Sdk.Backend.Beta.Integrations.GitHub;
 using WoW.Two.Sdk.Backend.Beta.Mediator;
 using WoW.Two.Sdk.Backend.Beta.Mediator.Validation;
 using WoW.Two.Sdk.Backend.Beta.Meta;
@@ -53,7 +52,9 @@ public static class HostConfigurationExtensions
             o => o.ConnectionStringConfigKey = WheelhouseDatabase.ConnectionStringConfigKey);
 
         builder.Services.AddScoped<IServerRepository, EfServerRepository>();
-        builder.Services.AddScoped<IProductRepository, EfProductRepository>();
+        builder.Services.AddScoped<IProductMetadataRepository, ProductMetadataRepository>();
+        builder.Services.AddScoped<IIntegrationKeyRepository, IntegrationKeyRepository>();
+        builder.Services.AddScoped<IApiKeyRepository, IntegrationKeyRepository>();
         builder.Services.AddScoped<IAuditTrail, EfAuditTrail>();
         builder.Services.AddScoped<IVitalsHistory, EfVitalsHistory>();
         builder.Services.AddHashChain<Wheelhouse.Domain.Audit.Entities.AuditEntry,
@@ -62,7 +63,7 @@ public static class HostConfigurationExtensions
         return builder;
     }
 
-    /// <summary>Registers the infrastructure layer — the SDK time provider, the GitHub and GHCR integration clients, and the OAuth-token source (SSH/registrar/DNS adapters land here next).</summary>
+    /// <summary>Registers the infrastructure layer — the SDK time provider, the runner gateway and product catalog, the vault client, and the OAuth-token source the icon reads use.</summary>
     public static WebApplicationBuilder AddInfrastructureLayer(this WebApplicationBuilder builder)
     {
         builder.Services.AddTimeProviders();
@@ -90,8 +91,7 @@ public static class HostConfigurationExtensions
             client.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
         });
         builder.Services.AddScoped<IProductIconSource, Wheelhouse.Infrastructure.Products.GitHubProductIconSource>();
-        builder.Services.AddGitHubIntegration();
-        builder.Services.AddGhcrIntegration();
+        builder.Services.AddScoped<IProductCatalog, Wheelhouse.Infrastructure.Products.RunnerProductCatalog>();
 
         return builder;
     }
@@ -101,8 +101,8 @@ public static class HostConfigurationExtensions
     {
         builder.Services.AddMediator(typeof(IApplicationMarker).Assembly);
         // Registered before validation so it wraps it: a refused request is audited too.
-        builder.Services.AddMediatorBehavior(typeof(Wheelhouse.Application.Audit.AuditBehavior<,>));
-        builder.Services.AddMediatorValidationBehavior();
+        builder.Services.AddMediatorInterceptor(typeof(Wheelhouse.Application.Audit.AuditBehavior<,>));
+        builder.Services.AddMediatorValidatingInterceptor();
         builder.Services.AddHttpContextAccessor();
         builder.Services.AddScoped<IOperatorContext, Wheelhouse.Api.Auth.HttpOperatorContext>();
         builder.Services.AddFluentValidatorsFromAssemblies(typeof(IApplicationMarker).Assembly);

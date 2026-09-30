@@ -12,7 +12,7 @@ namespace Wheelhouse.Application.Audit;
 /// validation, so a rejected request is recorded too; other requests pass through untouched.</summary>
 public sealed class AuditBehavior<TRequest, TResponse>(
     IServiceProvider services, ILogger<AuditBehavior<TRequest, TResponse>> logger)
-    : IPipelineBehavior<TRequest, TResponse> where TRequest : notnull
+    : IRequestInterceptor<TRequest, TResponse> where TRequest : notnull
 {
     private const int ReasonLength = 300;
 

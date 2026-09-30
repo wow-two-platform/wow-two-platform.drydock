@@ -2,8 +2,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Testcontainers.PostgreSql;
-using WoW.Two.Sdk.Backend.Beta.Integrations.GitHub;
-using WoW.Two.Sdk.Backend.Beta.Integrations.Ghcr;
 using WoW.Two.Sdk.Backend.Beta.Testing;
 using WoW.Two.Sdk.Backend.Beta.Testing.Containers.Postgres;
 
@@ -13,7 +11,7 @@ namespace Wheelhouse.Tests.E2E.Harness;
 /// Owns the single in-process Wheelhouse.Api host the whole E2E run drives, backed by an ephemeral Postgres
 /// container. The container + between-test reset are owned by the SDK <see cref="PostgresFixture"/> (Testcontainers
 /// + Respawn); this fixture stays the only Wheelhouse-specific piece — it knows the connection-string key, the
-/// test-auth + GitHub/GHCR stub wiring, and composes the host on top of the SDK <see cref="WebApiTestHost{TEntryPoint}"/>.
+/// test-auth + runner/vault/icon stub wiring, and composes the host on top of the SDK <see cref="WebApiTestHost{TEntryPoint}"/>.
 /// </summary>
 /// <remarks>
 /// Lifecycle: start the Postgres fixture → build the host (its <c>InitializeAsync()</c> runs the bespoke SQL migrator,
@@ -31,11 +29,7 @@ public sealed class WheelhouseAppFixture : IAsyncLifetime
     public WebApiTestHost<Program> Host =>
         _host ?? throw new InvalidOperationException("Fixture not initialized — Host is null.");
 
-    /// <summary>The shared GitHub stub — flip its <see cref="StubGitHubClient.Result"/> to drive failure paths.</summary>
-    public StubGitHubClient GitHub { get; } = new();
-
-    /// <summary>The shared GHCR stub — add tags to its <see cref="StubContainerRegistryClient.ExistingTags"/> to mark images published.</summary>
-    public StubContainerRegistryClient Registry { get; } = new();
+    /// <summary>The shared runner stub — answers the catalog and deployment reads and records what was submitted.</summary>
     public StubDeploymentGateway Deployments { get; } = new();
 
     /// <summary>The shared vault stub — records the last change so tests can assert what Wheelhouse forwarded.</summary>
@@ -85,14 +79,6 @@ public sealed class WheelhouseAppFixture : IAsyncLifetime
                 services.RemoveAll<Wheelhouse.Application.Abstractions.IVaultGateway>();
                 services.AddSingleton<Wheelhouse.Application.Abstractions.IVaultGateway>(Vaults);
 
-                // Replace the real (network + OAuth-token) GitHub client with the shared stub.
-                services.RemoveAll<IGitHubClient>();
-                services.AddSingleton<IGitHubClient>(GitHub);
-
-                // Replace the real GHCR client with the shared stub (no registry network calls).
-                services.RemoveAll<IContainerRegistryClient>();
-                services.AddSingleton<IContainerRegistryClient>(Registry);
-
                 // Product icons come from the stub, never from GitHub.
                 services.RemoveAll<Wheelhouse.Application.Abstractions.IProductIconSource>();
                 services.AddSingleton<Wheelhouse.Application.Abstractions.IProductIconSource>(ProductIcons);
@@ -133,16 +119,8 @@ public sealed class WheelhouseAppFixture : IAsyncLifetime
     /// <summary>Restores the shared stubs to their happy-path defaults so each test starts from a known state.</summary>
     private void ResetStubs()
     {
-        GitHub.Result = RepoCheck.Exists;
-        GitHub.Marker = FileCheck.Present;
-        GitHub.Releases = [];
-        GitHub.ReleaseOutcome = ReleaseLookup.Found;
-        GitHub.PublishRun = BuildRunCheck.None;
-
-        Registry.ExistingTags.Clear();
-        Registry.Override = null;
-
         Deployments.StartRefusal = null;
+        ProductIcons.Icons.Clear();
     }
 }
 

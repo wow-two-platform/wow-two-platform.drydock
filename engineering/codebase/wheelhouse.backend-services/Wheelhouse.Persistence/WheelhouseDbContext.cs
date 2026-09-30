@@ -1,7 +1,8 @@
 using Wheelhouse.Domain.Audit.Entities;
 using Wheelhouse.Domain.Deployments.Entities;
-using Wheelhouse.Domain.Operations.Entities;
 using Wheelhouse.Domain.Domains.Entities;
+using Wheelhouse.Domain.Integrations.Entities;
+using Wheelhouse.Domain.Operations.Entities;
 using Wheelhouse.Domain.Products.Entities;
 using Wheelhouse.Domain.Secrets.Entities;
 using Wheelhouse.Domain.Servers.Entities;
@@ -21,8 +22,11 @@ public sealed class WheelhouseDbContext(DbContextOptions<WheelhouseDbContext> op
     /// <summary>Gets the registered deploy-target servers.</summary>
     public DbSet<Server> Servers => Set<Server>();
 
-    /// <summary>Gets the portfolio products.</summary>
-    public DbSet<Product> Products => Set<Product>();
+    /// <summary>Gets what the operator records about catalog products.</summary>
+    public DbSet<ProductMetadataEntity> ProductMetadata => Set<ProductMetadataEntity>();
+
+    /// <summary>Gets the keys other programs present to read Wheelhouse.</summary>
+    public DbSet<IntegrationKeyEntity> IntegrationKeys => Set<IntegrationKeyEntity>();
 
     /// <summary>Gets the deployment history.</summary>
     public DbSet<Deployment> Deployments => Set<Deployment>();
@@ -57,16 +61,31 @@ public sealed class WheelhouseDbContext(DbContextOptions<WheelhouseDbContext> op
             e.Property(x => x.UpdatedAt).HasColumnName("updated_at_utc");
         });
 
-        modelBuilder.Entity<Product>(e =>
+        // Product identity lives in the code-owned catalog; this row holds only what the operator records, by slug.
+        modelBuilder.Entity<ProductMetadataEntity>(e =>
         {
-            e.ToTable(Product.TableName);
+            e.ToTable(ProductMetadataEntity.TableName);
             e.HasKey(x => x.Id);
-            e.HasIndex(x => x.Slug).IsUnique();
-            e.Property(x => x.Slug).IsRequired();
-            e.Property(x => x.Name).IsRequired();
-            e.Property(x => x.Repo).IsRequired();
+            e.Property(x => x.Id).HasColumnName("slug");
             e.Property(x => x.CreatedAt).HasColumnName("created_at_utc");
             e.Property(x => x.UpdatedAt).HasColumnName("updated_at_utc");
+        });
+
+        modelBuilder.Entity<IntegrationKeyEntity>(e =>
+        {
+            e.ToTable(IntegrationKeyEntity.TableName);
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.Hash).IsUnique();
+            e.Property(x => x.Name).IsRequired();
+            e.Property(x => x.Prefix).IsRequired();
+            e.Property(x => x.Hash).IsRequired();
+            e.Property(x => x.Scopes).IsRequired();
+            e.Property(x => x.CreatedBy).IsRequired();
+            e.Property(x => x.LastUsedAt).HasColumnName("last_used_at_utc");
+            e.Property(x => x.RevokedAt).HasColumnName("revoked_at_utc");
+            e.Property(x => x.CreatedAt).HasColumnName("created_at_utc");
+            e.Property(x => x.UpdatedAt).HasColumnName("updated_at_utc");
+            e.Ignore(x => x.ScopeList);
         });
 
         modelBuilder.Entity<Deployment>(e =>
