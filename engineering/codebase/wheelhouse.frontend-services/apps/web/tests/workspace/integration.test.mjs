@@ -8,6 +8,7 @@ const bundle = await build({
   stdin: {
     contents: `
       export { productsApi } from './src/integration/products';
+      export { integrationKeysApi } from './src/integration/integrations';
       export { deploymentsApi } from './src/integration/deployments';
       export { authApi } from './src/integration/auth';
       export { secretsApi } from './src/integration/secrets';
@@ -31,6 +32,7 @@ const bundle = await build({
 });
 const {
   productsApi,
+  integrationKeysApi,
   deploymentsApi,
   authApi,
   secretsApi,
@@ -63,36 +65,51 @@ function json(data, status = 200, headers = {}) {
 }
 
 const product = {
-  id: "product-id",
   slug: "test",
   name: "Test",
-  repo: "owner/repository",
-  status: "Draft",
-  createdAtUtc: "2026-09-26T00:00:00Z",
+  description: "A test product.",
+  lifecycle: "building",
+  repository: { name: "owner/repository", url: "https://github.com/owner/repository", defaultBranch: "main" },
+  iconUrl: "/api/products/test/icon",
+  environments: [
+    { name: "dev", sites: [{ name: "app", url: "https://dev.example.com", exposure: "public" }],
+      secrets: { vault: "pilot-vault", namespace: "test-dev" } },
+    { name: "prod", sites: [], secrets: null },
+  ],
 };
 
-test("serializes product writes once and preserves same-origin cookie credentials", async () => {
+test("serializes a lifecycle write once with its action and same-origin cookie credentials", async () => {
   let captured;
   globalThis.fetch = async (url, options) => {
     captured = { url, options };
-    return json({ data: product });
+    return json({ data: { ...product, lifecycle: "live" } });
   };
-  const payload = {
-    slug: product.slug,
-    name: product.name,
-    repo: product.repo,
-  };
-  const result = await productsApi.createProduct(payload);
+  const result = await productsApi.updateLifecycle(product.slug, "live");
   assert.equal(result.ok, true);
-  assert.deepEqual(result.value, product);
-  assert.equal(captured.url, "/api/products");
-  assert.equal(captured.options.method, "POST");
+  assert.equal(result.value.lifecycle, "live");
+  assert.deepEqual(result.value.environments, product.environments);
+  assert.equal(captured.url, "/api/products/test/lifecycle");
+  assert.equal(captured.options.method, "PUT");
   assert.equal(captured.options.credentials, "same-origin");
-  assert.deepEqual(JSON.parse(captured.options.body), payload);
-  assert.equal(
-    captured.options.headers.get("Content-Type"),
-    "application/json",
-  );
+  assert.equal(captured.options.headers.get("X-Wheelhouse-Action"), "lifecycle");
+  assert.deepEqual(JSON.parse(captured.options.body), { lifecycle: "live" });
+});
+
+test("creates and revokes integration keys with explicit actions and reads the secret once", async () => {
+  const key = { id: "key-id", name: "Claude", prefix: "wh_abcdefgh", scopes: ["catalog:read"], createdBy: "max",
+    createdAt: "2026-09-30T00:00:00Z", lastUsedAt: null, revokedAt: null };
+  const requests = [];
+  globalThis.fetch = async (url, options) => {
+    requests.push({ url, options });
+    return json({ data: url.endsWith("/revoke")
+      ? { ...key, revokedAt: "2026-09-30T01:00:00Z" }
+      : { key, secret: "wh_" + "a".repeat(32) } });
+  };
+  const created = await integrationKeysApi.createKey({ name: "Claude", scopes: ["catalog:read"] });
+  assert.equal(created.value.secret, "wh_" + "a".repeat(32));
+  assert.equal((await integrationKeysApi.revokeKey("key-id")).value.revokedAt, "2026-09-30T01:00:00Z");
+  assert.deepEqual(requests.map(({ url, options }) => [url, options.method, options.headers.get("X-Wheelhouse-Action")]),
+    [["/api/integration-keys", "POST", "key-create"], ["/api/integration-keys/key-id/revoke", "POST", "key-revoke"]]);
 });
 
 test("preserves explicit deployment, reconciliation, and vault action headers", async () => {
@@ -270,7 +287,7 @@ test("pages the audit trail and names each action and chain break in words", asy
     return json({ data: url.includes("verification")
       ? { intact: false, entries: 3, brokenSequence: 2, reason: "HashMismatch" }
       : [{ sequence: 3, occurredAt: "2026-09-28T10:00:00Z", actor: "max", action: "deployment.start",
-          subject: "foreverpin-dev", outcome: "Succeeded", detail: "v1", reason: null }] });
+          subject: "foreverpin-dev", outcome: "succeeded", detail: "v1", reason: null }] });
   };
   assert.equal((await auditApi.list(100, 4)).value[0].sequence, 3);
   assert.equal((await auditApi.verify()).value.brokenSequence, 2);
@@ -331,20 +348,16 @@ test("reads vitals history and traces one server's host figures from its first t
   assert.deepEqual(hostTrend(result.value, "missing", "memoryPercent"), []);
 });
 
-test("accepts explicit empty logout and deletion successes", async () => {
+test("accepts an explicit empty logout success", async () => {
   globalThis.fetch = async () => new Response(null, { status: 204 });
   assert.deepEqual(await authApi.signOut(), { ok: true, value: undefined });
-  assert.deepEqual(await productsApi.deleteProduct("product-id"), {
-    ok: true,
-    value: undefined,
-  });
 });
 
 test("rejects a missing management envelope and malformed consumed product fields", async () => {
   for (const payload of [
     [product],
-    { data: [{ ...product, status: "invented" }] },
-    { data: [{ id: "partial" }] },
+    { data: [{ ...product, lifecycle: "invented" }] },
+    { data: [{ slug: "partial" }] },
   ]) {
     globalThis.fetch = async () => json(payload);
     const result = await productsApi.listProducts();

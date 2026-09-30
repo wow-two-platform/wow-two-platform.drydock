@@ -1,8 +1,8 @@
 <script lang="ts">
 /** A product's mark: the icon its repository carries, else a monogram tinted by its name. */
 export interface ProductIconProps {
-  /** The registry id; without one (a runner-only product) the monogram shows. */
-  readonly productId?: string | null | undefined;
+  /** The catalog slug; without one (a product outside the catalog) the monogram shows. */
+  readonly productSlug?: string | null | undefined;
   /** The product's name, for the monogram and its tint. */
   readonly name: string;
   readonly size?: "sm" | "md" | "lg";
@@ -26,12 +26,12 @@ defineSlots<{}>();
 const failed = ref(false);
 /** A new product gets a fresh attempt at its icon. */
 watch(
-  () => props.productId,
+  () => props.productSlug,
   () => {
     failed.value = false;
   },
 );
-const showsImage = computed(() => Boolean(props.productId) && !failed.value);
+const showsImage = computed(() => Boolean(props.productSlug) && !failed.value);
 const monogram = computed(
   () => props.name.trim().slice(0, 1).toUpperCase() || "?",
 );
@@ -56,7 +56,7 @@ const tint = computed(() => {
   >
     <img
       v-if="showsImage"
-      :src="`/api/products/${encodeURIComponent(props.productId ?? '')}/icon`"
+      :src="`/api/products/${encodeURIComponent(props.productSlug ?? '')}/icon`"
       alt=""
       loading="lazy"
       class="size-full object-contain p-1"

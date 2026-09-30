@@ -208,9 +208,9 @@ function read<T>(
   if (data !== undefined) return { status: "ready", data };
   return { status: loading ? "loading" : error ? "error" : "loading" };
 }
-/** Names registered and runner-only entries without conflating their identities. @internal */
+/** Names a catalog product by its name, and a product outside the catalog by its slug. @internal */
 function productName(entry: WorkspaceProduct): string {
-  return entry.registry?.name ?? entry.runnerProduct ?? "Unconfigured product";
+  return entry.product?.name ?? entry.key;
 }
 /** Collects recent recorded outcomes for the product row. @internal */
 function recent(entry: WorkspaceProduct): DeploymentJob[] {
@@ -375,7 +375,7 @@ function openDeploy(job?: DeploymentJob): void {
             >
               <span class="mb-3 flex items-center gap-2"
                 ><ProductIcon
-                  :product-id="entry.registry?.id"
+                  :product-slug="entry.product ? entry.key : null"
                   :name="productName(entry)"
                   size="sm"
                 /><span class="min-w-0 truncate text-sm font-semibold">{{
@@ -458,23 +458,24 @@ function openDeploy(job?: DeploymentJob): void {
                     class="flex items-center gap-3 text-2xl font-semibold tracking-tight"
                   >
                     <ProductIcon
-                      :product-id="product.registry?.id"
+                      :product-slug="product.product ? product.key : null"
                       :name="productName(product)"
                       size="lg"
                     />{{ productName(product) }}
                   </h2>
                   <p class="mt-2 break-all text-xs text-muted-foreground">
                     {{
-                      product.registry?.repo ??
-                      "Configured in the deployment catalog"
+                      product.product?.repository.name ??
+                      "Not in the product catalog"
                     }}
                   </p>
                 </div>
                 <Badge
-                  v-if="product.registry"
+                  v-if="product.product"
                   variant="neutral"
-                  :title="'Registry lifecycle, separate from runtime health'"
-                  >{{ product.registry.status }}</Badge
+                  class="capitalize"
+                  :title="'Portfolio lifecycle, separate from runtime health'"
+                  >{{ product.product.lifecycle }}</Badge
                 >
               </div>
               <div
@@ -519,18 +520,14 @@ function openDeploy(job?: DeploymentJob): void {
                 ></Button>
               </div>
               <div v-else class="mt-5 rounded-xl bg-muted/50 p-4">
-                <p class="text-sm font-medium">No environment is linked</p>
+                <p class="text-sm font-medium">No environment yet</p>
                 <p class="mt-1 text-sm text-muted-foreground">
-                  {{
-                    product.binding === "conflict"
-                      ? "The registered identity does not match its reviewed deployment binding."
-                      : "Connect this registry entry to a reviewed product binding and configure a deployment target."
-                  }}
+                  No fleet target runs this product; targets are defined in the runner's <code>fleet.py</code>.
                 </p>
                 <RouterLink
                   to="/products"
                   class="mt-3 inline-flex text-sm font-medium text-primary"
-                  >Manage registration<ArrowRight :size="14" class="ml-1"
+                  >Open in Products<ArrowRight :size="14" class="ml-1"
                 /></RouterLink>
               </div>
             </div>
@@ -1048,10 +1045,10 @@ function openDeploy(job?: DeploymentJob): void {
                 }}
               </p>
               <RouterLink
-                v-if="product?.registry"
+                v-if="product?.product"
                 to="/products"
                 class="inline-flex text-sm text-primary"
-                >Edit product registration</RouterLink
+                >Open in Products</RouterLink
               ></template
             >
           </div>

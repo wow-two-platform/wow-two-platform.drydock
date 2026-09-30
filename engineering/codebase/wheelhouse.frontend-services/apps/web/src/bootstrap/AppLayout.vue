@@ -12,7 +12,7 @@ import { RouterLink, useRoute } from 'vue-router';
 import { Badge } from '@wow-two-beta/ui-vue/presentation/display';
 import { useApiConnection } from '@/application/system';
 import { BrandWordmark, ProfileMenu, useColorScheme } from '@/presentation/shell';
-import { AppPlaces } from './routes';
+import { AppPlaces, SettingsPlaces } from './routes';
 
 /** Combines the deployment desk's top navigation with a contextual studio workspace. */
 defineOptions({ name: 'AppLayout' });
@@ -22,7 +22,7 @@ defineSlots<{ default(): unknown }>();
 const route = useRoute();
 const system = useApiConnection();
 const theme = useColorScheme();
-const current = computed(() => AppPlaces.find((place) => place.path === route.path));
+const current = computed(() => [...AppPlaces, ...SettingsPlaces].find((place) => place.path === route.path));
 const consoleVersion = __APP_VERSION__;
 /** A numbered build shows as `v0.3.4`; a local build shows `dev`. @internal */
 const versionLabel = /^\d/.test(consoleVersion) ? `v${consoleVersion}` : consoleVersion;

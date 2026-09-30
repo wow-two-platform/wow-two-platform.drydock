@@ -1,2 +1,8 @@
-export { ProductStatus, type CreateProductRequest, type Product, type UpdateProductRequest } from './Product';
-export { parseRepoInput, type ParsedRepo, type RepoParseResult, type RepoProvider, type UnparsedRepo } from './ParseRepoInput';
+export {
+  ProductLifecycle,
+  type Product,
+  type ProductEnvironment,
+  type ProductRepository,
+  type ProductSecrets,
+  type ProductSite,
+} from './Product';

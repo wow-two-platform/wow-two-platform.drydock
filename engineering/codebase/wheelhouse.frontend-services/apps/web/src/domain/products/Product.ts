@@ -1,32 +1,49 @@
-/** A portfolio product's lifecycle state. */
-export const ProductStatus = {
-  Draft: 'Draft',
-  Active: 'Active',
-  Paused: 'Paused',
-  Killed: 'Killed',
+/** Where a catalog product stands in the portfolio. */
+export const ProductLifecycle = {
+  Idea: 'idea',
+  Building: 'building',
+  Live: 'live',
+  Paused: 'paused',
+  Killed: 'killed',
 } as const;
-export type ProductStatus = (typeof ProductStatus)[keyof typeof ProductStatus];
+export type ProductLifecycle = (typeof ProductLifecycle)[keyof typeof ProductLifecycle];
 
-/** A registered portfolio product and its source repository. */
+/** A site an environment publishes; a private one is reached over the private network only. */
+export interface ProductSite {
+  name: string;
+  url: string;
+  exposure: 'public' | 'private';
+}
+
+/** Where an environment's settings belong in a vault. */
+export interface ProductSecrets {
+  vault: string;
+  namespace: string;
+}
+
+/** One environment of a catalog product. */
+export interface ProductEnvironment {
+  name: string;
+  sites: ProductSite[];
+  secrets: ProductSecrets | null;
+}
+
+/** A catalog product's source repository. */
+export interface ProductRepository {
+  /** `owner/name`. */
+  name: string;
+  url: string;
+  defaultBranch: string;
+}
+
+/** A product as the code-owned catalog defines it, with the lifecycle the operator records. */
 export interface Product {
-  id: string;
+  /** The product's identifier everywhere: targets, releases and URLs. */
   slug: string;
   name: string;
-  repo: string;
-  status: ProductStatus;
-  createdAtUtc: string;
-}
-
-/** Registers a product. */
-export interface CreateProductRequest {
-  slug: string;
-  name: string;
-  repo: string;
-}
-
-/** Updates a product; its slug is immutable. */
-export interface UpdateProductRequest {
-  name: string;
-  repo: string;
-  status: ProductStatus;
+  description: string;
+  lifecycle: ProductLifecycle;
+  repository: ProductRepository;
+  iconUrl: string;
+  environments: ProductEnvironment[];
 }

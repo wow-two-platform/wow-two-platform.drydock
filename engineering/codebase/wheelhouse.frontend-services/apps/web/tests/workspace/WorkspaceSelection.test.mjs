@@ -9,7 +9,7 @@ const { EmptyWorkspaceSelection, readWorkspaceSelection, resolveWorkspaceSelecti
 const selectedTarget = target();
 const otherTarget = target({ id: 'foreverpin-production', environment: 'production' });
 const inventory = { status: 'ready', data: buildWorkspaceInventory([product()], [selectedTarget, otherTarget]) };
-const baseSelection = { productKey: 'registry:registry-1', targetId: selectedTarget.id, inspector: null, itemId: null };
+const baseSelection = { productKey: 'foreverpin', targetId: selectedTarget.id, inspector: null, itemId: null };
 const serviceSelection = { ...baseSelection, inspector: 'service', itemId: 'management' };
 const jobSelection = { ...baseSelection, inspector: 'deployment', itemId: 'submission-id' };
 const job = { id: 'submission-id', targetId: selectedTarget.id, status: 'succeeded' };
@@ -38,7 +38,7 @@ test('resolves an explicit target inside the selected product', () => {
 
 test('does not replace unavailable explicit products or targets', () => {
   for (const [requested, issue] of [
-    [{ ...baseSelection, productKey: 'registry:removed' }, 'product-not-found'],
+    [{ ...baseSelection, productKey: 'removed' }, 'product-not-found'],
     [{ ...baseSelection, productKey: '' }, 'product-not-found'],
     [{ ...baseSelection, targetId: 'another-target' }, 'target-not-found'],
     [{ ...baseSelection, targetId: '' }, 'target-not-found'],

@@ -1,142 +1,89 @@
-<script lang="ts">
-/** The registration action is owned by the route toolbar. */
-export interface ProductsPanelProps {
-  readonly registering: boolean;
-}
-</script>
-
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import {
-  ChevronRight,
-  Info,
-  Package,
-  Pencil,
-  Search,
-  Trash2,
-} from "lucide-vue-next";
+import { RouterLink } from "vue-router";
+import { ChevronRight, ExternalLink, KeyRound, Package, Search } from "lucide-vue-next";
 import { Button, CopyButton } from "@wow-two-beta/ui-vue/presentation/actions";
 import { Badge } from "@wow-two-beta/ui-vue/presentation/display";
 import {
   Alert,
   SkeletonState,
 } from "@wow-two-beta/ui-vue/presentation/feedback";
-import { SearchInput } from "@wow-two-beta/ui-vue/presentation/forms";
 import {
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalTitle,
-  ModalDescription,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@wow-two-beta/ui-vue/presentation/overlays";
+  SearchInput,
+  SelectPicker,
+  SelectPickerContent,
+  SelectPickerItem,
+  SelectPickerTrigger,
+  SelectPickerValue,
+} from "@wow-two-beta/ui-vue/presentation/forms";
 import { useProducts } from "@/application/products";
-import { ProductStatus, type Product } from "@/domain/products";
-import { WorkspaceProductBindings } from "@/application/workspace/WorkspaceInventory";
-import RegisterProductForm from "./RegisterProductForm.vue";
+import { ProductLifecycle } from "@/domain/products";
 import RepositoryActions from "./RepositoryActions.vue";
 import ProductIcon from "./ProductIcon.vue";
 
-/** Presents portfolio selection with a contextual inspector and confirmed registry changes. */
+/** Presents the code-owned catalog with a contextual inspector; only the lifecycle changes here. */
 defineOptions({ name: "ProductsPanel" });
-const props = defineProps<ProductsPanelProps>();
-const emit = defineEmits<{ "update:registering": [value: boolean] }>();
 
-const statusVariant = {
-  [ProductStatus.Active]: "success",
-  [ProductStatus.Paused]: "warning",
-  [ProductStatus.Killed]: "danger",
-  [ProductStatus.Draft]: "neutral",
-} as const;
-const { products, loading, error, reload, create, update, remove } =
-  useProducts();
+/** @internal Each lifecycle's label and badge, in portfolio order. */
+const Lifecycles = [
+  { value: ProductLifecycle.Idea, label: "Idea", variant: "outline" },
+  { value: ProductLifecycle.Building, label: "Building", variant: "info" },
+  { value: ProductLifecycle.Live, label: "Live", variant: "success" },
+  { value: ProductLifecycle.Paused, label: "Paused", variant: "warning" },
+  { value: ProductLifecycle.Killed, label: "Killed", variant: "danger" },
+] as const;
+
+const { products, loading, error, reload, setLifecycle } = useProducts();
 const search = ref("");
-const selectedId = ref<string | null>(null);
-const editing = ref<Product | null>(null);
-const confirmingDelete = ref(false);
-const deleting = ref(false);
-const deleteError = ref<string | null>(null);
-const formPending = ref(false);
+const selectedSlug = ref<string | null>(null);
+const saving = ref(false);
+const saveError = ref<string | null>(null);
 const visibleProducts = computed(() => {
   const term = search.value.trim().toLocaleLowerCase();
   return products.value.filter((product) =>
-    `${product.name} ${product.slug} ${product.repo}`
+    `${product.name} ${product.slug} ${product.repository.name}`
       .toLocaleLowerCase()
       .includes(term),
   );
 });
 const selected = computed(
   () =>
-    visibleProducts.value.find((product) => product.id === selectedId.value) ??
+    visibleProducts.value.find((product) => product.slug === selectedSlug.value) ??
     null,
 );
-const formOpen = computed(() => props.registering || editing.value !== null);
-/** The runner catalog product a registry entry is bound to, which lists its branches and commits. */
-const runnerProduct = computed(
-  () =>
-    WorkspaceProductBindings.find(
-      (binding) =>
-        binding.registrySlug === selected.value?.slug &&
-        binding.repository === selected.value?.repo,
-    )?.runnerProduct ?? null,
-);
 
-/** Keeps the inspector attached to a visible product after searches or registry changes. */
+/** Keeps the inspector attached to a visible product after searches or catalog changes. */
 watch(
   visibleProducts,
   (items) => {
-    if (!items.some((item) => item.id === selectedId.value))
-      selectedId.value = items[0]?.id ?? null;
+    if (!items.some((item) => item.slug === selectedSlug.value))
+      selectedSlug.value = items[0]?.slug ?? null;
   },
   { immediate: true },
 );
-/** Clears a stale deletion confirmation when the inspected product changes. */
-watch(selectedId, () => {
-  confirmingDelete.value = false;
-  deleteError.value = null;
+/** Clears a stale save failure when the inspected product changes. */
+watch(selectedSlug, () => {
+  saveError.value = null;
 });
-/** Switches registration into its own editor instance. */
-watch(
-  () => props.registering,
-  (open) => {
-    if (open) editing.value = null;
-  },
-);
 
-/** Closes a settled form without dismissing a pending server write. */
-function closeForm(): void {
-  if (formPending.value) return;
-  editing.value = null;
-  emit("update:registering", false);
+/** Looks up a lifecycle's label and badge. @internal */
+function lifecycle(value: ProductLifecycle) {
+  return Lifecycles.find((item) => item.value === value) ?? Lifecycles[1];
 }
 
-/** Starts editing the selected registry item. */
-function editProduct(product: Product): void {
-  emit("update:registering", false);
-  editing.value = product;
-}
-
-/** Removes only the explicitly confirmed product after the server accepts the deletion. */
-async function deleteProduct(): Promise<void> {
-  if (!selected.value || deleting.value) return;
-  const id = selected.value.id;
-  deleting.value = true;
-  deleteError.value = null;
+/** Records the chosen lifecycle once the server accepts it. */
+async function changeLifecycle(value: string | null): Promise<void> {
+  const product = selected.value;
+  const next = Lifecycles.find((item) => item.value === value)?.value;
+  if (!product || !next || next === product.lifecycle || saving.value) return;
+  saving.value = true;
+  saveError.value = null;
   try {
-    const result = await remove(id);
-    if (result.ok) confirmingDelete.value = false;
-    else deleteError.value = result.failure.message;
+    const result = await setLifecycle(product.slug, next);
+    if (!result.ok) saveError.value = result.failure.message;
   } finally {
-    deleting.value = false;
+    saving.value = false;
   }
-}
-
-/** Finishes the form after its submission lifecycle has settled. */
-function saved(): void {
-  formPending.value = false;
-  closeForm();
 }
 </script>
 
@@ -146,7 +93,7 @@ function saved(): void {
   >
     <section
       class="wh-glass-subtle min-w-0 border-b border-border p-4 sm:p-5 lg:border-b-0 lg:border-r"
-      aria-label="Product registry"
+      aria-label="Product catalog"
     >
       <div class="mb-4 flex items-center justify-between gap-3">
         <h2 class="text-sm font-semibold">Your products</h2>
@@ -168,7 +115,7 @@ function saved(): void {
       <div v-if="error && products.length > 0" class="mb-4 space-y-3">
         <Alert
           severity="warning"
-          title="Showing the last registry snapshot"
+          title="Showing the last catalog snapshot"
           :description="error"
         />
         <Button size="sm" variant="outline" @click="reload"
@@ -198,7 +145,7 @@ function saved(): void {
       <div v-else-if="error && products.length === 0" class="space-y-3">
         <Alert
           severity="danger"
-          title="Registry unavailable"
+          title="Catalog unavailable"
           :description="error"
         />
         <Button variant="outline" @click="reload">Retry</Button>
@@ -210,42 +157,39 @@ function saved(): void {
         <div class="rounded-2xl bg-primary-soft p-4 text-primary">
           <Package :size="28" />
         </div>
-        <h2 class="text-xl font-semibold">Your portfolio starts here</h2>
+        <h2 class="text-xl font-semibold">No products yet</h2>
         <p class="max-w-sm text-sm text-muted-foreground">
-          Register a product and connect its source repository.
+          Products are defined in the runner's <code>catalog.py</code>.
         </p>
-        <Button @click="emit('update:registering', true)"
-          >Register product</Button
-        >
       </div>
       <div v-else-if="visibleProducts.length === 0" class="py-8 text-center">
         <Search :size="24" class="mx-auto mb-3 text-muted-foreground" />
         <p class="font-medium">No matching products</p>
-        <p class="mt-1 text-sm text-muted-foreground">
-          Try a different name or repository.
-        </p>
       </div>
       <div v-else class="max-h-[28rem] space-y-2 overflow-y-auto p-1 -m-1">
         <button
           v-for="product in visibleProducts"
-          :key="product.id"
+          :key="product.slug"
           type="button"
-          :aria-pressed="selectedId === product.id"
-          @click="selectedId = product.id"
+          :aria-pressed="selectedSlug === product.slug"
+          @click="selectedSlug = product.slug"
           class="group flex w-full min-w-0 items-center gap-3 rounded-xl border p-3 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           :class="
-            selectedId === product.id
+            selectedSlug === product.slug
               ? 'border-primary/40 bg-primary-soft'
               : 'border-transparent hover:border-border hover:bg-card'
           "
         >
-          <ProductIcon :product-id="product.id" :name="product.name" />
+          <ProductIcon :product-slug="product.slug" :name="product.name" />
           <div class="min-w-0 flex-1">
             <p class="truncate text-sm font-semibold">{{ product.name }}</p>
             <p class="mt-1 truncate text-xs text-muted-foreground">
               {{ product.slug }}
             </p>
           </div>
+          <Badge size="sm" :variant="lifecycle(product.lifecycle).variant">{{
+            lifecycle(product.lifecycle).label
+          }}</Badge>
           <ChevronRight :size="16" class="shrink-0 text-muted-foreground" />
         </button>
       </div>
@@ -257,123 +201,115 @@ function saved(): void {
           class="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-6"
         >
           <div class="min-w-0">
-            <div class="mb-3 flex items-center gap-2">
-              <Package :size="16" class="text-muted-foreground" />
-              <span class="text-xs text-muted-foreground">Product details</span>
-            </div>
-            <h2 class="flex items-center gap-1 break-words text-xl font-semibold">
+            <h2 class="flex items-center gap-3 break-words text-xl font-semibold">
               <ProductIcon
-                :product-id="selected.id"
+                :product-slug="selected.slug"
                 :name="selected.name"
                 size="lg"
-                class="mr-2"
               />
               {{ selected.name }}
-              <Popover placement="bottom-start">
-                <PopoverTrigger as-child>
-                  <Button
-                    variant="ghost"
-                    tone="neutral"
-                    size="sm"
-                    class="px-1.5 text-muted-foreground"
-                    aria-label="Registry identifiers"
-                    title="Registry identifiers"
-                  >
-                    <Info :size="15" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent class="w-80 p-3 text-xs font-normal">
-                  <p class="text-muted-foreground">Product ID</p>
-                  <div class="mt-1 flex items-center gap-2">
-                    <code class="min-w-0 flex-1 break-all font-mono">{{
-                      selected.id
-                    }}</code>
-                    <CopyButton
-                      :text="selected.id"
-                      size="sm"
-                      aria-label="Copy the product ID"
-                      copied-aria-label="Product ID copied"
-                    />
-                  </div>
-                </PopoverContent>
-              </Popover>
             </h2>
-            <p class="mt-1 break-all font-mono text-xs text-muted-foreground">
+            <p class="mt-2 max-w-prose text-sm text-muted-foreground">
+              {{ selected.description }}
+            </p>
+            <p
+              class="mt-2 flex items-center gap-1 font-mono text-xs text-muted-foreground"
+            >
               {{ selected.slug }}
+              <CopyButton
+                :text="selected.slug"
+                size="sm"
+                aria-label="Copy the product slug"
+                copied-aria-label="Product slug copied"
+              />
             </p>
           </div>
-          <Button variant="outline" size="sm" @click="editProduct(selected)">
-            <template #leading><Pencil :size="15" /></template>Edit product
-          </Button>
+          <div class="w-44">
+            <SelectPicker
+              :model-value="selected.lifecycle"
+              :get-option-label="(value) => lifecycle(value as ProductLifecycle).label"
+              :is-disabled="saving"
+              @update:model-value="changeLifecycle"
+              ><SelectPickerTrigger aria-label="Lifecycle"
+                ><SelectPickerValue placeholder="Lifecycle" /></SelectPickerTrigger
+              ><SelectPickerContent
+                ><SelectPickerItem
+                  v-for="item in Lifecycles"
+                  :key="item.value"
+                  :item-key="item.value"
+                  :label="item.label"
+                  >{{ item.label }}</SelectPickerItem
+                ></SelectPickerContent
+              ></SelectPicker
+            >
+            <p
+              v-if="saveError"
+              role="alert"
+              class="mt-2 text-xs text-destructive"
+            >
+              {{ saveError }}
+            </p>
+          </div>
         </div>
-        <dl class="my-6 grid gap-x-8 gap-y-6 text-sm sm:grid-cols-2">
-          <div class="min-w-0 sm:col-span-2">
+        <dl class="my-6 grid gap-x-8 gap-y-6 text-sm">
+          <div class="min-w-0">
             <dt class="mb-2 text-xs text-muted-foreground">
               Source repository
             </dt>
             <dd>
               <RepositoryActions
-                :repository="selected.repo"
-                :runner-product="runnerProduct"
+                :repository="selected.repository.name"
+                :runner-product="selected.slug"
               />
             </dd>
           </div>
-          <div>
-            <dt class="mb-1 text-xs text-muted-foreground">Lifecycle</dt>
-            <dd>
-              <Badge :variant="statusVariant[selected.status]">{{
-                selected.status
-              }}</Badge>
+          <div class="min-w-0">
+            <dt class="mb-2 text-xs text-muted-foreground">Environments</dt>
+            <dd v-if="selected.environments.length === 0" class="text-muted-foreground">
+              No fleet target runs it yet.
+            </dd>
+            <dd v-else>
+              <ul class="divide-y divide-border rounded-xl border border-border">
+                <li
+                  v-for="environment in selected.environments"
+                  :key="environment.name"
+                  class="grid gap-2 p-3 sm:grid-cols-[6rem_minmax(0,1fr)_minmax(0,14rem)] sm:items-center"
+                >
+                  <span class="text-sm font-medium">{{ environment.name }}</span>
+                  <span class="flex min-w-0 flex-wrap gap-x-3 gap-y-1">
+                    <a
+                      v-for="site in environment.sites"
+                      :key="site.name"
+                      :href="site.url"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="inline-flex min-w-0 items-center gap-1 text-primary hover:underline"
+                      :title="site.exposure === 'private' ? 'Private network only' : undefined"
+                      ><span class="truncate">{{ site.name }}</span
+                      ><ExternalLink :size="12" class="shrink-0"
+                    /></a>
+                    <span
+                      v-if="environment.sites.length === 0"
+                      class="text-muted-foreground"
+                      >Not rolled out yet</span
+                    >
+                  </span>
+                  <span
+                    v-if="environment.secrets"
+                    class="flex min-w-0 items-center gap-1 font-mono text-xs text-muted-foreground"
+                    :title="`Vault ${environment.secrets.vault}`"
+                  >
+                    <KeyRound :size="12" class="shrink-0" />
+                    <RouterLink to="/secrets" class="truncate hover:text-foreground">{{
+                      environment.secrets.namespace
+                    }}</RouterLink>
+                  </span>
+                  <span v-else class="text-xs text-muted-foreground">No vault</span>
+                </li>
+              </ul>
             </dd>
           </div>
-          <div>
-            <dt class="mb-1 text-xs text-muted-foreground">Registered</dt>
-            <dd>{{ new Date(selected.createdAtUtc).toLocaleString() }}</dd>
-          </div>
         </dl>
-        <div
-          v-if="confirmingDelete"
-          class="space-y-3 rounded-xl bg-destructive-soft p-4"
-        >
-          <p class="text-sm text-destructive-soft-foreground">
-            Delete {{ selected.name }}? This cannot be undone.
-          </p>
-          <p
-            v-if="deleteError"
-            role="alert"
-            class="text-sm text-destructive-soft-foreground"
-          >
-            {{ deleteError }}
-          </p>
-          <div class="flex gap-2">
-            <Button
-              size="sm"
-              variant="ghost"
-              tone="neutral"
-              :is-disabled="deleting"
-              @click="confirmingDelete = false"
-              >Cancel</Button
-            >
-            <Button
-              size="sm"
-              tone="danger"
-              :is-loading="deleting"
-              @click="deleteProduct"
-              >Delete product</Button
-            >
-          </div>
-        </div>
-        <div v-else class="border-t border-border pt-4">
-          <Button
-            variant="ghost"
-            tone="danger"
-            size="sm"
-            aria-label="Delete product"
-            @click="confirmingDelete = true"
-          >
-            <template #leading><Trash2 :size="14" /></template>Delete product
-          </Button>
-        </div>
       </template>
       <div
         v-else
@@ -381,46 +317,9 @@ function saved(): void {
       >
         <Package :size="24" />
         <p class="text-sm">
-          {{
-            search
-              ? "No products match your search."
-              : "Select a product to inspect its details."
-          }}
+          {{ search ? "No products match your search." : "Select a product." }}
         </p>
       </div>
     </section>
   </div>
-
-  <Modal
-    :open="formOpen"
-    :dismiss-on-outside-click="!formPending"
-    :dismiss-on-escape="!formPending"
-    @update:open="
-      (open) => {
-        if (!open) closeForm();
-      }
-    "
-  >
-    <ModalContent class="flex max-h-[calc(100dvh-2rem)] w-[min(40rem,calc(100vw-2rem))] flex-col overflow-y-auto">
-      <ModalHeader>
-        <ModalTitle>{{
-          editing ? "Edit product" : "Register product"
-        }}</ModalTitle>
-        <ModalDescription
-          >Connect a portfolio product to its GitHub source
-          repository.</ModalDescription
-        >
-      </ModalHeader>
-      <RegisterProductForm
-        v-if="formOpen"
-        :key="editing?.id ?? 'new'"
-        v-bind="editing ? { initialProduct: editing } : {}"
-        :create="create"
-        :update="update"
-        @saved="saved"
-        @cancel="closeForm"
-        @pending="formPending = $event"
-      />
-    </ModalContent>
-  </Modal>
 </template>

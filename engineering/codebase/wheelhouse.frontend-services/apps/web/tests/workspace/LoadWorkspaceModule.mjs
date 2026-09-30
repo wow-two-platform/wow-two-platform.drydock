@@ -10,10 +10,12 @@ export async function loadWorkspaceModule(name) {
   return import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
 }
 
-/** Creates a registry record for workspace tests. */
+/** Creates a catalog product for workspace tests. */
 export function product(overrides = {}) {
-  return { id: 'registry-1', slug: 'forever-pin', name: 'Forever Pin',
-    repo: 'sulton-max/10x-venture-forever-pin', status: 'Draft', createdAtUtc: '2026-09-26T00:00:00Z', ...overrides };
+  return { slug: 'foreverpin', name: 'ForeverPin', description: 'Styled QR codes.', lifecycle: 'building',
+    repository: { name: 'sulton-max/10x-venture-forever-pin', url: 'https://github.com/sulton-max/10x-venture-forever-pin',
+      defaultBranch: 'main' },
+    iconUrl: '/api/products/foreverpin/icon', environments: [], ...overrides };
 }
 
 /** Creates a literal runner target for workspace tests. */

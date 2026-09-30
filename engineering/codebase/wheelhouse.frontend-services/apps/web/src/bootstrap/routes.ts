@@ -10,8 +10,13 @@ export const AppPlaces = [
   },
   { path: '/servers', label: 'Servers', description: 'Your servers and their services, with current resource readings.' },
   { path: '/secrets', label: 'Secrets', description: 'Vault namespaces, write-only secrets, and product tokens.' },
-  { path: '/products', label: 'Products', description: 'The registry behind your portfolio.' },
+  { path: '/products', label: 'Products', description: 'Your portfolio, as the product catalog defines it.' },
   { path: '/activity', label: 'Activity', description: 'Every operator action, chained so an edited entry shows.' },
+] as const;
+
+/** Keeps account-level destinations out of the primary navigation; the profile menu opens them. */
+export const SettingsPlaces = [
+  { path: '/settings/keys', label: 'Integration keys', description: 'Scoped keys other programs present to read Wheelhouse.' },
 ] as const;
 
 /** Resolves the existing public URLs to Vue route components. */
@@ -25,6 +30,7 @@ export const router = createRouter({
     { path: '/secrets', component: () => import('@/presentation/secrets/pages/SecretsPage.vue') },
     { path: '/products', component: () => import('@/presentation/products/pages/ProductsPage.vue') },
     { path: '/activity', component: () => import('@/presentation/audit/pages/ActivityPage.vue') },
+    { path: '/settings/keys', component: () => import('@/presentation/integrations/pages/IntegrationKeysPage.vue') },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
 });

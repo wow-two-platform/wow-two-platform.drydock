@@ -1,7 +1,7 @@
 /** How an audited operator action ended. */
 export const AuditOutcome = {
-  Succeeded: 'Succeeded',
-  Failed: 'Failed',
+  Succeeded: 'succeeded',
+  Failed: 'failed',
 } as const;
 export type AuditOutcome = (typeof AuditOutcome)[keyof typeof AuditOutcome];
 

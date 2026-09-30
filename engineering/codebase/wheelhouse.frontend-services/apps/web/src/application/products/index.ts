@@ -1,36 +1,22 @@
 import { computed } from "vue";
 import { useAppMutation, useAppQuery } from "@/bootstrap/query";
-import type {
-  CreateProductRequest,
-  UpdateProductRequest,
-} from "@/domain/products";
+import type { ProductLifecycle } from "@/domain/products";
 import { productsApi } from "@/integration/products";
 
 const ProductKeys = { list: ["products"] as const };
 
-/** The portfolio registry with confirmed, result-returning mutations. */
+/** The code-owned product catalog, with the operator's confirmed lifecycle changes. */
 export function useProducts() {
   const list = useAppQuery({
     key: ProductKeys.list,
     queryFn: ({ signal }) => productsApi.listProducts(signal),
   });
-  const invalidates = () => [ProductKeys.list];
-  const create = useAppMutation({
-    mutationFn: (body: CreateProductRequest, { signal }) =>
-      productsApi.createProduct(body, signal),
-    invalidates,
-  });
-  const update = useAppMutation({
+  const lifecycle = useAppMutation({
     mutationFn: (
-      { id, body }: { id: string; body: UpdateProductRequest },
+      { slug, value }: { slug: string; value: ProductLifecycle },
       { signal },
-    ) => productsApi.updateProduct(id, body, signal),
-    invalidates,
-  });
-  const remove = useAppMutation({
-    mutationFn: (id: string, { signal }) =>
-      productsApi.deleteProduct(id, signal),
-    invalidates,
+    ) => productsApi.updateLifecycle(slug, value, signal),
+    invalidates: () => [ProductKeys.list],
   });
   const products = computed(() => list.data.value ?? []);
   const error = computed(() => list.error.value?.message ?? null);
@@ -42,12 +28,7 @@ export function useProducts() {
     reload: async () => {
       await list.refetch();
     },
-    create: (body: CreateProductRequest) => create.mutateAsync(body),
-    update: (id: string, body: UpdateProductRequest) =>
-      update.mutateAsync({ id, body }),
-    remove: (id: string) => remove.mutateAsync(id),
+    setLifecycle: (slug: string, value: ProductLifecycle) =>
+      lifecycle.mutateAsync({ slug, value }),
   };
 }
-
-/** Operations accepted by the registration and editing form. */
-export type ProductOperations = ReturnType<typeof useProducts>;

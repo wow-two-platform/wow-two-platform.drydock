@@ -1,44 +1,45 @@
 import { z } from "zod";
-import {
-  ProductStatus,
-  type CreateProductRequest,
-  type Product,
-  type UpdateProductRequest,
-} from "@/domain/products";
-import { requestData, requestEmpty } from "@/integration/common";
+import { ProductLifecycle, type Product } from "@/domain/products";
+import { requestData } from "@/integration/common";
 
 const ProductSchema = z.object({
-  id: z.string(),
   slug: z.string(),
   name: z.string(),
-  repo: z.string(),
-  status: z.enum(ProductStatus),
-  createdAtUtc: z.string(),
+  description: z.string(),
+  lifecycle: z.enum(ProductLifecycle),
+  repository: z.object({
+    name: z.string(),
+    url: z.string(),
+    defaultBranch: z.string(),
+  }),
+  iconUrl: z.string(),
+  environments: z.array(
+    z.object({
+      name: z.string(),
+      sites: z.array(
+        z.object({
+          name: z.string(),
+          url: z.string(),
+          exposure: z.enum(["public", "private"]),
+        }),
+      ),
+      secrets: z.object({ vault: z.string(), namespace: z.string() }).nullable(),
+    }),
+  ),
 });
 
-/** The portfolio registry, with validated responses and explicit mutation cancellation. */
+/** The code-owned product catalog, with validated responses and an explicit lifecycle write. */
 export const productsApi = {
   listProducts: (signal?: AbortSignal) =>
     requestData<Product[]>("/api/products", ProductSchema.array(), { signal }),
-  createProduct: (body: CreateProductRequest, signal?: AbortSignal) =>
-    requestData<Product>("/api/products", ProductSchema, {
-      method: "POST",
-      body,
-      signal,
-    }),
-  updateProduct: (
-    id: string,
-    body: UpdateProductRequest,
+  updateLifecycle: (
+    slug: string,
+    lifecycle: ProductLifecycle,
     signal?: AbortSignal,
   ) =>
     requestData<Product>(
-      `/api/products/${encodeURIComponent(id)}`,
+      `/api/products/${encodeURIComponent(slug)}/lifecycle`,
       ProductSchema,
-      { method: "PUT", body, signal },
+      { method: "PUT", body: { lifecycle }, signal, action: "lifecycle" },
     ),
-  deleteProduct: (id: string, signal?: AbortSignal) =>
-    requestEmpty(`/api/products/${encodeURIComponent(id)}`, {
-      method: "DELETE",
-      signal,
-    }),
 };

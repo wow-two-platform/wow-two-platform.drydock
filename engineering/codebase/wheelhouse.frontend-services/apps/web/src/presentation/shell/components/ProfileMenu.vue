@@ -12,7 +12,8 @@ export interface ProfileMenuProps {
 }
 </script>
 <script setup lang="ts">
-import { Check, ChevronDown, LogOut, Monitor, Moon, Sun } from 'lucide-vue-next';
+import { useRouter } from 'vue-router';
+import { Check, ChevronDown, KeyRound, LogOut, Monitor, Moon, Sun } from 'lucide-vue-next';
 import { Avatar } from '@wow-two-beta/ui-vue/presentation/display';
 import {
   DropdownMenu,
@@ -27,6 +28,7 @@ import {
 defineOptions({ name: 'ProfileMenu' });
 const props = defineProps<ProfileMenuProps>();
 const emit = defineEmits<{ scheme: [value: ColorScheme]; signOut: [] }>();
+const router = useRouter();
 const consoleVersion = __APP_VERSION__;
 /** Shortens a build's `+<commit>` suffix to seven characters. @internal */
 function short(version: string): string {
@@ -66,6 +68,8 @@ const schemes = [
         <component :is="item.icon" :size="15" />{{ item.label }}
         <Check v-if="props.scheme === item.value" :size="14" class="ml-auto" />
       </MenuItem>
+      <MenuSeparator />
+      <MenuItem @select="router.push('/settings/keys')"><KeyRound :size="15" />Integration keys</MenuItem>
       <MenuSeparator />
       <MenuItem state="destructive" @select="emit('signOut')"><LogOut :size="15" />Sign out</MenuItem>
     </DropdownMenuContent>

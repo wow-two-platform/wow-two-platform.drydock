@@ -20,8 +20,6 @@ import {
 } from '@wow-two-beta/ui-vue/presentation/forms';
 import { useServers, useServerVitals, useVitalsHistory } from '@/application/servers';
 import { useDeploymentTargets } from '@/application/deployments';
-import { useProducts } from '@/application/products';
-import { buildWorkspaceInventory } from '@/application/workspace/WorkspaceInventory';
 import { useRefresh } from '@/application/common';
 import { ServerExtensions, TrendRanges, VpsProvider, hostTrend, type TrendRange } from '@/domain/servers';
 import { Measures } from '@/domain/common';
@@ -35,18 +33,15 @@ defineOptions({ name: 'ServersPage' });
 const servers = useServers();
 const vitals = useServerVitals();
 const targets = useDeploymentTargets();
-const products = useProducts();
+/** Each target opens in the workspace under its product, whose catalog slug the target names. */
 const workspaceLinks = computed(() => {
   const links = new Map<string, { path: string; query: { product: string; target: string; inspect: string } }>();
-  if (products.loading.value || products.error.value || targets.loading.value || targets.error.value) return links;
-  for (const product of buildWorkspaceInventory(products.products.value, targets.data.value ?? []).products) {
-    for (const target of product.targets) {
-      links.set(target.id, { path: '/', query: { product: product.key, target: target.id, inspect: 'target' } });
-    }
-  }
+  if (targets.loading.value || targets.error.value) return links;
+  for (const target of targets.data.value ?? [])
+    links.set(target.id, { path: '/', query: { product: target.product, target: target.id, inspect: 'target' } });
   return links;
 });
-const refresh = useRefresh(() => Promise.all([servers.refetch(), vitals.refetch(), targets.refetch(), products.reload()]));
+const refresh = useRefresh(() => Promise.all([servers.refetch(), vitals.refetch(), targets.refetch()]));
 const provider = ref<string | null>(null);
 const visible = computed(() =>
   (servers.data.value ?? []).filter((server) => !provider.value || server.provider === provider.value),
