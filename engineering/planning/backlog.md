@@ -1,6 +1,6 @@
 # Wheelhouse — Backlog
 
-*Last updated: 2026-09-29*
+*Last updated: 2026-09-30*
 
 Every unbuilt item; top of each group = next. The active version is the newest folder in
 [version-track](version-track/).
@@ -9,7 +9,8 @@ Every unbuilt item; top of each group = next. The active version is the newest f
 
 | Feature | State | Boundary today |
 |---|---|---|
-| Product inventory | shipped v0.1 | Create, list, update and delete portfolio metadata |
+| Product catalog | shipped v0.3 | Identity in the runner's `catalog.py`; the operator records the lifecycle; environments, sites and vault namespaces |
+| Integration keys | shipped v0.3 | Scoped, revocable keys; `catalog:read` reads `/api/products`, nothing else |
 | Server inventory | shipped v0.3 | Read-only hosts and provider filters; definitions in code |
 | Environments | shipped v0.3 | `dev`, `test` and `prod` per product on one host; the local server runs all three |
 | Release catalog | shipped v0.3 | Published releases and per-commit builds from approved repositories; a build starts for a commit without one |
@@ -100,12 +101,22 @@ Dynamic provider plugins and UI-based VPS registration are excluded by product d
 
 | Item | Type | Notes |
 |---|---|---|
-| One code-owned product catalog with ownership and kill-gate metrics | feature | Product identity lives in four places today (completeness Point 1) |
+| Ownership and kill-gate metrics on the catalog | feature | Identity lives in `catalog.py` since v0.3; metrics need cost and usage feeds |
 | Second provider and a placement view | feature | Provider enum plus integration in code |
 | Cost per product and host | feature | Feeds the micro-SaaS kill gates |
 | Host view with capacity and a portfolio matrix | feature | Beside the per-environment service map |
 | Teardown with a final backup and archive | feature | |
 | Zero-to-live scaffold from the product template | feature | Repository, CI, first deployment |
+
+---
+
+## Integrations
+
+| Item | Type | Notes |
+|---|---|---|
+| MCP endpoint for Claude and Codex | feature | Tools over the existing handlers; the backend SDK `Ai/Mcp` module is empty today |
+| Build, deploy and log scopes for integration keys | feature | `builds:write`, `deployments:read`, `deployments:write`, `logs:read`; prod keeps the typed target ID |
+| Key expiry and rotation reminders | feature | Keys live until revoked today |
 
 ---
 
@@ -115,10 +126,10 @@ Dynamic provider plugins and UI-based VPS registration are excluded by product d
 |---|---|---|
 | Delete the local copies of published UI SDK parts | check | `CanvasArea`, skeleton slots, `useRefresh`, `RefreshButton` internals and per-modal height classes; pinned `0.0.9` ships them |
 | Move the frame onto the SDK `AppShell` and `Navbar` | check | `AppLayout.vue` hand-builds the region-scrolling frame the SDK now ships |
-| Re-pin `WoW2.Sdk.Backend.Beta` past `10.0.40-beta` | check | `10.0.59-beta` is published |
 | Replace the E2E `TestAuth` with the SDK's `AddTestAuth` header gate | check | Keep anonymous → 401 and admin → 200 |
-| Replace the local `Stub*` and `Fake*` clients with the SDK testing fakes | check | `Tests.E2E/Harness`, `Tests.Unit/Fakes` |
-| Derive the product and server repositories from the SDK `EfRepository` | check | Keep the `Exists*` predicates and `CreatedAtUtc`/`Id` ordering |
+| Replace the local `Stub*` clients with the SDK testing fakes | check | `Tests.E2E/Harness` |
+| Derive the server, product metadata and integration key repositories from the SDK `EfRepository` | check | Keep the `Exists*` predicates and `CreatedAt`/`Id` ordering |
+| Extract the "allowlisted session or scoped key" policy to the backend SDK | check | `Api/Auth/ProductsReadAuthorizationHandler.cs` proves it |
 | Extract the vault admin client to the backend SDK | check | v0.3 proves it |
 | Extract repository tree and file reads to the backend SDK GitHub client | check | `Infrastructure/Products/GitHubProductIconSource.cs` calls the REST API inline |
 | UI SDK `Table` sticky-header option | feature | `TableStyles` pins an opaque head meanwhile |
@@ -132,13 +143,11 @@ Dynamic provider plugins and UI-based VPS registration are excluded by product d
 | Item | Type | Notes |
 |---|---|---|
 | Retire the placeholder server, deployment, domain and secret tables | issue | Unused since the code-owned fleet |
-| Require the action header on product writes | issue | Every other write carries it; waits on the product catalog (completeness Point 1) |
-| Retire the single-image version-status query | issue | Replaced by the release catalog |
+| Drop the legacy `products` table | issue | Unread since migration 006; its statuses seeded `product_metadata` |
 | Shape-keeping first loads on the remaining pages | feature | Workspace, Deployments, Servers, Products and Activity still show block skeletons on a first load |
-| Rename the runner's `fleet.py` and `rehearse.py` | check | The screen says Servers and local server; do it with the product catalog split (Point 1) |
+| Rename the runner's `fleet.py` and `rehearse.py` | check | The screen says Servers and local server; `catalog.py` split out in v0.3 |
 | Stamp applied migrations with the product version | issue | `MigrationOptions.Version` keeps the SDK default `v1.0` |
-| Clear the transitive backend package advisories | issue | Five high, four moderate; they arrive through the backend SDK at `10.0.40-beta` |
-| Rename backend tests to `{Unit}_Should{Expectation}_When{Condition}` | check | 147 of 148 test methods predate the testing convention's naming rule |
+| Rename backend tests to `{Unit}_Should{Expectation}_When{Condition}` | check | Tests older than the v0.3 catalog predate the testing convention's naming rule |
 | Adopt the product template's ESLint, Prettier config and `format:check` gates | check | 86 app files predate a formatter config; format once in a dedicated commit |
 
 ---

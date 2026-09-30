@@ -1,6 +1,6 @@
 # Feature completeness — vectors, reliability and shipping Wheelhouse
 
-*Last updated: 2026-09-29*
+*Last updated: 2026-09-30*
 
 What Wheelhouse needs before it is complete and reliable enough to run the portfolio: the five vectors the product
 named (topology, secrets, domains, portfolio, service map), the reliability properties, how Wheelhouse ships itself,
@@ -181,7 +181,7 @@ Placement options:
 
 | # | Finding | Evidence | Lands in |
 |---|---|---|---|
-| S1 | Product identity lives in four places; adding a product takes four edits and a rebuild | Database `products`, `artifacts.py` `SOURCES`, `fleet.py` targets, the frontend's `WorkspaceProductBindings` | Point 1 |
+| S1 | Product identity lives in four places; adding a product takes four edits and a rebuild | Database `products`, `artifacts.py` `SOURCES`, `fleet.py` targets, the frontend's `WorkspaceProductBindings` | v0.3 ✓ |
 | S2 | No audit trail of operator actions | Jobs record `actor`; vault changes reach only the app log (`VaultChangeCommandHandler.cs:17`); build requests and product edits keep no actor | v0.3 ✓ |
 | S3 | A deploy shows only its outcome and reason, never its steps | The job record holds status, failure, reason and timestamps | v0.3 ✓ |
 | S4 | Nothing requests a published site through the ingress | Smoke runs `compose exec <service> curl http://localhost:8080<path>` inside the container | v0.3 ✓ |
@@ -200,7 +200,7 @@ Placement options:
 | S17 | Old local containers run beside the rig | `drydock-pilot-*`, `foreverpin-rehearsal-*`, the old console image | Foundation |
 | S18 | Local console sign-in is still open | v0.3 Iteration 5: a second OAuth app for `:18210` | v0.3 |
 | S19 | Targets never removed images, so every release and candidate pull stayed on disk | No `docker image rm` anywhere in the runner | v0.3 ✓ |
-| S20 | Product writes skip the `X-Wheelhouse-Action` guard every other write carries | `ProductsController` POST/PUT/DELETE | After Point 1 |
+| S20 | Product writes skip the `X-Wheelhouse-Action` guard every other write carries | `ProductsController` POST/PUT/DELETE | v0.3 ✓ |
 | S21 | Releases and candidates were visible only inside the deploy dialog | No catalog view | v0.3 ✓ |
 | S22 | The target check never looked at the ingress, so a stopped Traefik passed | `check` covered SSH, Docker, disk, network, settings | v0.3 ✓ |
 | S23 | No browser tests: every UI flow is verified by hand | Frontend tests cover schemas and pure rules only | Adoption version |
@@ -238,12 +238,12 @@ guard, the audit behavior, the Vue refresh and log-viewer patterns) move to the 
 
 Decide top to bottom; a parent settles before its children.
 
-1. [ ] Product catalog: one code-owned `catalog.py` names every product; the database keeps operator metadata only.
+1. [x] Product catalog: one code-owned `catalog.py` names every product; the database keeps operator metadata only. Built in v0.3.
 2. [ ] Settings delivery: the runner renders settings files; products read secrets from the vault at startup; Wheelhouse never reads a value.
 3. [ ] Vault placement: one vault per host, one namespace per product environment.
 4. [ ] DNS ownership: records derive from code-owned site hosts; Wheelhouse plans and applies them; no hand-edited records.
 5. [ ] Providers: Cloudflare DNS with per-zone tokens; the registrar after its own analysis, including payment from Uzbekistan.
-6. [ ] Alert channel: a Telegram bot for alerts and deploy outcomes.
+6. [x] Alert channel: a Telegram bot for alerts and deploy outcomes.
 7. [ ] Wheelhouse host: a separate control VPS on Tailscale; the laptop CLI stays the break-glass path.
-8. [ ] Repository visibility: private before `fleet.py` holds real host addresses.
+8. [x] Repository visibility: private before `fleet.py` holds real host addresses.
 9. [ ] GitHub access: one GitHub App replaces the sign-in `repo` scope and the runner's token file.

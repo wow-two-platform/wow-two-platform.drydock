@@ -12,7 +12,7 @@
 | Brand assets, logo usage and sizes | `product/brand/brand.md` |
 | Features, deferred work, open decisions | `engineering/planning/backlog.md` |
 | Per-version progress (newest folder = active version) | `engineering/planning/version-track/v{X.Y}/v{X.Y}.md` |
-| Runtime, release contract, execution, artifacts, fleet, workspace | `engineering/architecture/architecture.md` |
+| Runtime, release contract, execution, artifacts, fleet, catalog, integrations and agents, workspace | `engineering/architecture/architecture.md` |
 | Backend dev guidelines | `engineering/development/backend-guidelines.md` |
 | Frontend dev guidelines | `engineering/development/frontend-guidelines.md` |
 | Operational rules | `engineering/development/rules.md` |
@@ -32,10 +32,10 @@
 |---|---|
 | `Wheelhouse.Api` | HTTP host — control-plane controllers; single-host SPA serving |
 | `Wheelhouse.Application` | Use cases — mediator handlers, repository abstractions, DTOs |
-| `Wheelhouse.Domain` | Entities (Server/Product/Deployment/ManagedDomain/SecretEntry, audit, operations) + enums |
-| `Wheelhouse.Infrastructure` | Adapters — runner process gateway, vault admin client, settings |
+| `Wheelhouse.Domain` | Entities (product metadata, integration keys, audit, operations, legacy Server/Deployment/ManagedDomain/SecretEntry) + enums |
+| `Wheelhouse.Infrastructure` | Adapters — runner process gateway, runner product catalog, vault admin client, icon source, settings |
 | `Wheelhouse.Persistence` | EF Core + Postgres context, repositories, hand-authored SQL migrations |
-| `Wheelhouse.Tests.Unit` | **Unit** tier — pure logic (version-state machine, validators); Docker-free |
+| `Wheelhouse.Tests.Unit` | **Unit** tier — pure logic (validators, icon paths, runner and vault adapters); Docker-free |
 | `Wheelhouse.Tests.Integration` | **Integration** tier — EF model below the pipeline over the SDK `RelationalTestDb`, no HTTP; PG↔SQLite |
 | `Wheelhouse.Tests.E2E` | **E2E** tier — full host + Testcontainers PG (on `…Beta.Testing`) |
 | `Wheelhouse.Tests.Migrations` | **Migrations** tier — bespoke SQL migrator apply/idempotency/rollback over real PG, on the SDK `MigratorHarness` |
@@ -43,11 +43,12 @@
 ### `codebase/wheelhouse.frontend-services/` (pnpm workspace)
 | App | What it is |
 |---|---|
-| `apps/web` (`@wheelhouse/web`) | Control-plane workspace — deployments, servers, secrets, products, activity |
+| `apps/web` (`@wheelhouse/web`) | Control-plane workspace — deployments, servers, secrets, products, activity, integration keys |
 
 ### `codebase/wheelhouse.runner-services/` (Python)
 | File | What it is |
 |---|---|
+| `catalog.py` | Code-owned products: identity, repository, release source |
 | `fleet.py` | Code-owned providers, servers, targets, vaults |
 | `artifacts.py` | Approved release sources and catalog |
 | `transport.py` | Operator CLI + SSH adapter used by the API |

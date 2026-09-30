@@ -32,8 +32,9 @@ Backend layers: `Domain` (entities/enums) → `Application` (SDK mediator CQRS +
 
 ## Core domains (the 5 things Wheelhouse manages)
 
-Products · Servers · Deployments · Domains · Secrets. **Products** (create/list/update/delete) and **Servers**
-(read-only code-owned fleet) are wired end-to-end. Deployments use the independent runner and published artifact
+Products · Servers · Deployments · Domains · Secrets. **Products** (code-owned `catalog.py`; the operator records
+the lifecycle; integrations read `/api/products` with scoped keys) and **Servers** (read-only code-owned fleet) are
+wired end-to-end. Deployments use the independent runner and published artifact
 catalog, with history, live rollout steps, site probes, read-only checks, log reads and reconciliation. **Secrets** are
 administered in code-owned vaults through the vault console (write-only values). Domains remain a scaffold model.
 Every audited command (`IAuditedCommand`) lands in the hash-chained `audit_entries` trail; never put a value in one.
@@ -66,7 +67,7 @@ cd engineering/deployment/rehearsal && python3 rehearse.py console   # http://lo
 4-tier `{Product}.Tests.{Type}`, e2e-first (run all: `dotnet test Wheelhouse.BackendServices.slnx`). Solution folders: `Services/` + `Tests/`.
 Package versions are central in `Directory.Packages.props`; `global.json` pins the SDK band; `tests.runsettings` runs tests as `Development`.
 
-- **`Wheelhouse.Tests.Unit`** — pure logic (version-state machine, validators). Docker-free.
+- **`Wheelhouse.Tests.Unit`** — pure logic (validators, icon paths, runner and vault adapters, hygiene rules). Docker-free.
 - **`Wheelhouse.Tests.Integration`** — the EF model below the pipeline: `WheelhouseDbContext` over the SDK
   `RelationalTestDb` (enum round-trip, repository predicates/ordering, unique-index constraints), no HTTP.
   Provider-switchable PG↔SQLite (`WHEELHOUSE_TEST_DB=sqlite`). Docker (PG default).
@@ -92,9 +93,9 @@ Reserve unit for I/O-free logic; everything user-facing is covered e2e. Full rul
   Badge, Heading, Text, EmptyState, Alert, Spinner, TextInput, …) before hand-rolling. Tailwind v4 wiring: `index.css`
   imports `tailwindcss` + `@wow-two-beta/ui-vue/styles.css` and `@source`s the package's `dist` so its
   utility classes are generated. Shared capability gaps belong in the SDK. Product composition stays local.
-- **Backend → `WoW.Two.Sdk.Backend.Beta` (adopted, `10.0.40-beta`).** `v0.2` migrated every layer onto
+- **Backend → `WoW.Two.Sdk.Backend.Beta` (adopted, `10.0.62-beta`).** `v0.2` migrated every layer onto
   the SDK: host floor (`AddApiDefaults`/`UseApiDefaults`), mediator + results + validation, identity
-  (GitHub OAuth + cookie + allowlist/default-deny), `Integrations.GitHub`/`Ghcr` clients, the bespoke SQL
+  (GitHub OAuth + cookie + allowlist/default-deny + scoped API keys), the bespoke SQL
   migrator, and `…Beta.Testing` for the test harness. Products hold business logic only; new infra proves
   inline then extracts to the SDK in the next `+0.1` (see `engineering/planning/backlog.md` § SDK adoption).
 
@@ -110,7 +111,8 @@ Auth/multi-tenant/billing (single-user — bind to Tailscale).
 
 ## Fleet and artifact policy
 
-Providers and individual VPS bindings are defined in `engineering/codebase/wheelhouse.runner-services/fleet.py`.
+Products are defined in `engineering/codebase/wheelhouse.runner-services/catalog.py`; providers and individual VPS
+bindings in `fleet.py`.
 Provider/environment choices use enums; no dynamic provider plugins or Add VPS UI/API.
 `artifacts.py` owns approved release sources. Wheelhouse deploys published releases and per-commit builds; it starts a
 product's build workflow only for a commit that has no build, and never builds on a target host.

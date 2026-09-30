@@ -1,13 +1,13 @@
 # Wheelhouse architecture
 
-*Last updated: 2026-09-29*
+*Last updated: 2026-09-30*
 
 ## Runtime
 
 A .NET 10 host serves the private administration API and Vue workspace.
-PostgreSQL stores the product registry and legacy inventory tables; bespoke SQL migrations run on startup.
-GitHub cookie authentication and an owner allowlist protect administration.
-Production requires a nonempty owner allowlist.
+PostgreSQL stores product lifecycles, integration keys, the audit trail and vitals; bespoke SQL migrations run on
+startup. GitHub cookie authentication and an owner allowlist protect administration; a scoped integration key reads
+the product catalog and nothing else. Production requires a nonempty owner allowlist.
 
 ```mermaid
 flowchart LR
@@ -30,11 +30,11 @@ flowchart LR
 | Layer | Responsibility |
 |---|---|
 | Domain | Product, server, deployment, domain and secret models |
-| Application | Product use cases and deployment gateway requests |
+| Application | Catalog, lifecycle, integration key, audit, vault and deployment use cases |
 | Infrastructure | SDK integration clients and bounded runner-process adapter |
 | Persistence | PostgreSQL EF mapping, repositories and bespoke migration files |
 | API | Host wiring, authorization, request validation, controllers and SPA serving |
-| Python runner | Code-owned fleet and vault catalog, release discovery, bundle validation, SSH, rollout, checks and recovery |
+| Python runner | Code-owned product catalog, fleet and vaults, release discovery, bundle validation, SSH, rollout, checks and recovery |
 | Vault gateway | Administers catalog vaults over their management API; values are write-only |
 
 The pre-existing server/deployment/domain/secret database models are retained for compatibility.
@@ -94,6 +94,36 @@ Wheelhouse rebuild; a new provider also needs an enum member and its integration
 with the host. Every product runs `dev`, `test` and `prod` on one host, separated by Compose project, network alias,
 database, settings files and hostnames. Moving a stateful product needs a backup, a write freeze, a verified restore
 and an explicit cutover; a second host definition does not make a service redundant.
+
+## Product catalog
+
+A product's identity lives in `wheelhouse.runner-services/catalog.py`, reviewed code like the fleet: slug, name,
+description, repository, default branch and an optional release source. Adding a product is a code change; the
+runner refuses a target or release source for a product the catalog lacks. The database keeps only what the operator
+records without a review — the lifecycle (idea, building, live, paused, killed) — keyed by slug.
+
+`/api/products` joins the two: each product's environments come from its fleet targets, each environment's sites from
+the newest rollout this control plane saw succeed (no target is contacted), and its vault namespace is
+`{product}-{environment}` on its server's first vault. The response carries no targets, releases or deployment state,
+so an integration reads products without deployment concepts. The runner read is cached for 30 seconds.
+
+## Integrations and agents
+
+Another program — an app, a script, Claude or Codex — reads Wheelhouse with an integration key: the SDK `ApiKey`
+scheme with the `wh_` marker. Only the secret's SHA-256 and a display prefix are stored; the secret is shown once;
+a key can be revoked and shows its last use. A key grants scopes, `catalog:read` today, and reaches only endpoints
+whose policy names the key scheme; every other endpoint stays cookie-only through the default-deny fallback, and
+key management is the operator's alone. A key's actions audit as `key:{name}`.
+
+Delegating builds and deploys to an agent follows the same seams, so the MCP server is an adapter, not a rewrite:
+
+- Tools map one to one onto the application's mediator requests: products, releases and builds, build start,
+  deploy, target check and log reads.
+- The MCP endpoint authenticates with the same keys; each tool requires a scope — `builds:write`,
+  `deployments:read`, `deployments:write` and `logs:read` join `catalog:read`.
+- Gates stay in the handlers and the runner, so an agent meets them too: prod takes only a release that passed test,
+  and prod still needs its typed target ID in the call.
+- The MCP host module belongs in the backend SDK (`Ai/Mcp`); Wheelhouse registers its tools.
 
 ## Secrets vaults
 
