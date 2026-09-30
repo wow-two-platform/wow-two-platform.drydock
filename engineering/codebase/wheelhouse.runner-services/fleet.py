@@ -5,6 +5,7 @@ from enum import Enum
 import os
 from pathlib import Path
 import re
+from catalog import product as defined_product
 from runner import SLUG, require
 
 VAULT_URL = re.compile(r"https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?")
@@ -188,6 +189,7 @@ def resolve_target(root, identifier):
     require(len({target.id for target in catalog}) == len(catalog), "Duplicate target ID")
     target = next((item for item in catalog if item.id == identifier), None)
     require(target is not None and SLUG.fullmatch(target.id), "Target is not defined in code")
+    defined_product(target.product)
     require(isinstance(target.environment, DeploymentEnvironment), "Unsupported environment")
     server = next((item for item in active_servers() if item.id == target.server_id), None)
     require(server is not None, "Server is not defined in code")

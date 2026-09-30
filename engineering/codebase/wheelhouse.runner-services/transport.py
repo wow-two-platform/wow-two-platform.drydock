@@ -13,12 +13,15 @@ import sys
 import tarfile
 import tempfile
 import uuid
+import catalog
 import fleet
 import artifacts
 from runner import (PROXIES, SLUG, CommandFailed, Rejected, now, reason, rejection, require, read_json,
                     write_json, validate_bundle, validate_target, empty_topology)
 
 RUNNER = Path(__file__).with_name("runner.py")
+# A site address a rollout recorded: http(s), a host, an optional port and path.
+SITE_URL = re.compile(r"https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?(/[^\s]*)?")
 
 SSH_FAILURES = (("Host key verification failed", "SSH host key verification failed"),
                 ("Permission denied", "SSH authentication failed"),
@@ -105,6 +108,52 @@ def targets(root):
                        "acceptsTestBuilds": config["acceptsTestBuilds"],
                        "needsConfirmation": config["needsConfirmation"],
                        "requiresTestPass": config["requiresTestPass"]})
+    return result
+
+
+def products(root):
+    """The product catalog as integrations read it: each product's identity and, per environment its targets bind,
+    the sites its newest recorded rollout published and the vault namespace its settings belong in."""
+    order = {environment: index for index, environment in enumerate(fleet.DeploymentEnvironment)}
+    sites = latest_sites(root)
+    # A server's first declared vault holds its products' settings, one namespace per product environment.
+    vaults = {vault.server_id: vault.id for vault in reversed(fleet.active_vaults())}
+    result = []
+    for product in catalog.products():
+        environments = []
+        for binding in sorted((item for item in fleet.active_targets() if item.product == product.slug),
+                              key=lambda item: (order[item.environment], item.id)):
+            vault = vaults.get(binding.server_id)
+            environments.append({
+                "name": binding.environment.value, "targetId": binding.id, "serverId": binding.server_id,
+                "sites": sites.get(binding.id, []),
+                "secrets": {"vaultId": vault, "namespace": product.slug + "-" + binding.environment.value}
+                if vault else None})
+        result.append({"slug": product.slug, "name": product.name, "description": product.description,
+                       "repository": product.repository, "defaultBranch": product.default_branch,
+                       "hasReleaseSource": product.release is not None, "environments": environments})
+    return result
+
+
+def latest_sites(root):
+    """Target ID -> the sites of the newest rollout this control plane saw succeed there; no target is contacted."""
+    result = {}
+    for job in jobs(root, limit=None):
+        target_id = job.get("targetId")
+        if target_id in result or job.get("status") != "succeeded":
+            continue
+        observed_path = root / "observed" / (job["id"] + ".json")
+        try:
+            observed = read_json(observed_path) if observed_path.is_file() else {}
+        except (ValueError, OSError):
+            continue
+        sites = []
+        for site in observed.get("sites") or []:
+            if (isinstance(site, dict) and SLUG.fullmatch(str(site.get("name", "")))
+                    and SITE_URL.fullmatch(str(site.get("url", "")))):
+                sites.append({"name": site["name"], "url": site["url"],
+                              "exposure": "private" if site.get("exposure") == "private" else "public"})
+        result[target_id] = sites
     return result
 
 
@@ -457,7 +506,7 @@ def summary_of(record):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["import", "servers", "targets", "vaults", "releases", "template", "submit",
+    parser.add_argument("action", choices=["import", "products", "servers", "targets", "vaults", "releases", "template", "submit",
                                            "status", "jobs", "state", "check", "reconcile", "vitals", "stats", "topology",
                                            "branches", "commits", "build", "logs"])
     parser.add_argument("--root", required=True)
@@ -480,6 +529,8 @@ def main():
     try:
         if args.action == "import":
             result = import_bundle(root, args.archive, args.bundle)
+        elif args.action == "products":
+            result = products(root)
         elif args.action == "servers":
             result = fleet.servers()
         elif args.action == "targets":

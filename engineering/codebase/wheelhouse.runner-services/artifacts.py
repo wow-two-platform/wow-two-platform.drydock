@@ -15,6 +15,7 @@ import zipfile
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlparse
 from urllib.request import Request, HTTPRedirectHandler, build_opener
+import catalog
 from fleet import rehearsal
 from runner import SHA, SLUG, CommandFailed, require, validate_bundle, write_json
 
@@ -38,10 +39,10 @@ class Source:
     default_branch: str = "main"
 
 
-SOURCES = (Source("foreverpin", "sulton-max/10x-venture-forever-pin", "foreverpin-release.tar.gz",
-                  (("management", "ghcr.io/sulton-max/10x-venture-forever-pin/management"),
-                   ("redirect", "ghcr.io/sulton-max/10x-venture-forever-pin/redirect")),
-                  workflow="publish-docker-image.yml"),)
+# Every release source comes from the product catalog; a product without one deploys hand-imported bundles only.
+SOURCES = tuple(Source(product.slug, product.repository, product.release.asset, product.release.images,
+                       workflow=product.release.workflow, default_branch=product.default_branch)
+                for product in catalog.PRODUCTS if product.release is not None)
 VERSION = re.compile(r"v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?")
 CANDIDATE = re.compile(r"bundle-([a-f0-9]{40})")
 WORKFLOW = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,99}\.ya?ml")

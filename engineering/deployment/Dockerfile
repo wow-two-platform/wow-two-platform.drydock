@@ -27,7 +27,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl python3 op
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /app ./
-COPY wheelhouse.runner-services/runner.py wheelhouse.runner-services/transport.py wheelhouse.runner-services/fleet.py wheelhouse.runner-services/artifacts.py /app/runner/
+COPY wheelhouse.runner-services/runner.py wheelhouse.runner-services/transport.py wheelhouse.runner-services/fleet.py \
+     wheelhouse.runner-services/artifacts.py wheelhouse.runner-services/catalog.py /app/runner/
 RUN mkdir -p /data/keys /data/deployments && chown -R app:app /data
 ENV ASPNETCORE_HTTP_PORTS=8080 DataProtection__KeyPath=/data/keys
 USER app
